@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit real credentials
+.env
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+
+# Tooling / session
+.claude/
