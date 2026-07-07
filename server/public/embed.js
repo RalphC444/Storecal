@@ -345,7 +345,8 @@
       calPane.appendChild(grid);
     }
 
-    function loadTimes() {
+    function loadTimes(opts) {
+      opts = opts || {};
       timePane.innerHTML = "";
       if (!state.date) { timePane.appendChild(el('<div class="sc__times-empty">Pick a day to see open times.</div>')); return; }
       var hd = el('<div class="sc__times-head"><div class="sc__times-day">' + esc(fmtDate(state.date)) +
@@ -368,7 +369,18 @@
             var nm = new Date().getHours() * 60 + new Date().getMinutes();
             slots = slots.filter(function (t) { var p = t.split(":"); return (+p[0]) * 60 + (+p[1]) > nm; });
           }
-          if (!slots.length) { listWrap.appendChild(el('<div class="sc__times-empty">No open times this day.</div>')); return; }
+          if (!slots.length) {
+            // Today's remaining slots may all be in the past — jump to the next
+            // open day that actually has availability (bounded so it can't loop).
+            var hops = opts.hops || 0;
+            if (opts.auto && hops < 21) {
+              var next = addDays(state.date, 1), g = 0;
+              while (g++ < 90 && !isOpenDay(next)) next = addDays(next, 1);
+              if (isOpenDay(next)) { state.date = next; view = new Date(next + "T00:00:00"); renderCal(); loadTimes({ auto: true, hops: hops + 1 }); return; }
+            }
+            listWrap.appendChild(el('<div class="sc__times-empty">No open times this day.</div>'));
+            return;
+          }
           var byTime = (d && d.providersByTime) || {};
           slots.forEach(function (t) {
             var b = el('<button class="sc__slot sc__slot--row">' + esc(fmtTime(t)) + "</button>");
@@ -406,7 +418,7 @@
         if (isOpenDay(probe)) { state.date = probe; view = new Date(probe + "T00:00:00"); break; }
         probe = addDays(probe, 1);
       }
-      renderCal(); loadTimes();
+      renderCal(); loadTimes({ auto: true });
     });
   }
 
