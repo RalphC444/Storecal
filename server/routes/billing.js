@@ -38,16 +38,30 @@ async function ensureCustomer(stripe, db, shop) {
   return customer.id;
 }
 
-// GET /api/billing — current plan/status for the owner's shop.
+// GET /api/billing — live subscription status for the owner's shop.
 router.get("/", requireAuth, requireOwner, async (req, res) => {
   try {
     const db = await getDb();
     const shop = await db.collection("shops").findOne({ _id: new ObjectId(req.auth.shopId) });
+
+    // Ask Stripe directly whether this shop has an active subscription (no
+    // webhooks needed). Determines whether the "subscribe to enable booking"
+    // prompt shows and whether online booking is turned on.
+    let subscribed = false, planId = null, status = null;
+    const stripe = stripeClient();
+    if (stripe && shop?.stripeCustomerId) {
+      try {
+        const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5 });
+        const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
+        if (active) { subscribed = true; status = active.status; planId = active.metadata?.planId || null; }
+      } catch { /* treat as not subscribed */ }
+    }
+
     res.json({
-      plan: shop?.plan || "trial",
-      status: shop?.subscriptionStatus || "trialing",
+      subscribed,
+      planId,
+      status,
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
-      // "live" | "test" — derived from the key prefix so the owner can confirm.
       mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live") ? "live" : "test",
       plans: PLANS,
     });
@@ -84,6 +98,7 @@ router.post("/checkout", requireAuth, requireOwner, async (req, res) => {
         },
       }],
       metadata: { shopId: req.auth.shopId, planId: plan.id },
+      subscription_data: { metadata: { shopId: req.auth.shopId, planId: plan.id } },
       success_url: `${origin}/?billing=success`,
       cancel_url: `${origin}/?billing=cancelled`,
     });

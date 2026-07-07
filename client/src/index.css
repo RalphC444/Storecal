@@ -1407,6 +1407,7 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
 }
 .hoursbanner__cta:hover { background: var(--accent-2); }
+.hoursbanner--sub { background: var(--accent-soft); color: #1e3a8a; border-bottom-color: #cdddfb; }
 @media (max-width: 560px) { .hoursbanner { flex-direction: column; gap: 8px; text-align: center; } }
 
 /* Sign-out button in the sidebar profile */

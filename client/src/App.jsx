@@ -326,6 +326,17 @@ function AdminApp({ user, onSignOut, onUserChange }) {
     else if (myProvider) setProvHoursOpen(true);
   }
 
+  // Subscription: owners must subscribe to turn on online booking. Default true
+  // to avoid flashing the banner before we know. Once hours are set and the shop
+  // isn't subscribed, a banner prompts them to set up payment.
+  const [subscribed, setSubscribed] = useState(true);
+  const [subOpen, setSubOpen] = useState(false);
+  useEffect(() => {
+    if (user.role !== "owner") { setSubscribed(true); return; }
+    fetch("/api/billing").then(r => r.json()).then(d => setSubscribed(!!d.subscribed)).catch(() => {});
+  }, [user.role]);
+  const needsSubscribe = user.role === "owner" && !hoursNeeded && !subscribed;
+
   // Owner manages the whole shop; a provider gets a scoped set of tabs and a
   // "My profile" tab to self-manage their bio, services and hours.
   const NAV = isProvider ? [
@@ -356,6 +367,12 @@ function AdminApp({ user, onSignOut, onUserChange }) {
         <div className="hoursbanner">
           <span>⚠️ Add your {hoursLabel} so clients can book — it only takes a minute.</span>
           <button className="hoursbanner__cta" onClick={openHours}>Add {hoursLabel}</button>
+        </div>
+      )}
+      {needsSubscribe && (
+        <div className="hoursbanner hoursbanner--sub">
+          <span>💳 Set up your payment method to turn on online booking for your website.</span>
+          <button className="hoursbanner__cta" onClick={() => setSubOpen(true)}>Subscribe</button>
         </div>
       )}
       <div className={`shell${mobileOpen ? " shell--open" : ""}`}>
@@ -472,6 +489,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
       {provHoursOpen && myProvider && (
         <ProviderHoursModal provider={myProvider} onClose={() => { setProvHoursOpen(false); recheckHours(); setHoursVersion(v => v + 1); }} />
       )}
+      {subOpen && <SubscribeModal onClose={() => { setSubOpen(false); fetch("/api/billing").then(r => r.json()).then(d => setSubscribed(!!d.subscribed)).catch(() => {}); }} />}
       </div>
     </div>
   );
@@ -2614,25 +2632,19 @@ function BookingLinksSection() {
 function BillingSection() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(""); // "" | "portal" | planId
+  const [busy, setBusy] = useState(false);
+  const [subOpen, setSubOpen] = useState(false);
 
   useEffect(() => { fetch("/api/billing").then(r => r.json()).then(setData).catch(() => {}); }, []);
 
-  // Portal (manage existing) and Checkout (start a subscription) both return a URL.
-  async function go(path, body, which) {
-    setErr(""); setBusy(which);
-    const res = await fetch(path, {
-      method: "POST",
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  async function openPortal() {
+    setErr(""); setBusy(true);
+    const res = await fetch("/api/billing/portal", { method: "POST" });
     const d = await res.json().catch(() => ({}));
-    setBusy("");
+    setBusy(false);
     if (res.ok && d.url) window.location.href = d.url;
-    else setErr(d.error || "Something went wrong");
+    else setErr(d.error || "Could not open billing");
   }
-  const openPortal = () => go("/api/billing/portal", null, "portal");
-  const subscribe = (planId) => go("/api/billing/checkout", { planId }, planId);
 
   return (
     <section className="sp__block">
@@ -2641,35 +2653,70 @@ function BillingSection() {
 
       <div className="billing__now">
         <div>
-          <span className="billing__label">Current plan</span>
-          <span className="billing__plan">{data ? (data.plan === "trial" ? "Free trial" : data.plan) : "…"}</span>
+          <span className="billing__label">Status</span>
+          <span className="billing__plan">{data ? (data.subscribed ? "Active" : "Not subscribed") : "…"}</span>
         </div>
-        <button className="btn" onClick={openPortal} disabled={!!busy}>{busy === "portal" ? "Opening…" : "Manage payment & plan"}</button>
+        {data && (data.subscribed
+          ? <button className="btn" onClick={openPortal} disabled={busy}>{busy ? "Opening…" : "Manage payment & plan"}</button>
+          : <button className="btn" onClick={() => setSubOpen(true)} disabled={!data.stripeConfigured}>Subscribe</button>)}
       </div>
-
-      {data?.stripeConfigured && (data.plans || []).length > 0 && (
-        <>
-          <p className="sp__hint" style={{ marginTop: 18 }}>Choose a plan to subscribe:</p>
-          <div className="billing__plans">
-            {data.plans.map(pl => (
-              <div key={pl.id} className={`planc${data.plan === pl.id ? " planc--on" : ""}`}>
-                <div className="planc__name">{pl.name}</div>
-                <div className="planc__price">{pl.price}</div>
-                <div className="planc__blurb">{pl.blurb}</div>
-                {data.plan === pl.id
-                  ? <div className="planc__current">Current plan</div>
-                  : <button className="btn planc__btn" onClick={() => subscribe(pl.id)} disabled={!!busy}>{busy === pl.id ? "Opening…" : "Subscribe"}</button>}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
 
       {err && <p className="form__error">{err}</p>}
       {data && !data.stripeConfigured && (
-        <p className="sp__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable checkout &amp; the portal.</p>
+        <p className="sp__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable subscriptions.</p>
       )}
+
+      {subOpen && <SubscribeModal onClose={() => { setSubOpen(false); fetch("/api/billing").then(r => r.json()).then(setData).catch(() => {}); }} />}
     </section>
+  );
+}
+
+// Plan chooser → Stripe Checkout. Opened from the billing section and the
+// "subscribe to enable booking" banner.
+function SubscribeModal({ onClose }) {
+  const [plans, setPlans] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+
+  useEffect(() => { fetch("/api/billing").then(r => r.json()).then(d => setPlans(d.plans || [])).catch(() => setPlans([])); }, []);
+
+  async function subscribe(planId) {
+    setErr(""); setBusy(planId);
+    const res = await fetch("/api/billing/checkout", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setBusy("");
+    if (res.ok && d.url) window.location.href = d.url;
+    else setErr(d.error || "Could not start checkout");
+  }
+
+  return (
+    <div className="modal" onMouseDown={onClose}>
+      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
+        <div className="modal__head">
+          <h2 className="modal__title">Choose your plan</h2>
+          <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="form">
+          <p className="sp__hint">Subscribe to turn on online booking for your website. Cancel anytime.</p>
+          {!plans ? <Loader />
+            : (
+              <div className="billing__plans">
+                {plans.map(pl => (
+                  <div key={pl.id} className="planc">
+                    <div className="planc__name">{pl.name}</div>
+                    <div className="planc__price">{pl.price}</div>
+                    <div className="planc__blurb">{pl.blurb}</div>
+                    <button className="btn planc__btn" disabled={!!busy} onClick={() => subscribe(pl.id)}>{busy === pl.id ? "Opening…" : "Subscribe"}</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          {err && <p className="form__error">{err}</p>}
+        </div>
+      </div>
+    </div>
   );
 }
 
