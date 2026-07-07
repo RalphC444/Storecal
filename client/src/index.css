@@ -916,6 +916,27 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .sched__save { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .sched__msg { font-size: 13px; color: var(--ink-2); }
 
+/* Collapsible "closures & time off" (secondary) */
+.sched__disc {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--paper); border: 1px solid var(--line-2); border-radius: 12px;
+  padding: 14px 16px; cursor: pointer; text-align: left; font-family: inherit;
+}
+.sched__disc:hover { border-color: var(--ink-3); }
+.sched__disc-main { display: flex; flex-direction: column; gap: 2px; }
+.sched__disc-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+.sched__disc-sub { font-size: 12.5px; color: var(--ink-3); }
+.sched__disc-right { display: flex; align-items: center; gap: 10px; flex: none; }
+.sched__disc-badge {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sched__chev { font-size: 20px; color: var(--ink-3); transition: transform 120ms ease; line-height: 1; }
+.sched__chev--open { transform: rotate(90deg); }
+.sched__extras { margin-top: 14px; display: flex; flex-direction: column; gap: 22px; }
+.sched__subhead { font-size: 13px; font-weight: 700; margin: 0 0 2px; }
+
 /* Docked save bar — pinned to the bottom of the hours modal's scroll area. */
 .modal__scroll--docked { padding-bottom: 0; }
 .sched__dock {
