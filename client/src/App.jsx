@@ -808,7 +808,10 @@ function StoreHoursModal({ onClose }) {
           <h2 className="modal__title">Store hours &amp; closures</h2>
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <p className="modal__note">These are the hours shown on your booking site — clients can only book within them. Set your weekly hours below, or add one-off closures &amp; time off.</p>
+        <div className="modal__banner">
+          <span className="modal__banner-ico"><Icon name="calendar" /></span>
+          <span>These are the hours shown on your booking site — clients can only book within them. Set your weekly hours below, or add one-off closures &amp; time off.</span>
+        </div>
         <div className="modal__scroll modal__scroll--docked">
           <ScheduleEditor provider={{ _id: "shop", name: "Store" }} mode="store" docked />
         </div>
