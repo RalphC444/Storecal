@@ -518,7 +518,11 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .cal__stat { margin-right: 4px; }
 /* Desktop: View + Store hours float to the right */
 .cal__view { display: flex; align-items: center; gap: 7px; margin-left: auto; }
-.cal__storehours { flex: none; }
+/* Push the hours button right. When the View dropdown is present (owner) it owns
+   the auto-margin and the button sits beside it; when it's hidden (provider),
+   the button itself floats right. */
+.cal__storehours { flex: none; margin-left: auto; }
+.cal__view ~ .cal__storehours { margin-left: 0; }
 .cal__view-l { font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
 .cal__filter {
   border: 1px solid var(--line-2);
