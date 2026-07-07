@@ -1,0 +1,29 @@
+# Render Blueprint — one web service runs the Express API AND serves the built
+# React admin app from the same origin. Deploy: Render dashboard → New →
+# Blueprint → pick this repo. Then fill in the secret env vars (sync:false)
+# in the dashboard. See DEPLOY.md for the full walkthrough.
+services:
+  - type: web
+    name: storecal
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/shop-config
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SHOP_SLUG
+        value: default
+      # Secrets — set these in the Render dashboard, not in git.
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      # Optional — add to enable transactional email (invites / password resets).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

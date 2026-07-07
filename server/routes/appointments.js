@@ -1,21 +1,21 @@
 const { Router } = require("express");
 const { getDb } = require("../db");
+const { upsertClient } = require("../clients");
+const { checkWithinHours } = require("../availabilityCheck");
+const { resolveShopId } = require("../shopScope");
 
 const router = Router();
-
-function getShopSlug() {
-  return process.env.SHOP_SLUG || "default";
-}
 
 // GET /api/appointments
 // Query params: from, to (YYYY-MM-DD), providerId, status
 router.get("/", async (req, res) => {
   try {
     const db = await getDb();
-    const shop = await db.collection("shops").findOne({ slug: getShopSlug() });
-    if (!shop) return res.status(404).json({ error: "Shop not found" });
+    const shopId = await resolveShopId(req, db);
+    if (!shopId) return res.status(404).json({ error: "Shop not found" });
 
-    const shopId = shop._id.toString();
+    // A provider can only ever see their own appointments.
+    const scopedProviderId = req.auth?.role === "provider" ? req.auth.providerId : null;
     const { from, to, status, providerId } = req.query;
 
     const filter = { shopId };
@@ -30,7 +30,9 @@ router.get("/", async (req, res) => {
       filter.status = status;
     }
 
-    if (providerId && providerId !== "all") {
+    if (scopedProviderId) {
+      filter.providerId = scopedProviderId; // provider role: locked to self
+    } else if (providerId && providerId !== "all") {
       filter.providerId = providerId;
     }
 
@@ -52,9 +54,115 @@ router.get("/", async (req, res) => {
         issueDescription: a.issueDescription || "",
         vehicle: a.vehicle || {},
         status: a.status || "pending",
+        durationMin: a.durationMin || null,
         createdAt: a.createdAt,
       }))
     );
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Build the persisted appointment shape from a request body. Resolves the
+// provider's display name from its id so the list can render without a join.
+async function buildDoc(db, shopId, body) {
+  const {
+    dateKey, timeValue, providerId, service,
+    client, issueDescription, vehicle, status, durationMin,
+  } = body;
+
+  let providerName = "";
+  if (providerId) {
+    const { ObjectId } = require("mongodb");
+    let query;
+    try { query = { _id: new ObjectId(providerId) }; }
+    catch { query = { _id: providerId }; }
+    const provider = await db.collection("providers").findOne(query);
+    providerName = provider?.name || "";
+  }
+
+  const doc = {
+    shopId,
+    dateKey,
+    timeValue,
+    providerId: providerId || null,
+    providerName,
+    client: {
+      name: client?.name?.trim() || "",
+      phone: client?.phone?.trim() || "",
+      email: client?.email?.trim() || "",
+    },
+    service: service || "",
+    issueDescription: issueDescription || "",
+    status: status || "pending",
+  };
+  if (durationMin) doc.durationMin = Number(durationMin);
+  if (dateKey && timeValue) doc.start = new Date(`${dateKey}T${timeValue}:00`);
+  if (vehicle && Object.keys(vehicle).length) doc.vehicle = vehicle;
+  return doc;
+}
+
+function validate(body) {
+  if (!body.dateKey) return "A date is required";
+  if (!body.timeValue) return "A time is required";
+  if (!body.client?.name?.trim()) return "Client name is required";
+  if (body.status && !["pending", "confirmed", "cancelled", "completed"].includes(body.status)) {
+    return "Invalid status value";
+  }
+  return null;
+}
+
+// POST /api/appointments — create an appointment (phone / walk-in booking)
+router.post("/", async (req, res) => {
+  try {
+    const err = validate(req.body);
+    if (err) return res.status(400).json({ error: err });
+
+    const db = await getDb();
+    const shopId = await resolveShopId(req, db);
+    if (!shopId) return res.status(404).json({ error: "Shop not found" });
+
+    const hoursErr = await checkWithinHours(
+      db, shopId, req.body.providerId, req.body.dateKey, req.body.timeValue, req.body.durationMin
+    );
+    if (hoursErr) return res.status(409).json({ error: hoursErr });
+
+    const doc = await buildDoc(db, shopId, req.body);
+    doc.createdAt = new Date();
+    doc.clientId = await upsertClient(db, shopId, doc.client);
+    const result = await db.collection("appointments").insertOne(doc);
+    res.status(201).json({ success: true, _id: result.insertedId.toString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/appointments/:id — full edit of an appointment
+router.put("/:id", async (req, res) => {
+  try {
+    const err = validate(req.body);
+    if (err) return res.status(400).json({ error: err });
+
+    const { ObjectId } = require("mongodb");
+    const db = await getDb();
+    const shopId = await resolveShopId(req, db);
+    if (!shopId) return res.status(404).json({ error: "Shop not found" });
+
+    const hoursErr = await checkWithinHours(
+      db, shopId, req.body.providerId, req.body.dateKey, req.body.timeValue, req.body.durationMin
+    );
+    if (hoursErr) return res.status(409).json({ error: hoursErr });
+
+    const doc = await buildDoc(db, shopId, req.body);
+    doc.updatedAt = new Date();
+    doc.clientId = await upsertClient(db, shopId, doc.client);
+    const result = await db.collection("appointments").updateOne(
+      { _id: new ObjectId(req.params.id), shopId },
+      { $set: doc }
+    );
+
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Appointment not found" });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -71,8 +179,9 @@ router.patch("/:id", async (req, res) => {
     }
 
     const db = await getDb();
+    const shopId = await resolveShopId(req, db);
     const result = await db.collection("appointments").updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: new ObjectId(req.params.id), shopId },
       { $set: { status, updatedAt: new Date() } }
     );
 

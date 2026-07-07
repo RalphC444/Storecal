@@ -1,11 +1,8 @@
 const { Router } = require("express");
 const { getDb } = require("../db");
+const { resolveShop } = require("../shopScope");
 
 const router = Router();
-
-function getShopSlug() {
-  return process.env.SHOP_SLUG || "default";
-}
 
 // Fallback config if a shop predates the businessType migration.
 const DEFAULT_BOOKING = {
@@ -23,8 +20,7 @@ const DEFAULT_BOOKING = {
 router.get("/", async (req, res) => {
   try {
     const db = await getDb();
-    const slug = req.query.slug || getShopSlug();
-    const shop = await db.collection("shops").findOne({ slug });
+    const shop = await resolveShop(req, db);
     if (!shop) return res.status(404).json({ error: "Shop not found" });
 
     const shopId = shop._id.toString();
