@@ -2,7 +2,7 @@ const { Router } = require("express");
 const { getDb } = require("../db");
 const { ObjectId } = require("mongodb");
 const { resolveShopId } = require("../shopScope");
-const { openRangesForDate } = require("../availabilityCheck");
+const { effectiveRanges } = require("../availabilityCheck");
 
 const router = Router();
 
@@ -31,8 +31,14 @@ function buildWeek(records, weekKey) {
   });
 }
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+// A UTC date a couple days back. Used as the lower bound when returning
+// overrides so a client's LOCAL "today" is never hidden by the server's
+// timezone: the server runs in UTC (e.g. on Render) but clients key dates
+// locally, so a straight `>= utcToday` filter drops the user's current day.
+function recentCutoff() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 2);
+  return d.toISOString().slice(0, 10);
 }
 
 // The Sunday (local) on or before `date`, as YYYY-MM-DD — used as the A/B anchor.
@@ -55,7 +61,7 @@ router.get("/:providerId", async (req, res) => {
       db.collection("workingHours").find({ providerId, shopId }).toArray(),
       db.collection("scheduleMeta").findOne({ providerId, shopId }),
       db.collection("scheduleOverrides")
-        .find({ providerId, shopId, date: { $gte: todayKey() } })
+        .find({ providerId, shopId, date: { $gte: recentCutoff() } })
         .sort({ date: 1 })
         .toArray(),
     ]);
@@ -196,7 +202,8 @@ router.get("/:providerId/slots", async (req, res) => {
     const dur = Number(req.query.durationMin) || 30;
     const step = Number(req.query.stepMin) || 15;
 
-    const { ranges } = await openRangesForDate(db, shopId, providerId, date);
+    // Combine shop hours + staff hours; null = no schedule set → no bookable times.
+    const ranges = await effectiveRanges(db, shopId, providerId, date);
 
     const booked = await db.collection("appointments").find({
       shopId, providerId, dateKey: date,

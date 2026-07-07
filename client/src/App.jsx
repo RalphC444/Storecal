@@ -2235,18 +2235,20 @@ function ScheduleEditor({ provider, mode }) {
           )}
           <button className="btn" onClick={addOverride} disabled={!ovDate}>Add</button>
         </div>
-        {overrides.length === 0
-          ? <p className="empty empty--sm">No single-day changes.</p>
-          : overrides.map(o => (
-            <div key={o._id} className="block-item">
-              <span className="block-item__date">{fmtOverrideDate(o.date)}</span>
-              <span className="block-item__reason">
-                {o.closed ? "Closed" : o.ranges.map(r => `${fmtMin(r.startMin)}–${fmtMin(r.endMin)}`).join(", ")}
-              </span>
-              <button className="block-item__rm" onClick={() => removeOverride(o._id)}>Remove</button>
-            </div>
-          ))
-        }
+        {(() => {
+          const upcoming = overrides.filter(o => o.date >= todayKey());
+          return upcoming.length === 0
+            ? <p className="empty empty--sm">No single-day changes.</p>
+            : upcoming.map(o => (
+              <div key={o._id} className="block-item">
+                <span className="block-item__date">{fmtOverrideDate(o.date)}</span>
+                <span className="block-item__reason">
+                  {o.closed ? "Closed" : o.ranges.map(r => `${fmtMin(r.startMin)}–${fmtMin(r.endMin)}`).join(", ")}
+                </span>
+                <button className="block-item__rm" onClick={() => removeOverride(o._id)}>Remove</button>
+              </div>
+            ));
+        })()}
       </div>
 
       <div className="sched__block">

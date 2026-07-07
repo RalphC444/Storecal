@@ -4,15 +4,22 @@ const { getDb } = require("../db");
 
 const router = Router();
 
-// GET /api/timeoff/:providerId  — upcoming only
+// A UTC date a couple days back — a timezone-safe lower bound so a client's
+// LOCAL "today" is never dropped by the server's UTC clock (see availability.js).
+function recentCutoff() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 2);
+  return d.toISOString().slice(0, 10);
+}
+
+// GET /api/timeoff/:providerId  — upcoming (and last couple days)
 router.get("/:providerId", async (req, res) => {
   try {
     const db = await getDb();
-    const today = new Date().toISOString().slice(0, 10);
 
     const records = await db
       .collection("timeOff")
-      .find({ providerId: req.params.providerId, endDate: { $gte: today } })
+      .find({ providerId: req.params.providerId, endDate: { $gte: recentCutoff() } })
       .sort({ startDate: 1 })
       .toArray();
 

@@ -71,18 +71,53 @@ function timeToMin(t) {
   return h * 60 + (m || 0);
 }
 
-// Returns an error string if the appointment falls outside the provider's open
-// hours, or null if it's allowed (also null when no provider / hours unset).
+// Overlap of two open-range lists (both must allow the time).
+function intersect(a, b) {
+  const out = [];
+  for (const x of a) for (const y of b) {
+    const s = Math.max(x.startMin, y.startMin), e = Math.min(x.endMin, y.endMin);
+    if (e > s) out.push({ startMin: s, endMin: e });
+  }
+  return out;
+}
+
+const fits = (ranges, start, end) => ranges.some((r) => start >= r.startMin && start < r.endMin && end <= r.endMin);
+
+// The store's own hours live under the "shop" pseudo-provider. Bookings must be
+// inside BOTH the shop's open hours (if set) AND the staff member's hours (if
+// set) — an unconfigured schedule imposes no constraint.
 async function checkWithinHours(db, shopId, providerId, dateKey, timeValue, durationMin) {
-  if (!providerId || !dateKey || !timeValue) return null;
-  const { configured, ranges } = await openRangesForDate(db, shopId, providerId, dateKey);
-  if (!configured) return null;
-  if (ranges.length === 0) return "This staff member isn't working that day. Pick a day they're available.";
+  if (!dateKey || !timeValue) return null;
   const start = timeToMin(timeValue);
   const end = start + (Number(durationMin) || 0);
-  const fits = ranges.some((r) => start >= r.startMin && start < r.endMin && end <= r.endMin);
-  if (!fits) return "That time is outside this staff member's working hours.";
+
+  const shop = await openRangesForDate(db, shopId, "shop", dateKey);
+  if (shop.configured) {
+    if (shop.ranges.length === 0) return "The shop is closed that day.";
+    if (!fits(shop.ranges, start, end)) return "That time is outside the shop's opening hours.";
+  }
+
+  if (providerId) {
+    const prov = await openRangesForDate(db, shopId, providerId, dateKey);
+    if (prov.configured) {
+      if (prov.ranges.length === 0) return "This staff member isn't working that day. Pick a day they're available.";
+      if (!fits(prov.ranges, start, end)) return "That time is outside this staff member's working hours.";
+    }
+  }
   return null;
 }
 
-module.exports = { openRangesForDate, checkWithinHours };
+// The bookable ranges for a provider on a date, combining shop + staff hours.
+// null means no schedule is set anywhere (caller decides whether to offer times).
+async function effectiveRanges(db, shopId, providerId, dateKey) {
+  const [prov, shop] = await Promise.all([
+    openRangesForDate(db, shopId, providerId, dateKey),
+    openRangesForDate(db, shopId, "shop", dateKey),
+  ]);
+  if (prov.configured && shop.configured) return intersect(prov.ranges, shop.ranges);
+  if (prov.configured) return prov.ranges;
+  if (shop.configured) return shop.ranges;
+  return null;
+}
+
+module.exports = { openRangesForDate, checkWithinHours, effectiveRanges };
