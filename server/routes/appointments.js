@@ -51,6 +51,7 @@ router.get("/", async (req, res) => {
         providerName: a.providerName || "",
         client: a.client || {},
         service: a.service || "",
+        addons: a.addons || [],
         issueDescription: a.issueDescription || "",
         vehicle: a.vehicle || {},
         status: a.status || "pending",
@@ -68,7 +69,7 @@ router.get("/", async (req, res) => {
 async function buildDoc(db, shopId, body) {
   const {
     dateKey, timeValue, providerId, service,
-    client, issueDescription, vehicle, status, durationMin,
+    client, issueDescription, vehicle, status, durationMin, addons,
   } = body;
 
   let providerName = "";
@@ -97,6 +98,9 @@ async function buildDoc(db, shopId, body) {
     status: status || "pending",
   };
   if (durationMin) doc.durationMin = Number(durationMin);
+  if (Array.isArray(addons) && addons.length) {
+    doc.addons = addons.map((a) => ({ name: String(a.name || "").trim(), price: String(a.price || "").trim() })).filter((a) => a.name);
+  }
   if (dateKey && timeValue) doc.start = new Date(`${dateKey}T${timeValue}:00`);
   if (vehicle && Object.keys(vehicle).length) doc.vehicle = vehicle;
   return doc;

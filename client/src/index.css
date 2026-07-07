@@ -1343,6 +1343,12 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .svc-row__meta { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .svc-row__acts { display: flex; gap: 12px; }
 
+.addon-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.addon-row { display: flex; align-items: center; gap: 8px; }
+.addon-row__name { flex: 1; min-width: 0; border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; font-size: 13px; font-family: inherit; color: var(--ink); background: var(--paper); }
+.addon-row__name:focus { outline: none; border-color: var(--ink); }
+.addon-row__price { width: 110px; flex: none; }
+
 .svcprov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .svcprov { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .svcprov__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

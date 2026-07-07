@@ -40,6 +40,7 @@ router.get("/", async (req, res) => {
         businessType: shop.businessType || "generic",
         booking: shop.booking || DEFAULT_BOOKING,
       },
+      addons: shop.addons || [],
       services: services.map((s) => ({
         _id: s._id.toString(),
         name: s.name,

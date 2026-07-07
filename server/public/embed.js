@@ -101,6 +101,14 @@
     ".sc__times-empty{font-size:13px;color:#8a9099;padding:14px 0}",
     ".sc__tz{font-size:11.5px;color:#9aa0a8;margin-top:14px}",
     "@media(max-width:640px){.sc__panes{grid-template-columns:1fr;gap:14px}}",
+    ".sc__h-opt{font-weight:400;color:#8a9099}",
+    ".sc__addons{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}",
+    "@media(max-width:520px){.sc__addons{grid-template-columns:1fr}}",
+    ".sc__addon{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;padding:12px 14px;border:1px solid #e6e8ec;border-radius:11px;background:#fff;cursor:pointer;font-family:inherit}",
+    ".sc__addon:hover{border-color:" + ACCENT + "}",
+    ".sc__addon--on{border-color:" + ACCENT + ";background:#f7f9ff}",
+    ".sc__addon-name{font-size:14px;font-weight:600;color:#111}",
+    ".sc__addon-price{font-size:13px;color:" + ACCENT + ";font-weight:600}",
     ".sc__slot{padding:10px 6px;border:1px solid #e6e8ec;border-radius:9px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;color:#111}",
     ".sc__slot:hover{border-color:" + ACCENT + ";background:#f7f9ff;color:" + ACCENT + "}",
     ".sc__field{display:block;margin-bottom:12px}",
@@ -180,7 +188,7 @@
   var cfg = null;                 // shop-config payload
   // provider = the chosen option ({_id:"any"} allowed); assigned = the concrete
   // staff member (set when a slot is picked, incl. the one chosen for "any").
-  var state = { service: null, provider: null, assigned: null, date: "", time: "" };
+  var state = { service: null, provider: null, assigned: null, addons: [], date: "", time: "" };
   function findProvider(id) { return (cfg && cfg.providers || []).filter(function (p) { return p._id === id; })[0] || null; }
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
@@ -243,8 +251,8 @@
         return s._id === preselect || (s.name || "").toLowerCase() === String(preselect).toLowerCase();
       })[0];
       if (svc) {
-        state.service = svc; state.provider = null; state.assigned = null; state.date = ""; state.time = "";
-        chooseProvider();
+        state.service = svc; state.provider = null; state.assigned = null; state.addons = []; state.date = ""; state.time = "";
+        afterService();
       } else {
         chooseService();
       }
@@ -254,7 +262,7 @@
   }
 
   function chooseService() {
-    state.service = null; state.provider = null; state.assigned = null; state.date = ""; state.time = "";
+    state.service = null; state.provider = null; state.assigned = null; state.addons = []; state.date = ""; state.time = "";
     var body = document.createElement("div");
     body.appendChild(el('<h3 class="sc__h">Choose a service</h3>'));
     var list = el('<div class="sc__list"></div>');
@@ -263,11 +271,41 @@
       var meta = (s.durationMin ? s.durationMin + " min" : "") + (s.price ? "  ·  " + esc(s.price) : "");
       var b = el('<button class="sc__opt"><span class="sc__opt-main">' + esc(s.name) +
         '</span><span class="sc__opt-meta">' + esc(meta) + "</span></button>");
-      b.onclick = function () { state.service = s; chooseProvider(); };
+      b.onclick = function () { state.service = s; afterService(); };
       list.appendChild(b);
     });
     body.appendChild(list);
-    frame("Step 1 of 4 · Service", body);
+    frame("Service", body);
+  }
+
+  // After a service is chosen: offer add-ons (if the shop has any), else staff.
+  function afterService() {
+    if ((cfg.addons || []).length) chooseAddons();
+    else chooseProvider();
+  }
+
+  function chooseAddons() {
+    var body = document.createElement("div");
+    body.appendChild(el('<h3 class="sc__h">Add-ons <span class="sc__h-opt">(optional)</span></h3>'));
+    var grid = el('<div class="sc__addons"></div>');
+    var selected = {};
+    (state.addons || []).forEach(function (a) { selected[a.name] = a; });
+    (cfg.addons || []).forEach(function (a) {
+      var on = !!selected[a.name];
+      var b = el('<button type="button" class="sc__addon' + (on ? " sc__addon--on" : "") + '">' +
+        '<span class="sc__addon-name">' + esc(a.name) + "</span>" +
+        (a.price ? '<span class="sc__addon-price">+' + esc(a.price) + "</span>" : "") + "</button>");
+      b.onclick = function () {
+        if (selected[a.name]) { delete selected[a.name]; b.classList.remove("sc__addon--on"); }
+        else { selected[a.name] = { name: a.name, price: a.price }; b.classList.add("sc__addon--on"); }
+      };
+      grid.appendChild(b);
+    });
+    body.appendChild(grid);
+    var cont = el('<button class="sc__btn" style="margin-top:16px">Continue</button>');
+    cont.onclick = function () { state.addons = Object.keys(selected).map(function (k) { return selected[k]; }); chooseProvider(); };
+    body.appendChild(cont);
+    frame("Add-ons", body, { onBack: chooseService });
   }
 
   function chooseProvider() {
@@ -300,7 +338,7 @@
       list.appendChild(b);
     });
     body.appendChild(list);
-    frame("Step 2 of 4 · Team member", body, { onBack: chooseService });
+    frame("Team member", body, { onBack: (cfg.addons || []).length ? chooseAddons : chooseService });
   }
 
   // Date & time: a month calendar (left) + open timeslots for the chosen day (right).
@@ -322,7 +360,7 @@
     panes.appendChild(calPane); panes.appendChild(timePane);
     body.appendChild(panes);
     body.appendChild(el('<div class="sc__tz">Times are the shop’s local time.</div>'));
-    frame("Step 3 of 4 · Date & time", body, { onBack: chooseProvider });
+    frame("Date & time", body, { onBack: chooseProvider });
     wrap.classList.add("sc--wide");
 
     // Open ranges a schedule allows on a date (null = schedule not set → no limit).
@@ -453,10 +491,13 @@
 
   function contact() {
     var prov = state.assigned || state.provider;
+    var addonLine = (state.addons || []).length
+      ? "<br>Add-ons: " + state.addons.map(function (a) { return esc(a.name) + (a.price ? " (" + esc(a.price) + ")" : ""); }).join(", ")
+      : "";
     var body = document.createElement("div");
     body.appendChild(el(
       '<div class="sc__summary"><b>' + esc(state.service.name) + "</b> with <b>" + esc(prov.name) +
-      "</b><br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b></div>"
+      "</b><br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b>" + addonLine + "</div>"
     ));
     var form = el(
       '<div>' +
@@ -482,6 +523,7 @@
           durationMin: state.service.durationMin || 45,
           dateKey: state.date,
           timeValue: state.time,
+          addons: state.addons || [],
           client: { name: name, phone: phone, email: email },
         }),
       }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -495,7 +537,7 @@
         });
     };
     body.appendChild(form); body.appendChild(btn); body.appendChild(err);
-    frame("Step 4 of 4 · Your details", body, { onBack: chooseWhen });
+    frame("Your details", body, { onBack: chooseWhen });
   }
 
   function done() {

@@ -1594,6 +1594,8 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
             )}
         </section>
 
+        <AddonsSection />
+
         <section className="sp__block">
           <h3 className="sched__label">{teamLabel} &amp; services</h3>
           <p className="sp__hint">Which services each {singular} offers. Everyone offers all services by default — each {singular} can narrow this in their profile.</p>
@@ -1656,6 +1658,61 @@ function ConfirmModal({ title, message, confirmLabel, onCancel, onConfirm }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Optional booking add-ons (name + price) — offered during checkout.
+function AddonsSection() {
+  const [rows, setRows] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/addons").then(r => r.json())
+      .then(d => setRows(Array.isArray(d) ? d.map(a => ({ name: a.name || "", price: a.price || "" })) : []))
+      .catch(() => setRows([]));
+  }, []);
+
+  const set = (i, k, v) => setRows(rs => rs.map((r, j) => j === i ? { ...r, [k]: v } : r));
+  const add = () => setRows(rs => [...rs, { name: "", price: "" }]);
+  const remove = (i) => setRows(rs => rs.filter((_, j) => j !== i));
+
+  async function save() {
+    setSaving(true); setMsg("");
+    const addons = rows.map(r => ({ name: r.name.trim(), price: r.price.trim() })).filter(r => r.name);
+    const res = await fetch("/api/addons", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addons }),
+    });
+    setSaving(false);
+    if (res.ok) { setMsg("Saved"); setTimeout(() => setMsg(""), 2000); }
+  }
+
+  return (
+    <section className="sp__block">
+      <h3 className="sched__label">Add-ons</h3>
+      <p className="sp__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing +$10).</p>
+      {!rows ? <Loader /> : (
+        <>
+          <div className="addon-rows">
+            {rows.map((r, i) => (
+              <div key={i} className="addon-row">
+                <input className="addon-row__name" type="text" value={r.name} placeholder="Add-on name" onChange={e => set(i, "name", e.target.value)} />
+                <div className="field__money addon-row__price">
+                  <span className="field__money-sym">+$</span>
+                  <input className="field__money-input" type="text" inputMode="decimal" value={r.price.replace(/^\$/, "")} placeholder="10" onChange={e => set(i, "price", "$" + e.target.value.replace(/[^0-9.]/g, ""))} />
+                </div>
+                <button className="linkbtn linkbtn--danger" onClick={() => remove(i)}>Remove</button>
+              </div>
+            ))}
+            <button className="svc-add" onClick={add}><Icon name="plus" /> Add an add-on</button>
+          </div>
+          <div className="sched__save">
+            <button className="btn" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save add-ons"}</button>
+            {msg && <span className="sched__msg">{msg}</span>}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -2145,6 +2202,7 @@ function AppointmentDetail({ appt: a, durationOf, onEdit, onStatusChange, onClos
               {a.client?.email && <dd><a href={`mailto:${a.client.email}`}>{a.client.email}</a></dd>}
             </div>
             <div><dt>Service</dt><dd>{a.service || "—"}</dd></div>
+            {a.addons?.length > 0 && <div><dt>Add-ons</dt><dd>{a.addons.map(x => x.name + (x.price ? ` (${x.price})` : "")).join(", ")}</dd></div>}
             <div><dt>Staff</dt><dd>{a.providerName || "—"}</dd></div>
             {a.issueDescription && <div className="apptview__notes"><dt>Notes</dt><dd>{a.issueDescription}</dd></div>}
           </dl>
