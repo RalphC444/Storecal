@@ -1448,7 +1448,9 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
 function ServiceForm({ service, onClose, onSave }) {
   const isEdit = !!service._id;
   const [form, setForm] = useState({
-    name: service.name || "", durationMin: service.durationMin || "", price: service.price || "",
+    name: service.name || "", durationMin: service.durationMin || "",
+    // The input edits just the number; the "$" is a fixed prefix in the UI.
+    price: (service.price || "").replace(/[^0-9.]/g, ""),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1458,7 +1460,9 @@ function ServiceForm({ service, onClose, onSave }) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Service name is required."); return; }
     setSaving(true);
-    try { await onSave({ ...service, ...form }); } catch (err) { setError(err.message); setSaving(false); }
+    // Store the price with the "$" so it displays consistently everywhere.
+    const price = form.price ? `$${form.price}` : "";
+    try { await onSave({ ...service, ...form, price }); } catch (err) { setError(err.message); setSaving(false); }
   }
 
   return (
@@ -1486,7 +1490,17 @@ function ServiceForm({ service, onClose, onSave }) {
             </label>
             <label className="field">
               <span className="field__label">Price</span>
-              <input type="text" value={form.price} onChange={e => set("price", e.target.value)} placeholder="From $65" />
+              <div className="field__money">
+                <span className="field__money-sym">$</span>
+                <input
+                  className="field__money-input"
+                  type="text"
+                  inputMode="decimal"
+                  value={form.price}
+                  onChange={e => set("price", e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder="65"
+                />
+              </div>
             </label>
           </div>
           {error && <p className="form__error">{error}</p>}
