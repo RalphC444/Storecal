@@ -26,7 +26,7 @@ const app = express();
 // the API from any customer's website. Public endpoints are non-credentialed and
 // the admin cookie is sameSite:lax, so cross-site credentialed calls can't leak.
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: "2mb" })); // headroom for small base64 profile photos
 app.use(cookieParser());
 // Optional auth: attaches req.auth (shopId/role/providerId) when a valid cookie
 // is present so routes can scope to the signed-in user's shop; public/booking
@@ -46,6 +46,7 @@ app.use("/api/shop-config", shopConfigRouter);
 app.use("/api/clients", clientsRouter);
 app.use("/api/services", servicesRouter);
 app.use("/api/billing", billingRouter);
+app.use("/api/public", require("./routes/public")); // website: services + staff
 
 // In production, serve the built React app from the same origin as the API, so
 // the client's relative /api calls and the sameSite auth cookie just work with

@@ -42,6 +42,8 @@ router.get("/", async (req, res) => {
         name: p.name,
         bio: p.bio || "",
         email: p.email || "",
+        phone: p.phone || "",
+        photo: p.photo || "",
         active: p.active !== false,
         sortOrder: p.sortOrder ?? 0,
         serviceIds: p.serviceIds || [],
@@ -152,10 +154,13 @@ router.put("/:id", async (req, res) => {
     if (!shopId) return res.status(404).json({ error: "Shop not found" });
 
     const { serviceIds } = req.body;
+    const { phone, photo } = req.body;
     const set = { updatedAt: new Date() };
     if (name !== undefined) set.name = name.trim();
     if (bio !== undefined) set.bio = bio.trim();
     if (email !== undefined) set.email = email.trim();
+    if (phone !== undefined) set.phone = (phone || "").trim();
+    if (photo !== undefined) set.photo = photo || ""; // data URL or "" to clear
     if (active !== undefined) set.active = !!active;
     if (sortOrder !== undefined) set.sortOrder = Number(sortOrder) || 0;
     if (Array.isArray(serviceIds)) set.serviceIds = serviceIds.map(String);

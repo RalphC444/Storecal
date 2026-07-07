@@ -261,9 +261,12 @@
 
     if (!staff.length) list.appendChild(el('<div class="sc__msg">No one is available for this service.</div>'));
     staff.forEach(function (p) {
-      var b = el('<button class="sc__opt sc__opt--staff"><span class="sc__av">' + esc(initials(p.name)) +
-        '</span><span class="sc__opt-text"><span class="sc__opt-main">' + esc(p.name) + "</span>" +
+      var b = el('<button class="sc__opt sc__opt--staff"><span class="sc__av"></span>' +
+        '<span class="sc__opt-text"><span class="sc__opt-main">' + esc(p.name) + "</span>" +
         (p.bio ? '<span class="sc__opt-sub">' + esc(p.bio) + "</span>" : "") + "</span></button>");
+      var av = b.querySelector(".sc__av");
+      if (p.photo) { av.style.backgroundImage = "url(" + p.photo + ")"; av.style.backgroundSize = "cover"; av.style.backgroundPosition = "center"; }
+      else { av.textContent = initials(p.name); }
       b.onclick = function () { state.provider = p; state.assigned = null; chooseWhen(); };
       list.appendChild(b);
     });

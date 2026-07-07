@@ -50,7 +50,10 @@
     document.querySelectorAll('[data-storecal="staff"]').forEach(function (host) {
       host.classList.add("scd-grid");
       host.innerHTML = (data.providers || []).map(function (p) {
-        return '<div class="scd-person"><span class="scd-person__av">' + esc((p.name || "?").slice(0, 1).toUpperCase()) + "</span>" +
+        var av = p.photo
+          ? '<span class="scd-person__av" style="background-image:url(' + p.photo + ');background-size:cover;background-position:center"></span>'
+          : '<span class="scd-person__av">' + esc((p.name || "?").slice(0, 1).toUpperCase()) + "</span>";
+        return '<div class="scd-person">' + av +
           '<div><div class="scd-person__name">' + esc(p.name) + "</div>" +
           (p.bio ? '<div class="scd-person__bio">' + esc(p.bio) + "</div>" : "") + "</div></div>";
       }).join("");

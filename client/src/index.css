@@ -1326,6 +1326,8 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 }
 .selfbio:focus { border-color: var(--ink); outline: none; }
 .sp__saved { font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 8px; }
+.photo-actions { display: flex; gap: 14px; align-items: center; margin-top: 8px; }
+.photo-upload { cursor: pointer; }
 
 /* Inline add-service row under the menu */
 .svc-add {
@@ -1437,6 +1439,8 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .planc__name { font-size: 14px; font-weight: 700; }
 .planc__price { font-size: 18px; font-weight: 700; margin: 4px 0; }
 .planc__blurb { font-size: 12.5px; color: var(--ink-2); }
+.planc__btn { width: 100%; margin-top: 12px; }
+.planc__current { margin-top: 12px; font-size: 12.5px; font-weight: 700; color: var(--accent); }
 .sp__block code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
 
 /* Booking links (Settings) */

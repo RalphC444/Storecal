@@ -51,6 +51,7 @@ router.get("/", async (req, res) => {
         _id: p._id.toString(),
         name: p.name,
         bio: p.bio || "",
+        photo: p.photo || "",
         // Which services this staff member offers — lets the widget show only
         // the staff who can do the chosen service.
         serviceIds: (p.serviceIds || []).map(String),

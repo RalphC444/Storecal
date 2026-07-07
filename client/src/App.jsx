@@ -1043,7 +1043,7 @@ function StylistCard({ provider: p, onOpen }) {
   return (
     <button className={`pcard${!p.active ? " pcard--off" : ""}`} onClick={onOpen}>
       <div className="pcard__top">
-        <span className="pav">{p.name.slice(0, 1).toUpperCase()}</span>
+        <Avatar name={p.name} photo={p.photo} />
         <div className="pcard__id">
           <span className="pcard__name">{p.name}</span>
           {status && (
@@ -1090,6 +1090,37 @@ function InviteLinkButton({ providerId, hasEmail }) {
 }
 
 // Read-only for the owner — providers manage their own profile, services & hours.
+// Round avatar: shows the staff photo if set, else their initial. Reuses .pav
+// sizing (pass pav--lg / pav--sm via className).
+function Avatar({ name, photo, className }) {
+  const cls = "pav" + (className ? " " + className : "");
+  if (photo) return <span className={cls} style={{ backgroundImage: `url(${photo})`, backgroundSize: "cover", backgroundPosition: "center" }} aria-label={name} />;
+  return <span className={cls}>{(name || "?").slice(0, 1).toUpperCase()}</span>;
+}
+
+// Read a chosen image file, center-crop to a square, and return a compact JPEG
+// data URL (stored on the provider so no external file hosting is needed).
+function resizeToDataUrl(file, size = 256) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const s = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function StylistProfile({ provider: p, err, onBack, onDelete }) {
   const [services, setServices] = useState([]);
   useEffect(() => { fetch("/api/services").then(r => r.json()).then(d => Array.isArray(d) && setServices(d)); }, []);
@@ -1105,7 +1136,7 @@ function StylistProfile({ provider: p, err, onBack, onDelete }) {
         {err && <p className="form__error">{err}</p>}
 
         <div className="sp__hero">
-          <span className="pav pav--lg">{p.name.slice(0, 1).toUpperCase()}</span>
+          <Avatar name={p.name} photo={p.photo} className="pav--lg" />
           <div className="sp__hero-main">
             <h1 className="sp__name">{p.name}</h1>
             <span className={`pv__badge${p.active ? " pv__badge--on" : ""}`}>{p.active ? "Active — bookable" : "Hidden — not bookable"}</span>
@@ -1115,21 +1146,10 @@ function StylistProfile({ provider: p, err, onBack, onDelete }) {
         <p className="sp__readonly">Read-only — {p.name} manages their own profile, services and hours.</p>
 
         <section className="sp__block">
-          <h3 className="sched__label">Account</h3>
-          {p.accountStatus === "active" ? (
-            <p className="sp__hint">✓ {p.name} has set up their account.</p>
-          ) : (
-            <>
-              <p className="sp__hint">{p.name} hasn’t set up their account yet. Share their sign-up link — opening it lets them set a password and access their calendar.</p>
-              <InviteLinkButton providerId={p._id} hasEmail={!!p.email} />
-            </>
-          )}
-        </section>
-
-        <section className="sp__block">
-          <h3 className="sched__label">Details</h3>
+          <h3 className="sched__label">Contact</h3>
           <dl className="sp__dl sp__dl--grid">
             <div><dt>Email</dt><dd>{p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : "—"}</dd></div>
+            <div><dt>Phone</dt><dd>{p.phone ? <a href={`tel:${p.phone}`}>{p.phone}</a> : "—"}</dd></div>
             <div className="sp__dl-wide"><dt>Specialties &amp; bio</dt><dd>{p.bio || "—"}</dd></div>
           </dl>
         </section>
@@ -1158,6 +1178,8 @@ function StylistProfile({ provider: p, err, onBack, onDelete }) {
 function ProviderSelfView({ provider, onChange, onEditHours }) {
   const [services, setServices] = useState([]);
   const [bio, setBio] = useState(provider?.bio || "");
+  const [phone, setPhone] = useState(provider?.phone || "");
+  const [photo, setPhoto] = useState(provider?.photo || "");
   const [ids, setIds] = useState(provider?.serviceIds || []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1165,8 +1187,16 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
 
   useEffect(() => { fetch("/api/services").then(r => r.json()).then(d => Array.isArray(d) && setServices(d)); }, []);
   useEffect(() => {
-    if (provider) { setBio(provider.bio || ""); setIds(provider.serviceIds || []); }
+    if (provider) { setBio(provider.bio || ""); setPhone(provider.phone || ""); setPhoto(provider.photo || ""); setIds(provider.serviceIds || []); }
   }, [provider?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function pickPhoto(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setSaved(false); setErr("");
+    try { setPhoto(await resizeToDataUrl(file)); }
+    catch { setErr("Couldn't read that image."); }
+  }
 
   if (!provider) return <div className="pageview"><div className="pv__body"><Loader /></div></div>;
 
@@ -1176,7 +1206,7 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
     setSaving(true); setErr(""); setSaved(false);
     const res = await fetch(`/api/providers/${provider._id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bio, serviceIds: ids }),
+      body: JSON.stringify({ bio, phone, photo, serviceIds: ids }),
     });
     setSaving(false);
     if (!res.ok) { const { error } = await res.json().catch(() => ({})); setErr(error || "Could not save"); return; }
@@ -1193,12 +1223,35 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
         {err && <p className="form__error">{err}</p>}
 
         <div className="sp__hero">
-          <span className="pav pav--lg">{provider.name.slice(0, 1).toUpperCase()}</span>
+          <Avatar name={provider.name} photo={photo} className="pav--lg" />
           <div className="sp__hero-main">
             <h1 className="sp__name">{provider.name}</h1>
             <span className={`pv__badge${provider.active ? " pv__badge--on" : ""}`}>{provider.active ? "Active — bookable" : "Hidden — not bookable"}</span>
+            <div className="photo-actions">
+              <label className="linkbtn photo-upload">
+                {photo ? "Change photo" : "Add photo"}
+                <input type="file" accept="image/*" onChange={pickPhoto} hidden />
+              </label>
+              {photo && <button type="button" className="linkbtn linkbtn--danger" onClick={() => { setSaved(false); setPhoto(""); }}>Remove</button>}
+            </div>
+            <p className="sp__hint" style={{ margin: "4px 0 0" }}>Shown to clients when booking. Remember to Save changes.</p>
           </div>
         </div>
+
+        <section className="sp__block">
+          <h3 className="sched__label">Contact</h3>
+          <p className="sp__hint">How your manager can reach you. Your email is your login.</p>
+          <div className="set__grid">
+            <label className="field">
+              <span className="field__label">Email</span>
+              <input type="email" value={provider.email || ""} readOnly disabled />
+            </label>
+            <label className="field">
+              <span className="field__label">Phone</span>
+              <input type="tel" value={phone} onChange={e => { setSaved(false); setPhone(e.target.value); }} placeholder="(555) 123-4567" />
+            </label>
+          </div>
+        </section>
 
         <section className="sp__block">
           <h3 className="sched__label">Specialties &amp; bio</h3>
@@ -1429,7 +1482,7 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
                   return (
                     <div key={p._id} className="svcprov">
                       <div className="svcprov__head">
-                        <span className="svcprov__name"><span className="pav pav--sm">{p.name.slice(0, 1).toUpperCase()}</span>{p.name}</span>
+                        <span className="svcprov__name"><Avatar name={p.name} photo={p.photo} className="pav--sm" />{p.name}</span>
                       </div>
                       <div className="svcprov__chips">
                         {offered.length > 0
@@ -2502,18 +2555,25 @@ function BookingLinksSection() {
 function BillingSection() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(""); // "" | "portal" | planId
 
   useEffect(() => { fetch("/api/billing").then(r => r.json()).then(setData).catch(() => {}); }, []);
 
-  async function openPortal() {
-    setErr(""); setBusy(true);
-    const res = await fetch("/api/billing/portal", { method: "POST" });
+  // Portal (manage existing) and Checkout (start a subscription) both return a URL.
+  async function go(path, body, which) {
+    setErr(""); setBusy(which);
+    const res = await fetch(path, {
+      method: "POST",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
     const d = await res.json().catch(() => ({}));
-    setBusy(false);
+    setBusy("");
     if (res.ok && d.url) window.location.href = d.url;
-    else setErr(d.error || "Could not open billing");
+    else setErr(d.error || "Something went wrong");
   }
+  const openPortal = () => go("/api/billing/portal", null, "portal");
+  const subscribe = (planId) => go("/api/billing/checkout", { planId }, planId);
 
   return (
     <section className="sp__block">
@@ -2525,11 +2585,30 @@ function BillingSection() {
           <span className="billing__label">Current plan</span>
           <span className="billing__plan">{data ? (data.plan === "trial" ? "Free trial" : data.plan) : "…"}</span>
         </div>
-        <button className="btn" onClick={openPortal} disabled={busy}>{busy ? "Opening…" : "Manage payment & plan"}</button>
+        <button className="btn" onClick={openPortal} disabled={!!busy}>{busy === "portal" ? "Opening…" : "Manage payment & plan"}</button>
       </div>
+
+      {data?.stripeConfigured && (data.plans || []).length > 0 && (
+        <>
+          <p className="sp__hint" style={{ marginTop: 18 }}>Choose a plan to subscribe:</p>
+          <div className="billing__plans">
+            {data.plans.map(pl => (
+              <div key={pl.id} className={`planc${data.plan === pl.id ? " planc--on" : ""}`}>
+                <div className="planc__name">{pl.name}</div>
+                <div className="planc__price">{pl.price}</div>
+                <div className="planc__blurb">{pl.blurb}</div>
+                {data.plan === pl.id
+                  ? <div className="planc__current">Current plan</div>
+                  : <button className="btn planc__btn" onClick={() => subscribe(pl.id)} disabled={!!busy}>{busy === pl.id ? "Opening…" : "Subscribe"}</button>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {err && <p className="form__error">{err}</p>}
       {data && !data.stripeConfigured && (
-        <p className="sp__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable the customer portal.</p>
+        <p className="sp__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable checkout &amp; the portal.</p>
       )}
     </section>
   );
