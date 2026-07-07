@@ -772,7 +772,7 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   .sp__hero-acts { width: 100%; }
 }
 .sp__name { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
-.sp__block { margin-bottom: 26px; max-width: 620px; }
+.sp__block { margin-bottom: 30px; max-width: 720px; }
 .sp__block-head { display: flex; align-items: center; justify-content: space-between; }
 .sp__ro {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
@@ -839,7 +839,7 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   text-transform: uppercase;
   letter-spacing: 0.09em;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--ink);
+  border-bottom: 1px solid var(--line);
   margin-bottom: 6px;
 }
 
@@ -1300,7 +1300,8 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .svc-row__meta { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .svc-row__acts { display: flex; gap: 12px; }
 
-.svcprov { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.svcprov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.svcprov { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .svcprov__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .svcprov__name { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650; }
 .svcprov__chips { display: flex; flex-wrap: wrap; gap: 8px; }

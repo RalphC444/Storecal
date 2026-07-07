@@ -64,9 +64,9 @@ async function seedDemo() {
 
   // 5. Staff + their weekly hours (Mon–Sat 9–6) + services offered.
   const staffDefs = [
-    { name: "Maria Lopez", bio: "Color & balayage specialist", svc: [0, 2, 3] },
-    { name: "James Carter", bio: "Cuts, fades & beard work", svc: [1] },
-    { name: "Ava Chen", bio: "Cuts and styling", svc: [0, 1, 3] },
+    { name: "Maria Lopez", bio: "Color & balayage specialist" },
+    { name: "James Carter", bio: "Cuts, fades & beard work" },
+    { name: "Ava Chen", bio: "Cuts and styling" },
   ];
   const provIds = [];
   const provName = {};
@@ -74,7 +74,7 @@ async function seedDemo() {
     const s = staffDefs[i];
     const r = await db.collection("providers").insertOne({
       shopId, name: s.name, bio: s.bio, email: "", active: true, sortOrder: i,
-      serviceIds: s.svc.map((k) => svcIds[k]), createdAt: new Date(),
+      serviceIds: svcIds, createdAt: new Date(), // all services by default
     });
     const pid = r.insertedId.toString();
     provIds.push(pid); provName[pid] = s.name;

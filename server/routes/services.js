@@ -46,6 +46,11 @@ router.post("/", async (req, res) => {
       createdAt: new Date(),
     };
     const result = await db.collection("services").insertOne(doc);
+    // Enable the new service for every staff member by default (they can opt out
+    // in their profile). Keeps "all staff offer everything" as the baseline.
+    await db.collection("providers").updateMany(
+      { shopId }, { $addToSet: { serviceIds: result.insertedId.toString() } }
+    );
     res.status(201).json({ success: true, _id: result.insertedId.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -87,6 +92,8 @@ router.delete("/:id", async (req, res) => {
 
     const result = await db.collection("services").deleteOne({ _id: new ObjectId(req.params.id), shopId });
     if (result.deletedCount === 0) return res.status(404).json({ error: "Service not found" });
+    // Remove it from every staff member's offered list.
+    await db.collection("providers").updateMany({ shopId }, { $pull: { serviceIds: req.params.id } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

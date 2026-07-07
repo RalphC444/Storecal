@@ -63,6 +63,8 @@ router.post("/", async (req, res) => {
     const shopId = await resolveShopId(req, db);
     if (!shopId) return res.status(404).json({ error: "Shop not found" });
 
+    // New staff offer every service by default (they can narrow it in their profile).
+    const allServices = await db.collection("services").find({ shopId }).toArray();
     const doc = {
       shopId,
       name: name.trim(),
@@ -70,6 +72,7 @@ router.post("/", async (req, res) => {
       email: email?.trim() || "",
       active: active !== false,
       sortOrder: Number(sortOrder) || 0,
+      serviceIds: Array.isArray(req.body.serviceIds) ? req.body.serviceIds.map(String) : allServices.map((s) => s._id.toString()),
       createdAt: new Date(),
     };
     const result = await db.collection("providers").insertOne(doc);

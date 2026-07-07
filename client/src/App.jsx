@@ -1420,23 +1420,27 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
 
         <section className="sp__block">
           <h3 className="sched__label">{teamLabel} &amp; services</h3>
-          <p className="sp__hint">Which services each {singular} offers — set by each {singular} in their profile.</p>
+          <p className="sp__hint">Which services each {singular} offers. Everyone offers all services by default — each {singular} can narrow this in their profile.</p>
           {providers.length === 0 ? <p className="empty empty--sm">No {teamLabel?.toLowerCase()} yet.</p>
-            : providers.map(p => {
-              const offered = (p.serviceIds || []).map(id => nameById[id]).filter(Boolean);
-              return (
-                <div key={p._id} className="svcprov">
-                  <div className="svcprov__head">
-                    <span className="svcprov__name"><span className="pav pav--sm">{p.name.slice(0, 1).toUpperCase()}</span>{p.name}</span>
-                  </div>
-                  <div className="svcprov__chips">
-                    {offered.length > 0
-                      ? offered.map(n => <span key={n} className="chip chip--on chip--static">{n}</span>)
-                      : <span className="ct__dim">No services set yet.</span>}
-                  </div>
-                </div>
-              );
-            })}
+            : (
+              <div className="svcprov-grid">
+                {providers.map(p => {
+                  const offered = (p.serviceIds || []).map(id => nameById[id]).filter(Boolean);
+                  return (
+                    <div key={p._id} className="svcprov">
+                      <div className="svcprov__head">
+                        <span className="svcprov__name"><span className="pav pav--sm">{p.name.slice(0, 1).toUpperCase()}</span>{p.name}</span>
+                      </div>
+                      <div className="svcprov__chips">
+                        {offered.length > 0
+                          ? offered.map(n => <span key={n} className="chip chip--on chip--static">{n}</span>)
+                          : <span className="ct__dim">No services set yet.</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
         </section>
       </div>
 
