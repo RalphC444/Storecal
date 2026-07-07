@@ -2213,6 +2213,32 @@ function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCa
     return () => clearTimeout(t);
   }, [form.name, showSug]);
 
+  // Staff availability for the selected day/time (so it's clear before booking).
+  const [provAv, setProvAv] = useState(null);
+  const [provTimeoff, setProvTimeoff] = useState([]);
+  useEffect(() => {
+    if (!form.providerId) { setProvAv(null); setProvTimeoff([]); return; }
+    fetch(`/api/availability/${form.providerId}`).then(r => r.json()).then(setProvAv).catch(() => setProvAv(null));
+    fetch(`/api/timeoff/${form.providerId}`).then(r => r.json()).then(d => Array.isArray(d) && setProvTimeoff(d)).catch(() => {});
+  }, [form.providerId]);
+
+  const durMin = (services.find(x => x.name === form.service)?.durationMin) || 45;
+  const avail = (() => {
+    if (!form.providerId || !provAv || !provAv.configured) return null; // hours not set → don't warn
+    const prov = providers.find(p => p._id === form.providerId);
+    const name = prov?.name || "This staff member";
+    const ranges = openRangesFor(form.dateKey, provAv, provTimeoff);
+    const weekday = parseYmd(form.dateKey).toLocaleDateString("en-US", { weekday: "long" });
+    if (!ranges || ranges.length === 0) return { ok: false, text: `${name} isn’t scheduled on ${weekday}. Pick another day or staff member.` };
+    const start = toMin(form.timeValue);
+    const fits = ranges.some(r => start >= r.startMin && start < r.endMin && start + durMin <= r.endMin);
+    if (!fits) {
+      const hrs = ranges.map(r => `${fmtMin(r.startMin)}–${fmtMin(r.endMin)}`).join(", ");
+      return { ok: false, text: `${name} works ${hrs} that day — ${fmtTime(form.timeValue)} is outside their hours.` };
+    }
+    return { ok: true, text: `${name} is available then.` };
+  })();
+
   function pickClient(c) {
     setForm(f => ({ ...f, name: c.name, phone: c.phone || "", email: c.email || "" }));
     setMatched(true);
@@ -2328,6 +2354,12 @@ function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCa
             </label>
           </div>
 
+          {avail && (
+            <p className={`appt-avail${avail.ok ? " appt-avail--ok" : " appt-avail--warn"}`}>
+              {avail.ok ? "✓ " : "⚠️ "}{avail.text}
+            </p>
+          )}
+
           <label className="field">
             <span className="field__label">Notes</span>
             <textarea rows={2} value={form.issueDescription} onChange={e => set("issueDescription", e.target.value)} placeholder="Allergies, preferences, reference photos…" />
@@ -2337,7 +2369,7 @@ function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCa
 
           <div className="form__actions">
             <button type="button" className="action" onClick={onCancel}>Cancel</button>
-            <button type="submit" className="btn" disabled={saving}>
+            <button type="submit" className="btn" disabled={saving || (avail && !avail.ok)}>
               {saving ? "Saving…" : isExisting ? "Save changes" : "Create appointment"}
             </button>
           </div>
