@@ -41,13 +41,23 @@
   style.textContent = [
     ":host,*{box-sizing:border-box}",
     ".sc{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;",
-    "max-width:440px;margin:0 auto;border:1px solid #e6e8ec;border-radius:16px;overflow:hidden;",
-    "background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.06)}",
-    ".sc--wide{max-width:720px}",
-    ".sc__head{padding:18px 20px;border-bottom:1px solid #eef0f3}",
+    "width:100%;max-width:800px;margin:0 auto;border:1px solid #e6e8ec;border-radius:16px;overflow:hidden;",
+    "background:#fff;color:#111;box-shadow:0 24px 60px rgba(16,18,28,.28);display:flex;flex-direction:column;max-height:92vh}",
+    /* trigger button (what the CTA looks like inline on the site) */
+    ".sc-trigger{background:" + ACCENT + ";color:#fff;border:0;border-radius:10px;padding:13px 26px;",
+    "font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}",
+    ".sc-trigger:hover{filter:brightness(.95)}",
+    /* modal overlay */
+    ".sc-overlay{display:none;position:fixed;inset:0;z-index:2147483000;background:rgba(15,18,28,.5);",
+    "padding:24px;overflow:auto}",
+    ".sc-overlay--open{display:flex;align-items:flex-start;justify-content:center}",
+    ".sc__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid #eef0f3;flex:none}",
+    ".sc__close{background:#fff;border:1px solid #e0e3e8;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;color:#333;flex:none}",
+    ".sc__close:hover{background:#f5f6f8}",
     ".sc__shop{font-size:16px;font-weight:700;letter-spacing:-.01em}",
     ".sc__step{font-size:12px;color:#8a9099;margin-top:2px}",
-    ".sc__body{padding:16px 20px 20px}",
+    ".sc__body{padding:16px 20px 20px;flex:1;overflow-y:auto;width:100%;max-width:680px;margin:0 auto}",
+    ".sc--wide .sc__body{max-width:none}",
     ".sc__back{background:none;border:0;color:#8a9099;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px}",
     ".sc__back:hover{color:#111}",
     ".sc__h{font-size:14px;font-weight:600;margin:0 0 12px}",
@@ -113,9 +123,32 @@
   ].join("");
   root.appendChild(style);
 
+  // ── Trigger button + modal overlay ──────────────────────────────────────────
+  var trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "sc-trigger";
+  trigger.textContent = script.getAttribute("data-button-text") || "Book Appointment";
+  root.appendChild(trigger);
+
+  var overlay = document.createElement("div");
+  overlay.className = "sc-overlay";
   var wrap = document.createElement("div");
   wrap.className = "sc";
-  root.appendChild(wrap);
+  overlay.appendChild(wrap);
+  root.appendChild(overlay);
+
+  function openModal() {
+    overlay.classList.add("sc-overlay--open");
+    document.body.style.overflow = "hidden"; // lock page scroll behind the modal
+    start();
+  }
+  function closeModal() {
+    overlay.classList.remove("sc-overlay--open");
+    document.body.style.overflow = "";
+  }
+  trigger.onclick = openModal;
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
 
   // ── State ──────────────────────────────────────────────────────────────────
   var cfg = null;                 // shop-config payload
@@ -144,9 +177,11 @@
     wrap.className = "sc";        // reset width (calendar step opts into sc--wide)
     wrap.innerHTML = "";
     var head = el(
-      '<div class="sc__head"><div class="sc__shop">' + esc(cfg ? cfg.shop.name : "Book an appointment") +
-      '</div><div class="sc__step">' + esc(stepLabel) + "</div></div>"
+      '<div class="sc__head"><div class="sc__head-main"><div class="sc__shop">' + esc(cfg ? cfg.shop.name : "Book an appointment") +
+      '</div><div class="sc__step">' + esc(stepLabel) + '</div></div>' +
+      '<button class="sc__close" type="button">Close</button></div>'
     );
+    head.querySelector(".sc__close").onclick = closeModal;
     wrap.appendChild(head);
     var body = document.createElement("div");
     body.className = "sc__body";
@@ -392,5 +427,5 @@
     frame("Confirmed", body);
   }
 
-  start();
+  // Widget renders inside the modal, which opens from the trigger button.
 })();
