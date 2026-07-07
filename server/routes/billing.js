@@ -17,9 +17,19 @@ function stripeClient() {
   return require("stripe")(process.env.STRIPE_SECRET_KEY);
 }
 
-// Ensure the shop has a Stripe customer, creating one on first use.
+// Ensure the shop has a Stripe customer, creating one on first use. If the
+// stored id doesn't exist in the current Stripe mode (e.g. after switching from
+// test to live keys — customers are mode-specific), create a fresh one.
 async function ensureCustomer(stripe, db, shop) {
-  if (shop.stripeCustomerId) return shop.stripeCustomerId;
+  if (shop.stripeCustomerId) {
+    try {
+      const existing = await stripe.customers.retrieve(shop.stripeCustomerId);
+      if (existing && !existing.deleted) return shop.stripeCustomerId;
+    } catch (e) {
+      if (!e || e.code !== "resource_missing") throw e; // real error → surface it
+      // resource_missing → fall through and create a new customer for this mode
+    }
+  }
   const customer = await stripe.customers.create({
     name: shop.name,
     metadata: { shopId: shop._id.toString() },
@@ -37,6 +47,8 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       plan: shop?.plan || "trial",
       status: shop?.subscriptionStatus || "trialing",
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
+      // "live" | "test" — derived from the key prefix so the owner can confirm.
+      mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live") ? "live" : "test",
       plans: PLANS,
     });
   } catch (err) {
