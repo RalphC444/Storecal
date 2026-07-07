@@ -509,38 +509,35 @@ function packDay(list, durationOf) {
   return out;
 }
 
-// Open ranges for one date given a provider's availability + time off.
-// Returns [] when closed, or null when we have no availability data (e.g. "all").
+// Remove break blocks from open ranges, returning the remaining sub-ranges.
+// Mirrors the server's availabilityCheck.subtract so the calendar shows exactly
+// the bookable time (breaks render as closed).
+function subtractBreaks(ranges, blocks) {
+  let result = (ranges || []).map(r => ({ ...r }));
+  for (const b of blocks || []) {
+    const next = [];
+    for (const r of result) {
+      if (b.endMin <= r.startMin || b.startMin >= r.endMin) { next.push(r); continue; }
+      if (b.startMin > r.startMin) next.push({ startMin: r.startMin, endMin: b.startMin });
+      if (b.endMin < r.endMin) next.push({ startMin: b.endMin, endMin: r.endMin });
+    }
+    result = next;
+  }
+  return result;
+}
+
+// Open ranges for one date given an availability doc + time off, with breaks
+// removed. Returns [] when closed, or null when there's no availability data.
 function openRangesFor(dateStr, av, timeoff) {
   if (!av) return null;
   const ov = av.overrides?.find(o => o.date === dateStr);
-  if (ov) return ov.closed ? [] : ov.ranges;
+  if (ov) return ov.closed ? [] : subtractBreaks(ov.ranges, ov.breaks);
   if (timeoff?.some(t => dateStr >= t.startDate && dateStr <= t.endDate)) return [];
   const weekKey = av.meta?.biweekly ? weekKeyFor(av.meta.anchorDate, dateStr) : "A";
   const week = weekKey === "A" ? av.weekA : av.weekB;
   const weekday = parseYmd(dateStr).getDay();
   const day = week?.find(d => d.weekday === weekday);
-  return day?.enabled ? day.ranges : [];
-}
-
-// Overlap of two open-range lists (both must allow the time).
-function intersectRanges(a, b) {
-  const out = [];
-  for (const x of a) for (const y of b) {
-    const s = Math.max(x.startMin, y.startMin), e = Math.min(x.endMin, y.endMin);
-    if (e > s) out.push({ startMin: s, endMin: e });
-  }
-  return out;
-}
-
-// Effective open ranges for a day = shop hours ∩ staff hours, where an unset
-// (unconfigured) schedule imposes no constraint. Returns null when nothing is
-// configured (no constraint at all), otherwise the allowed ranges (maybe []).
-function effectiveOpenFor(dateStr, shopAv, shopTimeoff, provAv, provTimeoff) {
-  const shopOpen = shopAv?.configured ? openRangesFor(dateStr, shopAv, shopTimeoff) : null;
-  const provOpen = provAv?.configured ? openRangesFor(dateStr, provAv, provTimeoff) : null;
-  if (shopOpen && provOpen) return intersectRanges(shopOpen, provOpen);
-  return shopOpen || provOpen || null;
+  return day?.enabled ? subtractBreaks(day.ranges, day.breaks) : [];
 }
 
 function WeekCalendar({
@@ -649,9 +646,10 @@ function WeekCalendar({
 
             <div className="cal__cols" style={{ height: GRID_H, ...colStyle }}>
           {days.map(d => {
-            // Effective open hours = store hours ∩ this staff member's hours.
-            // null = nothing configured → no constraint. [] = closed all day.
-            const open = effectiveOpenFor(d, shopAv, shopTimeoff, av, timeoff);
+            // The calendar reflects the STORE's schedule only — its open hours,
+            // time off, and breaks — regardless of which stylist is being viewed.
+            // null = store hours never configured → no constraint. [] = closed all day.
+            const open = shopAv?.configured ? openRangesFor(d, shopAv, shopTimeoff) : null;
             const list = shown.filter(a => a.dateKey === d);
             // "Constrained" = there are hours to enforce → closed time is tinted + un-bookable.
             const scoped = open !== null;
@@ -2478,20 +2476,23 @@ export default function App() {
       .then(r => (r.ok ? r.json() : null))
       .then(d => {
         if (d?.user) { setUser(d.user); setPhase(d.user.mustChangePassword ? "changepw" : "app"); }
-        else setPhase("login");
+        else setPhase("landing");
       })
-      .catch(() => setPhase("login"));
+      .catch(() => setPhase("landing"));
   }, []);
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    setUser(null); setPhase("login");
+    setUser(null); setPhase("landing");
   }
 
   if (phase === "loading") return <div className="authwrap"><Loader /></div>;
 
+  if (phase === "landing")
+    return <Landing onSignIn={() => setPhase("login")} />;
+
   if (phase === "login")
-    return <LoginScreen onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onForgot={() => setPhase("forgot")} />;
+    return <LoginScreen onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onForgot={() => setPhase("forgot")} onBack={() => setPhase("landing")} />;
 
   if (phase === "forgot")
     return <ForgotPasswordScreen onBack={() => setPhase("login")} />;
@@ -2506,6 +2507,111 @@ export default function App() {
     return <OnboardingHours user={user} onDone={() => setPhase("app")} />;
 
   return <AdminApp user={user} onSignOut={signOut} onUserChange={setUser} />;
+}
+
+// ── Marketing landing page (shown before sign-in) ───────────────────────────
+
+// Where "Contact me for a website" points. Swap in your real email/booking link.
+const CONTACT_HREF = "mailto:hello@storecal.com?subject=I'd%20like%20a%20website";
+
+const MK_FEATURES = [
+  { icon: "calendar", t: "Online booking", d: "A clean booking widget clients use to book themselves — embed it on any website in one line." },
+  { icon: "scissors", t: "Staff & schedules", d: "Each team member gets their own calendar, hours, services, and login." },
+  { icon: "clock", t: "Store hours & closures", d: "Set weekly hours, close early for a day, or block time off — bookings respect all of it." },
+  { icon: "clients", t: "Client list", d: "Every booking builds a client record with visit history and contact details." },
+];
+
+function Landing({ onSignIn }) {
+  return (
+    <div className="mk" id="top">
+      <header className="mk__nav">
+        <div className="mk__navwrap">
+          <a className="mk__brand" href="#top">
+            <span className="saas__mark"><Icon name="calendar" /></span>
+            <span className="saas__name">StoreCal</span>
+          </a>
+          <nav className="mk__links">
+            <a className="mk__link" href="#features">Features</a>
+            <a className="mk__link" href="#how">How it works</a>
+            <a className="mk__link" href={CONTACT_HREF}>Get a website</a>
+            <button className="btn mk__signin" onClick={onSignIn}>Sign in</button>
+          </nav>
+        </div>
+      </header>
+
+      <section className="mk__hero">
+        <div className="mk__hero-in">
+          <span className="mk__eyebrow">Booking & scheduling for local shops</span>
+          <h1 className="mk__h1">Let clients book you online — without the front-desk busywork.</h1>
+          <p className="mk__lead">
+            StoreCal gives your salon, barbershop, or studio a clean booking calendar, staff scheduling,
+            store hours, and a client list — plus a booking widget you can drop onto any website.
+          </p>
+          <div className="mk__cta">
+            <button className="btn mk__cta-primary" onClick={onSignIn}>Sign in</button>
+            <a className="mk__cta-ghost" href="/demo.html" target="_blank" rel="noreferrer">See a live demo →</a>
+          </div>
+        </div>
+
+        {/* Simple app mock for visual interest */}
+        <div className="mk__art" aria-hidden="true">
+          <div className="mk__art-card">
+            <div className="mk__art-head"><span className="mk__art-dot" /><span className="mk__art-dot" /><span className="mk__art-dot" /></div>
+            <div className="mk__art-body">
+              <div className="mk__art-col"><span>Mon</span><i className="mk__art-evt" style={{ top: 8, height: 34 }} /><i className="mk__art-evt mk__art-evt--b" style={{ top: 62, height: 26 }} /></div>
+              <div className="mk__art-col"><span>Tue</span><i className="mk__art-evt mk__art-evt--b" style={{ top: 20, height: 28 }} /></div>
+              <div className="mk__art-col"><span>Wed</span><i className="mk__art-evt" style={{ top: 40, height: 40 }} /></div>
+              <div className="mk__art-col"><span>Thu</span><i className="mk__art-evt mk__art-evt--b" style={{ top: 10, height: 24 }} /><i className="mk__art-evt" style={{ top: 54, height: 30 }} /></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mk__section" id="features">
+        <h2 className="mk__h2">Everything to run the front desk</h2>
+        <div className="mk__grid">
+          {MK_FEATURES.map(f => (
+            <div className="mk__card" key={f.t}>
+              <span className="mk__ficon"><Icon name={f.icon} /></span>
+              <h3 className="mk__ct">{f.t}</h3>
+              <p className="mk__cd">{f.d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mk__section mk__how" id="how">
+        <h2 className="mk__h2">Up and running in minutes</h2>
+        <div className="mk__steps">
+          <div className="mk__step"><span className="mk__num">1</span><h3 className="mk__ct">Set your hours & team</h3><p className="mk__cd">Add your staff, services, and store hours.</p></div>
+          <div className="mk__step"><span className="mk__num">2</span><h3 className="mk__ct">Add the booking widget</h3><p className="mk__cd">Paste one line onto your website and clients can book instantly.</p></div>
+          <div className="mk__step"><span className="mk__num">3</span><h3 className="mk__ct">Manage from one calendar</h3><p className="mk__cd">Every booking lands in your calendar — online, phone, or walk-in.</p></div>
+        </div>
+      </section>
+
+      <section className="mk__contact" id="contact">
+        <div className="mk__contact-in">
+          <h2 className="mk__h2">Need a website to go with it?</h2>
+          <p className="mk__lead mk__lead--center">
+            I design and build custom websites for local businesses — with StoreCal booking built right in.
+            Tell me what you have in mind.
+          </p>
+          <a className="btn mk__cta-primary" href={CONTACT_HREF}>Contact me for a website</a>
+        </div>
+      </section>
+
+      <footer className="mk__foot">
+        <span className="mk__brand mk__brand--foot">
+          <span className="saas__mark"><Icon name="calendar" /></span>
+          <span className="saas__name">StoreCal</span>
+        </span>
+        <span className="mk__foot-links">
+          <a className="mk__link" href={CONTACT_HREF}>Contact</a>
+          <button className="linklike mk__link" onClick={onSignIn}>Sign in</button>
+        </span>
+      </footer>
+    </div>
+  );
 }
 
 function AuthShell({ title, subtitle, children, footer }) {
@@ -2525,7 +2631,7 @@ function AuthShell({ title, subtitle, children, footer }) {
   );
 }
 
-function LoginScreen({ onAuthed, onForgot }) {
+function LoginScreen({ onAuthed, onForgot, onBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
@@ -2559,6 +2665,7 @@ function LoginScreen({ onAuthed, onForgot }) {
         {err && <p className="form__error">{err}</p>}
         <button type="submit" className="btn authbtn" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         <button type="button" className="linkbtn authforgot" onClick={onForgot}>Forgot password?</button>
+        {onBack && <button type="button" className="linkbtn authback" onClick={onBack}>← Back to home</button>}
       </form>
     </AuthShell>
   );
