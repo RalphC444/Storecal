@@ -142,20 +142,39 @@
   overlay.appendChild(wrap);
   root.appendChild(overlay);
 
-  function openModal() {
+  // openModal(opts): opts.service = a service id or name to preselect (jumps
+  // straight to the staff step). Ignores non-object args (e.g. click events).
+  function openModal(opts) {
+    var pre = opts && typeof opts === "object" && (opts.service || opts.serviceId || opts.serviceName);
     overlay.classList.add("sc-overlay--open");
     document.body.style.overflow = "hidden"; // lock page scroll behind the modal
-    start();
+    start(pre || null);
   }
   function closeModal() {
     overlay.classList.remove("sc-overlay--open");
     document.body.style.overflow = "";
   }
-  trigger.onclick = openModal;
+  trigger.onclick = function () { openModal(); };
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
   // Link-in-bio pages set data-auto to open the booking modal immediately.
-  if (script.getAttribute("data-auto")) setTimeout(openModal, 0);
+  if (script.getAttribute("data-auto")) setTimeout(function () { openModal(); }, 0);
+
+  // Per-service "Book" CTAs anywhere on the page: <button data-storecal-book
+  // data-service="SERVICE_ID_OR_NAME">. Opens the widget preselected to that
+  // service (skips to the staff step).
+  document.addEventListener("click", function (e) {
+    var t = e.target && e.target.closest && e.target.closest("[data-storecal-book]");
+    if (!t) return;
+    e.preventDefault();
+    openModal({ service: t.getAttribute("data-service") || undefined });
+  });
+
+  // Programmatic API for custom sites: StoreCalWidget.book("Service Name" | {service}).
+  window.StoreCalWidget = {
+    open: function () { openModal(); },
+    book: function (arg) { openModal(typeof arg === "string" ? { service: arg } : arg); },
+  };
 
   // ── State ──────────────────────────────────────────────────────────────────
   var cfg = null;                 // shop-config payload
@@ -213,12 +232,22 @@
   }
 
   // ── Steps ────────────────────────────────────────────────────────────────
-  function start() {
+  // preselect (optional): a service id or name. When it matches, skip straight
+  // to the staff step with that service already chosen.
+  function start(preselect) {
     frame("Loading…", loading());
     fetch(api("/api/shop-config")).then(function (r) { return r.json(); }).then(function (d) {
       if (d.error) throw new Error(d.error);
       cfg = d;
-      chooseService();
+      var svc = preselect && (cfg.services || []).filter(function (s) {
+        return s._id === preselect || (s.name || "").toLowerCase() === String(preselect).toLowerCase();
+      })[0];
+      if (svc) {
+        state.service = svc; state.provider = null; state.assigned = null; state.date = ""; state.time = "";
+        chooseProvider();
+      } else {
+        chooseService();
+      }
     }).catch(function (e) {
       frame("", el('<div class="sc__err">Couldn\'t load booking. ' + esc(e.message) + "</div>"));
     });

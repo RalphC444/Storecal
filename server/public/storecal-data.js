@@ -40,9 +40,13 @@
       host.classList.add("scd-grid");
       host.innerHTML = (data.services || []).map(function (s) {
         var meta = [fmtDur(s.durationMin), s.price].filter(Boolean).join(" · ");
+        // The Book button deep-links into the widget (embed.js) preselected to
+        // this service — it opens straight to the staff step.
         return '<div class="scd-card"><h3 class="scd-card__name">' + esc(s.name) + "</h3>" +
           (s.description ? '<p class="scd-card__desc">' + esc(s.description) + "</p>" : "") +
-          (meta ? '<div class="scd-card__meta">' + esc(meta) + "</div>" : "") + "</div>";
+          (meta ? '<div class="scd-card__meta">' + esc(meta) + "</div>" : "") +
+          '<button class="scd-card__book" type="button" data-storecal-book data-service="' + esc(s.id || s._id) + '">Book</button>' +
+          "</div>";
       }).join("");
     });
   }
@@ -64,10 +68,12 @@
   var style = document.createElement("style");
   style.textContent = [
     ".scd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}",
-    ".scd-card{border:1px solid #e6e8ec;border-radius:12px;padding:18px}",
+    ".scd-card{border:1px solid #e6e8ec;border-radius:12px;padding:18px;display:flex;flex-direction:column}",
     ".scd-card__name{margin:0 0 6px;font-size:17px}",
     ".scd-card__desc{margin:0 0 10px;color:#5a6069;font-size:14px;line-height:1.5}",
     ".scd-card__meta{font-weight:600}",
+    ".scd-card__book{margin-top:14px;align-self:flex-start;background:#2563eb;color:#fff;border:0;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}",
+    ".scd-card__book:hover{filter:brightness(.95)}",
     ".scd-person{display:flex;gap:12px;align-items:center}",
     ".scd-person__av{width:44px;height:44px;border-radius:50%;background:#e8eefc;color:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}",
     ".scd-person__name{font-weight:700}",
