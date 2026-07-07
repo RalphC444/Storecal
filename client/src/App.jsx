@@ -226,17 +226,29 @@ function AdminApp({ user, onSignOut, onUserChange }) {
 
   const weekEnd = addDaysKey(weekStart, 6);
 
-  const loadAppts = useCallback(() => {
-    setLoading(true);
+  // silent = background refresh (no loading spinner) so polling doesn't flicker.
+  const loadAppts = useCallback((opts) => {
+    if (!opts?.silent) setLoading(true);
     const p = new URLSearchParams({ from: weekStart, to: weekEnd });
     if (selected !== "all") p.set("providerId", selected);
     fetch(`/api/appointments?${p}`)
       .then(r => r.json())
       .then(data => Array.isArray(data) && setAppts(data))
-      .finally(() => setLoading(false));
+      .finally(() => { if (!opts?.silent) setLoading(false); });
   }, [weekStart, weekEnd, selected]);
 
   useEffect(() => { loadAppts(); }, [loadAppts]);
+
+  // Auto-refresh the calendar so bookings made elsewhere (e.g. the embed) appear
+  // without a manual reload: poll every 30s and refresh when the tab regains focus.
+  useEffect(() => {
+    if (view !== "calendar") return;
+    const refresh = () => { if (document.visibilityState === "visible") loadAppts({ silent: true }); };
+    const id = setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(id); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [view, loadAppts]);
 
   async function saveAppt(id, payload) {
     const res = await fetch(id ? `/api/appointments/${id}` : "/api/appointments", {
