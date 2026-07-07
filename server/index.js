@@ -33,6 +33,10 @@ app.use(cookieParser());
 // reads with no cookie fall through to the env shop.
 app.use(attachAuth);
 
+// Public assets served at the root — notably /embed.js, the booking widget that
+// customer sites load with <script src="…/embed.js" data-store="KEY">.
+app.use(express.static(path.resolve(__dirname, "public")));
+
 app.use("/api/auth", authRouter);
 app.use("/api/providers", providersRouter);
 app.use("/api/availability", availabilityRouter);

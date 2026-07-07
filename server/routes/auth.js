@@ -6,6 +6,7 @@ const {
   setAuthCookie, clearAuthCookie, requireAuth, verifyInvite, signReset, verifyReset,
 } = require("../auth");
 const { sendReset } = require("../mailer");
+const { generatePublicKey } = require("../shopScope");
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.post("/register", async (req, res) => {
     const shopSlug = (slug || businessName).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const shopRes = await db.collection("shops").insertOne({
       slug: shopSlug, name: businessName.trim(), businessType: "salon",
+      publicKey: generatePublicKey(), // stable public id baked into the embed
       createdAt: new Date(),
     });
     const shopId = shopRes.insertedId.toString();

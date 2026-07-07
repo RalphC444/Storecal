@@ -5,7 +5,7 @@ let _db = null;
 
 async function getDb() {
   if (_db) return _db;
-  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI not set in .env");
+  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI environment variable is not set");
   _client = new MongoClient(process.env.MONGODB_URI);
   await _client.connect();
   _db = _client.db();

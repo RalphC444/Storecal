@@ -34,6 +34,7 @@ router.get("/", async (req, res) => {
       shop: {
         slug: shop.slug,
         name: shop.name,
+        publicKey: shop.publicKey || null,
         address: shop.address || "",
         phone: shop.phone || "",
         businessType: shop.businessType || "generic",
@@ -49,6 +50,9 @@ router.get("/", async (req, res) => {
         _id: p._id.toString(),
         name: p.name,
         bio: p.bio || "",
+        // Which services this staff member offers — lets the widget show only
+        // the staff who can do the chosen service.
+        serviceIds: (p.serviceIds || []).map(String),
       })),
     });
   } catch (err) {

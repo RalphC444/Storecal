@@ -2,8 +2,12 @@ const { Router } = require("express");
 const { getDb } = require("../db");
 const { ObjectId } = require("mongodb");
 const { resolveShopId } = require("../shopScope");
+const { openRangesForDate } = require("../availabilityCheck");
 
 const router = Router();
+
+const toMin = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
+const minToTime = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 function normaliseRanges(rec) {
   if (rec.ranges && rec.ranges.length > 0) return rec.ranges;
@@ -172,6 +176,54 @@ router.delete("/:providerId/overrides/:id", async (req, res) => {
       shopId,
     });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/availability/:providerId/slots?key=&date=YYYY-MM-DD&durationMin=&stepMin=
+// Public: the bookable start times for one staff member on one day — open hours
+// minus already-booked appointments. Returns ONLY times (no client data).
+router.get("/:providerId/slots", async (req, res) => {
+  try {
+    const db = await getDb();
+    const shopId = await resolveShopId(req, db);
+    if (!shopId) return res.status(404).json({ error: "Shop not found" });
+
+    const { providerId } = req.params;
+    const date = req.query.date;
+    if (!date) return res.status(400).json({ error: "A date is required" });
+    const dur = Number(req.query.durationMin) || 30;
+    const step = Number(req.query.stepMin) || 15;
+
+    const { ranges } = await openRangesForDate(db, shopId, providerId, date);
+
+    const booked = await db.collection("appointments").find({
+      shopId, providerId, dateKey: date,
+      status: { $in: ["pending", "confirmed", "completed"] },
+    }).toArray();
+    const busy = booked.map((a) => {
+      const s = toMin(a.timeValue);
+      return { start: s, end: s + (a.durationMin || dur) };
+    });
+
+    // Don't offer times in the past when booking for today. Use LOCAL date/time
+    // (the app keys dates locally) — toISOString() would use UTC and misfire.
+    const now = new Date();
+    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const isToday = date === localToday;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+
+    const slots = [];
+    for (const r of ranges || []) {
+      for (let m = r.startMin; m + dur <= r.endMin; m += step) {
+        if (isToday && m <= nowMin) continue;
+        const clash = busy.some((b) => m < b.end && m + dur > b.start);
+        if (!clash) slots.push(minToTime(m));
+      }
+    }
+
+    res.json({ date, providerId, durationMin: dur, slots });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
