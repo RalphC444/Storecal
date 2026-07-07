@@ -2493,7 +2493,7 @@ export default function App() {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "test@email.com", password: "test123" }),
+        body: JSON.stringify({ email: "demo@storecal.com", password: "demo1234" }),
       });
       const d = await res.json();
       if (res.ok && d.user) { setUser(d.user); setPhase(d.user.mustChangePassword ? "changepw" : "app"); }
@@ -2567,7 +2567,7 @@ function Landing({ onSignIn, onDemo }) {
             <button className="mk__cta-ghost linklike" onClick={onSignIn}>Sign in</button>
           </div>
           <p className="mk__demonote">
-            The demo drops you into a real store owner account — explore the calendar, team, and hours.
+            The demo signs you into a sample store as the owner — explore the calendar, team, and hours. It resets periodically.
             <a href="/demo.html" target="_blank" rel="noreferrer"> Or see the customer booking widget →</a>
           </p>
         </div>

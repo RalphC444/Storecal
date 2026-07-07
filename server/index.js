@@ -64,3 +64,14 @@ const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`StoreCal → http://localhost:${PORT}`);
 });
+
+// Public demo store: bootstrap on boot, then reset every few hours so visitors
+// always get a clean, isolated sandbox (never a real account). Set DEMO=off to disable.
+if (process.env.DEMO !== "off") {
+  const { seedDemo } = require("./seedDemo");
+  const run = (why) => seedDemo()
+    .then((r) => console.log(`Demo store ${why} (${r.publicKey})`))
+    .catch((e) => console.error("Demo seed failed:", e.message));
+  run("bootstrapped");
+  setInterval(() => run("reset"), 3 * 60 * 60 * 1000); // every 3 hours
+}
