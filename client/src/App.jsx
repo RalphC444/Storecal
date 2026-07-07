@@ -2486,10 +2486,25 @@ export default function App() {
     setUser(null); setPhase("landing");
   }
 
+  // "Try the live demo" — sign into the shared demo store as its owner so
+  // visitors can explore the full owner experience.
+  async function demoLogin() {
+    setPhase("loading");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "test@email.com", password: "test123" }),
+      });
+      const d = await res.json();
+      if (res.ok && d.user) { setUser(d.user); setPhase(d.user.mustChangePassword ? "changepw" : "app"); }
+      else setPhase("login");
+    } catch { setPhase("login"); }
+  }
+
   if (phase === "loading") return <div className="authwrap"><Loader /></div>;
 
   if (phase === "landing")
-    return <Landing onSignIn={() => setPhase("login")} />;
+    return <Landing onSignIn={() => setPhase("login")} onDemo={demoLogin} />;
 
   if (phase === "login")
     return <LoginScreen onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onForgot={() => setPhase("forgot")} onBack={() => setPhase("landing")} />;
@@ -2511,8 +2526,8 @@ export default function App() {
 
 // ── Marketing landing page (shown before sign-in) ───────────────────────────
 
-// Where "Contact me for a website" points. Swap in your real email/booking link.
-const CONTACT_HREF = "mailto:hello@storecal.com?subject=I'd%20like%20a%20website";
+// Where "Contact me for a website" points.
+const CONTACT_HREF = "mailto:capriglioner@gmail.com?subject=I'd%20like%20a%20website";
 
 const MK_FEATURES = [
   { icon: "calendar", t: "Online booking", d: "A clean booking widget clients use to book themselves — embed it on any website in one line." },
@@ -2521,7 +2536,7 @@ const MK_FEATURES = [
   { icon: "clients", t: "Client list", d: "Every booking builds a client record with visit history and contact details." },
 ];
 
-function Landing({ onSignIn }) {
+function Landing({ onSignIn, onDemo }) {
   return (
     <div className="mk" id="top">
       <header className="mk__nav">
@@ -2548,9 +2563,13 @@ function Landing({ onSignIn }) {
             store hours, and a client list — plus a booking widget you can drop onto any website.
           </p>
           <div className="mk__cta">
-            <button className="btn mk__cta-primary" onClick={onSignIn}>Sign in</button>
-            <a className="mk__cta-ghost" href="/demo.html" target="_blank" rel="noreferrer">See a live demo →</a>
+            <button className="btn mk__cta-primary" onClick={onDemo}>Try the live demo →</button>
+            <button className="mk__cta-ghost linklike" onClick={onSignIn}>Sign in</button>
           </div>
+          <p className="mk__demonote">
+            The demo drops you into a real store owner account — explore the calendar, team, and hours.
+            <a href="/demo.html" target="_blank" rel="noreferrer"> Or see the customer booking widget →</a>
+          </p>
         </div>
 
         {/* Simple app mock for visual interest */}
@@ -2580,31 +2599,38 @@ function Landing({ onSignIn }) {
         </div>
       </section>
 
-      <section className="mk__section mk__how" id="how">
+      <section className="mk__section" id="how">
         <h2 className="mk__h2">Up and running in minutes</h2>
         <div className="mk__steps">
-          <div className="mk__step"><span className="mk__num">1</span><h3 className="mk__ct">Set your hours & team</h3><p className="mk__cd">Add your staff, services, and store hours.</p></div>
-          <div className="mk__step"><span className="mk__num">2</span><h3 className="mk__ct">Add the booking widget</h3><p className="mk__cd">Paste one line onto your website and clients can book instantly.</p></div>
-          <div className="mk__step"><span className="mk__num">3</span><h3 className="mk__ct">Manage from one calendar</h3><p className="mk__cd">Every booking lands in your calendar — online, phone, or walk-in.</p></div>
+          {[
+            { n: 1, t: "Set your hours & team", d: "Add your staff, services, and store hours." },
+            { n: 2, t: "Add the booking widget", d: "Paste one line onto your site and clients book instantly." },
+            { n: 3, t: "Manage from one calendar", d: "Every booking lands in your calendar — online, phone, or walk-in." },
+          ].map(s => (
+            <div className="mk__step" key={s.n}>
+              <span className="mk__num">{s.n}</span>
+              <h3 className="mk__ct">{s.t}</h3>
+              <p className="mk__cd">{s.d}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="mk__contact" id="contact">
-        <div className="mk__contact-in">
-          <h2 className="mk__h2">Need a website to go with it?</h2>
-          <p className="mk__lead mk__lead--center">
+      <section className="mk__section" id="contact">
+        <div className="mk__contact">
+          <h2 className="mk__contact-h">Need a website to go with it?</h2>
+          <p className="mk__contact-p">
             I design and build custom websites for local businesses — with StoreCal booking built right in.
-            Tell me what you have in mind.
           </p>
-          <a className="btn mk__cta-primary" href={CONTACT_HREF}>Contact me for a website</a>
+          <a className="btn mk__contact-btn" href={CONTACT_HREF}>Contact me for a website</a>
         </div>
       </section>
 
       <footer className="mk__foot">
-        <span className="mk__brand mk__brand--foot">
+        <a className="mk__brand" href="#top">
           <span className="saas__mark"><Icon name="calendar" /></span>
           <span className="saas__name">StoreCal</span>
-        </span>
+        </a>
         <span className="mk__foot-links">
           <a className="mk__link" href={CONTACT_HREF}>Contact</a>
           <button className="linklike mk__link" onClick={onSignIn}>Sign in</button>

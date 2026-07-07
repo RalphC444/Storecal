@@ -1461,8 +1461,11 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .mk__lead--center { margin-left: auto; margin-right: auto; }
 .mk__cta { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .mk__cta-primary { padding: 13px 26px; font-size: 15px; }
-.mk__cta-ghost { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 15px; }
+.mk__cta-ghost { color: var(--accent); font-weight: 600; font-size: 15px; }
 .mk__cta-ghost:hover { text-decoration: underline; }
+.mk__demonote { font-size: 13px; color: var(--ink-3); margin: 16px 0 0; max-width: 34em; line-height: 1.5; }
+.mk__demonote a { color: var(--accent); text-decoration: none; }
+.mk__demonote a:hover { text-decoration: underline; }
 
 /* Hero app mock */
 .mk__art { display: flex; justify-content: center; }
@@ -1485,22 +1488,23 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .mk__ct { font-size: 16px; font-weight: 700; margin: 0 0 6px; }
 .mk__cd { font-size: 14px; line-height: 1.55; color: var(--ink-2); margin: 0; }
 
-.mk__how { background: var(--wash); max-width: none; }
-.mk__steps { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 20px; }
-.mk__step { text-align: left; }
-.mk__num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
-  border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+/* How it works — clean centered step cards */
+.mk__steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 18px; }
+.mk__step { text-align: center; border: 1px solid var(--line); border-radius: 14px; padding: 26px 22px; background: var(--paper); }
+.mk__num { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+  border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; margin-bottom: 14px; }
+.mk__step .mk__cd { max-width: 22em; margin: 0 auto; }
 
-.mk__contact { background: var(--accent); color: #fff; padding: 56px 24px; text-align: center; }
-.mk__contact-in { max-width: 640px; margin: 0 auto; }
-.mk__contact .mk__h2 { color: #fff; }
-.mk__contact .mk__lead { color: rgba(255,255,255,.88); }
-.mk__contact .mk__cta-primary { background: #fff; color: var(--accent); }
-.mk__contact .mk__cta-primary:hover { background: #f0f4ff; }
+/* Contact — contained accent panel */
+.mk__contact { max-width: 720px; margin: 0 auto; background: var(--accent); color: #fff;
+  border-radius: 20px; padding: 44px 32px; text-align: center; }
+.mk__contact-h { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 10px; }
+.mk__contact-p { font-size: 16px; line-height: 1.6; color: rgba(255,255,255,.9); margin: 0 auto 22px; max-width: 32em; }
+.mk__contact-btn { background: #fff; color: var(--accent); padding: 13px 26px; font-size: 15px; }
+.mk__contact-btn:hover { background: #eef3ff; }
 
-.mk__foot { max-width: 1080px; margin: 0 auto; padding: 26px 24px; display: flex;
+.mk__foot { max-width: 1080px; margin: 40px auto 0; padding: 24px; display: flex;
   align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }
-.mk__brand--foot { opacity: .9; }
 .mk__foot-links { display: flex; gap: 20px; align-items: center; }
 
 .authback { display: block; margin-top: 4px; color: var(--ink-3); }
