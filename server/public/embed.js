@@ -119,6 +119,10 @@
     "display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}",
     ".sc__done-t{font-size:16px;font-weight:700;margin-bottom:6px}",
     ".sc__done-s{font-size:13px;color:#5a6069;line-height:1.6}",
+    ".sc__done-actions{display:flex;gap:10px;margin-top:18px}",
+    ".sc__done-actions .sc__btn{flex:1;margin-top:0}",
+    ".sc__btn--ghost{background:#fff;color:#333;border:1px solid #e0e3e8}",
+    ".sc__btn--ghost:hover{background:#f5f6f8;filter:none}",
     ".sc__pow{text-align:center;font-size:11px;color:#b3b8c0;padding:10px}",
   ].join("");
   root.appendChild(style);
@@ -421,10 +425,47 @@
       '<div class="sc__done-s">' + esc(state.service.name) + " with " + esc(state.provider.name) + "<br>" +
       esc(fmtDate(state.date)) + " at " + esc(fmtTime(state.time)) + "</div></div>"
     );
-    var again = el('<button class="sc__btn" style="margin-top:16px">Book another</button>');
-    again.onclick = chooseService;
-    body.appendChild(again);
+    var actions = el('<div class="sc__done-actions"></div>');
+    var cal = el('<button class="sc__btn">Add to calendar</button>');
+    cal.onclick = downloadIcs;
+    var close = el('<button class="sc__btn sc__btn--ghost">Close</button>');
+    close.onclick = closeModal;
+    actions.appendChild(cal); actions.appendChild(close);
+    body.appendChild(actions);
     frame("Confirmed", body);
+  }
+
+  // Build + download an .ics file for the booked appointment (works with Apple
+  // Calendar, Google Calendar import, Outlook, etc.).
+  function icsEsc(s) { return String(s || "").replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n"); }
+  function icsLocal(dateStr, timeStr, addMin) {
+    var p = dateStr.split("-").map(Number), t = timeStr.split(":").map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2], t[0], t[1] + (addMin || 0));
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "T" + pad(d.getHours()) + pad(d.getMinutes()) + "00";
+  }
+  function icsStamp() {
+    var d = new Date();
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + "Z";
+  }
+  function downloadIcs() {
+    var dur = state.service.durationMin || 45;
+    var ics = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//StoreCal//Booking//EN", "CALSCALE:GREGORIAN",
+      "BEGIN:VEVENT",
+      "UID:" + Date.now() + "@storecal",
+      "DTSTAMP:" + icsStamp(),
+      "DTSTART:" + icsLocal(state.date, state.time, 0),
+      "DTEND:" + icsLocal(state.date, state.time, dur),
+      "SUMMARY:" + icsEsc(state.service.name + " · " + cfg.shop.name),
+      "LOCATION:" + icsEsc(cfg.shop.address || ""),
+      "DESCRIPTION:" + icsEsc("Appointment with " + state.provider.name),
+      "END:VEVENT", "END:VCALENDAR",
+    ].join("\r\n");
+    var url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = "appointment.ics";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
   }
 
   // Widget renders inside the modal, which opens from the trigger button.
