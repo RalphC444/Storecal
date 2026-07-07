@@ -72,6 +72,9 @@ router.get("/:providerId", async (req, res) => {
     };
 
     res.json({
+      // configured = a weekly schedule has actually been set. Lets the calendar
+      // distinguish "no hours set → no constraint" from "closed all week".
+      configured: records.length > 0,
       meta,
       weekA: buildWeek(records, "A"),
       weekB: buildWeek(records, "B"),

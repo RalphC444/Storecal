@@ -198,6 +198,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
 
   const [editing, setEditing] = useState(null); // null | {} | {…appt}
   const [storeHoursOpen, setStoreHoursOpen] = useState(false);
+  const [hoursVersion, setHoursVersion] = useState(0); // bump → calendar refetches hours
   const [addReq, setAddReq] = useState(0); // bump to trigger the active tab's "add" modal
 
   const [mobileOpen, setMobileOpen] = useState(false); // drawer on small screens
@@ -412,6 +413,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
             teamLabel={teamLabel}
             isMobile={isMobile}
             lockProvider={isProvider}
+            hoursVersion={hoursVersion}
             onSelectProvider={setSelected}
             durationOf={durationOf}
             onPrev={() => isMobile ? stepDay(-1) : setWeekStart(w => addDaysKey(w, -7))}
@@ -454,9 +456,9 @@ function AdminApp({ user, onSignOut, onUserChange }) {
         />
       )}
 
-      {storeHoursOpen && <StoreHoursModal onClose={() => { setStoreHoursOpen(false); recheckHours(); }} />}
+      {storeHoursOpen && <StoreHoursModal onClose={() => { setStoreHoursOpen(false); recheckHours(); setHoursVersion(v => v + 1); }} />}
       {provHoursOpen && myProvider && (
-        <ProviderHoursModal provider={myProvider} onClose={() => { setProvHoursOpen(false); recheckHours(); }} />
+        <ProviderHoursModal provider={myProvider} onClose={() => { setProvHoursOpen(false); recheckHours(); setHoursVersion(v => v + 1); }} />
       )}
       </div>
     </div>
@@ -521,20 +523,48 @@ function openRangesFor(dateStr, av, timeoff) {
   return day?.enabled ? day.ranges : [];
 }
 
+// Overlap of two open-range lists (both must allow the time).
+function intersectRanges(a, b) {
+  const out = [];
+  for (const x of a) for (const y of b) {
+    const s = Math.max(x.startMin, y.startMin), e = Math.min(x.endMin, y.endMin);
+    if (e > s) out.push({ startMin: s, endMin: e });
+  }
+  return out;
+}
+
+// Effective open ranges for a day = shop hours ∩ staff hours, where an unset
+// (unconfigured) schedule imposes no constraint. Returns null when nothing is
+// configured (no constraint at all), otherwise the allowed ranges (maybe []).
+function effectiveOpenFor(dateStr, shopAv, shopTimeoff, provAv, provTimeoff) {
+  const shopOpen = shopAv?.configured ? openRangesFor(dateStr, shopAv, shopTimeoff) : null;
+  const provOpen = provAv?.configured ? openRangesFor(dateStr, provAv, provTimeoff) : null;
+  if (shopOpen && provOpen) return intersectRanges(shopOpen, provOpen);
+  return shopOpen || provOpen || null;
+}
+
 function WeekCalendar({
   weekStart, selectedDay, appts, loading, providers, providerId, teamLabel, isMobile,
-  lockProvider, hoursLabel = "Store hours",
+  lockProvider, hoursLabel = "Store hours", hoursVersion,
   onSelectProvider, durationOf,
   onPrev, onNext, onToday, onSelectDay, onSelectAppt, onNewAt, onStoreHours,
 }) {
   const [av, setAv] = useState(null);
   const [timeoff, setTimeoff] = useState([]);
+  const [shopAv, setShopAv] = useState(null);
+  const [shopTimeoff, setShopTimeoff] = useState([]);
 
   useEffect(() => {
     if (providerId === "all") { setAv(null); setTimeoff([]); return; }
     fetch(`/api/availability/${providerId}`).then(r => r.json()).then(setAv).catch(() => setAv(null));
     fetch(`/api/timeoff/${providerId}`).then(r => r.json()).then(d => Array.isArray(d) && setTimeoff(d)).catch(() => {});
-  }, [providerId]);
+  }, [providerId, hoursVersion]);
+
+  // Store hours apply to every column (even "all staff"), so closed times show.
+  useEffect(() => {
+    fetch(`/api/availability/shop`).then(r => r.json()).then(setShopAv).catch(() => setShopAv(null));
+    fetch(`/api/timeoff/shop`).then(r => r.json()).then(d => Array.isArray(d) && setShopTimeoff(d)).catch(() => {});
+  }, [hoursVersion]);
 
   // Cancelled appointments drop off the calendar (still kept in client history).
   const shown = appts.filter(a => a.status !== "cancelled");
@@ -619,12 +649,14 @@ function WeekCalendar({
 
             <div className="cal__cols" style={{ height: GRID_H, ...colStyle }}>
           {days.map(d => {
-            const open = openRangesFor(d, av, timeoff);
+            // Effective open hours = store hours ∩ this staff member's hours.
+            // null = nothing configured → no constraint. [] = closed all day.
+            const open = effectiveOpenFor(d, shopAv, shopTimeoff, av, timeoff);
             const list = shown.filter(a => a.dateKey === d);
-            // "Scoped" = viewing a single provider → off time is un-bookable + tinted.
-            const scoped = !!av;
+            // "Constrained" = there are hours to enforce → closed time is tinted + un-bookable.
+            const scoped = open !== null;
             const isToday = d === todayStr;
-            const isOpenAt = (min) => !scoped || (open || []).some(r => min >= r.startMin && min < r.endMin);
+            const isOpenAt = (min) => !scoped || open.some(r => min >= r.startMin && min < r.endMin);
             const colCls = scoped ? "cal__col cal__col--scoped" : `cal__col${isToday ? " cal__col--today" : ""}`;
             return (
               <div key={d} className={colCls}>
@@ -655,7 +687,7 @@ function WeekCalendar({
                         className={`cal__slot${blocked ? " cal__slot--blocked" : ""}`}
                         style={{ height: 30 * PX_PER_MIN }}
                         disabled={blocked}
-                        title={blocked ? "Not working — can't book" : `New appointment · ${fmtTime(`${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`)}`}
+                        title={blocked ? "Closed — can't book" : `New appointment · ${fmtTime(`${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`)}`}
                         onClick={blocked ? undefined : () => onNewAt(d, min)}
                       />
                     );
@@ -739,8 +771,8 @@ function StoreHoursModal({ onClose }) {
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <p className="modal__note">Set the shop’s open hours, close early on a specific day, or block whole days. Staff can’t be booked outside these hours.</p>
-        <div className="modal__scroll">
-          <ScheduleEditor provider={{ _id: "shop", name: "Store" }} mode="store" />
+        <div className="modal__scroll modal__scroll--docked">
+          <ScheduleEditor provider={{ _id: "shop", name: "Store" }} mode="store" docked />
         </div>
       </div>
     </div>
@@ -1479,8 +1511,8 @@ function ProviderHoursModal({ provider, onClose }) {
           <h2 className="modal__title">{provider.name}’s hours</h2>
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div className="modal__scroll">
-          <ScheduleEditor provider={provider} mode="owner" />
+        <div className="modal__scroll modal__scroll--docked">
+          <ScheduleEditor provider={provider} mode="owner" docked />
         </div>
       </div>
     </div>
@@ -2114,7 +2146,7 @@ function DayRow({ day, onToggle, onStart, onEnd }) {
   );
 }
 
-function ScheduleEditor({ provider, mode }) {
+function ScheduleEditor({ provider, mode, docked }) {
   const [week, setWeek] = useState(null);
   const [overrides, setOverrides] = useState([]);
   const [timeOff, setTimeOff]   = useState([]);
@@ -2205,12 +2237,14 @@ function ScheduleEditor({ provider, mode }) {
             onEnd={(v) => setEnd(day.weekday, v)}
           />
         ))}
-        <div className="sched__save">
-          <button className="btn" onClick={saveSchedule} disabled={saving}>
-            {saving ? "Saving…" : "Save hours"}
-          </button>
-          {saveMsg && <span className="sched__msg">{saveMsg}</span>}
-        </div>
+        {!docked && (
+          <div className="sched__save">
+            <button className="btn" onClick={saveSchedule} disabled={saving}>
+              {saving ? "Saving…" : "Save hours"}
+            </button>
+            {saveMsg && <span className="sched__msg">{saveMsg}</span>}
+          </div>
+        )}
       </div>
 
       <div className="sched__block">
@@ -2272,6 +2306,18 @@ function ScheduleEditor({ provider, mode }) {
           ))
         }
       </div>
+
+      {docked && (
+        <div className="sched__dock">
+          <span className="sched__dock-hint">Single-day changes &amp; time off save instantly.</span>
+          <span className="sched__dock-actions">
+            {saveMsg && <span className="sched__msg">{saveMsg}</span>}
+            <button className="btn" onClick={saveSchedule} disabled={saving}>
+              {saving ? "Saving…" : "Save hours"}
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

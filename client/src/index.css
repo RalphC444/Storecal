@@ -906,6 +906,24 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .sched__save { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .sched__msg { font-size: 13px; color: var(--ink-2); }
 
+/* Docked save bar — pinned to the bottom of the hours modal's scroll area. */
+.modal__scroll--docked { padding-bottom: 0; }
+.sched__dock {
+  position: sticky; bottom: 0;
+  margin: 20px -20px 0;               /* bleed to the scroll edges */
+  padding: 14px 20px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.sched__dock-hint { font-size: 12px; color: var(--ink-3); }
+.sched__dock-actions { display: flex; align-items: center; gap: 12px; flex: none; }
+.sched__dock .btn { white-space: nowrap; }
+@media (max-width: 560px) {
+  .sched__dock-hint { display: none; }
+  .sched__dock { justify-content: flex-end; }
+}
+
 /* ── Blocked dates ──────────────────────────────── */
 .block-add { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
 .block-add span { font-size: 12px; color: var(--ink-3); }
