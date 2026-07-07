@@ -40,6 +40,7 @@ router.post("/register", async (req, res) => {
     const shopRes = await db.collection("shops").insertOne({
       slug: shopSlug, name: businessName.trim(), businessType: "salon",
       publicKey: generatePublicKey(), // stable public id baked into the embed
+      promptBilling: true,            // new accounts see the "subscribe to enable booking" banner
       createdAt: new Date(),
     });
     const shopId = shopRes.insertedId.toString();
@@ -49,6 +50,12 @@ router.post("/register", async (req, res) => {
       role: "owner", shopId, mustChangePassword: false, createdAt: new Date(),
     });
     const user = await db.collection("users").findOne({ _id: userRes.insertedId });
+
+    // Owner is a bookable provider by default (they can turn this off in Settings).
+    await db.collection("providers").insertOne({
+      shopId, name: businessName.trim(), email: em, bio: "", photo: "",
+      active: true, ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
+    });
 
     setAuthCookie(res, signToken(user));
     res.status(201).json({ user: publicUser(user) });

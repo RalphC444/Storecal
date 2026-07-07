@@ -363,6 +363,11 @@
         .then(function (d) {
           listWrap.innerHTML = "";
           var slots = (d && d.slots) || [];
+          // Hide times already past when booking for today (uses the viewer's clock).
+          if (state.date === todayStr()) {
+            var nm = new Date().getHours() * 60 + new Date().getMinutes();
+            slots = slots.filter(function (t) { var p = t.split(":"); return (+p[0]) * 60 + (+p[1]) > nm; });
+          }
           if (!slots.length) { listWrap.appendChild(el('<div class="sc__times-empty">No open times this day.</div>')); return; }
           var byTime = (d && d.providersByTime) || {};
           slots.forEach(function (t) {

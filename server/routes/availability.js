@@ -200,15 +200,12 @@ async function computeSlots(db, shopId, providerId, date, dur, step) {
   }).toArray();
   const busy = booked.map((a) => { const s = toMin(a.timeValue); return { start: s, end: s + (a.durationMin || dur) }; });
 
-  const now = new Date();
-  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const isToday = date === localToday;
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-
+  // Note: past-time filtering for "today" is done client-side (in the shop's/
+  // viewer's local clock). The server runs in UTC, so filtering here would drop
+  // valid future slots for shops in other timezones.
   const out = [];
   for (const r of ranges) {
     for (let m = r.startMin; m + dur <= r.endMin; m += step) {
-      if (isToday && m <= nowMin) continue;
       if (!busy.some((b) => m < b.end && m + dur > b.start)) out.push(minToTime(m));
     }
   }

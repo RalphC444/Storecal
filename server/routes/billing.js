@@ -61,6 +61,7 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       subscribed,
       planId,
       status,
+      promptBilling: shop?.promptBilling === true, // only new accounts prompt
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
       mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live") ? "live" : "test",
       plans: PLANS,
@@ -76,8 +77,10 @@ router.post("/checkout", requireAuth, requireOwner, async (req, res) => {
   const stripe = stripeClient();
   if (!stripe) return res.status(400).json({ error: "Billing isn't connected yet." });
   try {
-    const plan = PLANS.find((p) => p.id === req.body.planId);
-    if (!plan) return res.status(400).json({ error: "Unknown plan" });
+    // Default to the primary plan so the client can open Checkout without a
+    // plan chooser ("just open Stripe").
+    const plan = PLANS.find((p) => p.id === req.body.planId) || PLANS[0];
+    if (!plan) return res.status(400).json({ error: "No plan configured" });
 
     const db = await getDb();
     const shop = await db.collection("shops").findOne({ _id: new ObjectId(req.auth.shopId) });
