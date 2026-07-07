@@ -1248,6 +1248,14 @@ function StylistProfile({ provider: p, err, onBack, onDelete }) {
 
         <p className="sp__readonly">Read-only — {p.name} manages their own profile, services and hours.</p>
 
+        {p.accountStatus !== "active" && !p.ownerUserId && (
+          <section className="sp__block">
+            <h3 className="sched__label">Staff sign-in</h3>
+            <p className="sp__hint">{p.name} hasn’t set up their login yet. Share this one-time link so they can set a password and manage their own profile, services &amp; hours.</p>
+            <InviteLinkButton providerId={p._id} hasEmail={!!p.email} />
+          </section>
+        )}
+
         <section className="sp__block">
           <h3 className="sched__label">Contact</h3>
           <dl className="sp__dl sp__dl--grid">
