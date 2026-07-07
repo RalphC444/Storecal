@@ -43,6 +43,7 @@ router.get("/", async (req, res) => {
       services: services.map((s) => ({
         _id: s._id.toString(),
         name: s.name,
+        description: s.description || "",
         durationMin: s.durationMin || null,
         price: s.price || "",
       })),

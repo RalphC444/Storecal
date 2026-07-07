@@ -166,4 +166,29 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
+// DELETE /api/clients/:id — remove a client. Blocked if they have upcoming
+// appointments (cancel those first) so bookings aren't silently orphaned.
+router.delete("/:id", async (req, res) => {
+  try {
+    const db = await getDb();
+    const shopId = await resolveShopId(req, db);
+    if (!shopId) return res.status(404).json({ error: "Shop not found" });
+
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const upcoming = await db.collection("appointments").countDocuments({
+      shopId, clientId: req.params.id, status: { $in: ["pending", "confirmed"] }, dateKey: { $gte: today },
+    });
+    if (upcoming > 0) {
+      return res.status(409).json({ error: `This client has ${upcoming} upcoming appointment(s). Cancel them before deleting.` });
+    }
+
+    const result = await db.collection("clients").deleteOne({ _id: new ObjectId(req.params.id), shopId });
+    if (result.deletedCount === 0) return res.status(404).json({ error: "Client not found" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -1452,7 +1452,7 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
 function ServiceForm({ service, onClose, onSave }) {
   const isEdit = !!service._id;
   const [form, setForm] = useState({
-    name: service.name || "", durationMin: service.durationMin || "",
+    name: service.name || "", description: service.description || "", durationMin: service.durationMin || "",
     // The input edits just the number; the "$" is a fixed prefix in the UI.
     price: (service.price || "").replace(/[^0-9.]/g, ""),
   });
@@ -1480,6 +1480,10 @@ function ServiceForm({ service, onClose, onSave }) {
           <label className="field">
             <span className="field__label">Service name</span>
             <input type="text" value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Women's Haircut" required />
+          </label>
+          <label className="field">
+            <span className="field__label">Description <span className="field__hint">— shown on your website</span></span>
+            <textarea rows={2} value={form.description} onChange={e => set("description", e.target.value)} placeholder="A precision cut tailored to your hair, finished with a blow-dry." />
           </label>
           <div className="form__row form__row--2">
             <label className="field">
@@ -1584,6 +1588,7 @@ function ClientsView({ providers, services, durationOf, onApptSaved, addReq }) {
         durationOf={durationOf}
         onApptSaved={onApptSaved}
         onBack={() => setSelectedId(null)}
+        onDeleted={() => { setSelectedId(null); load(); }}
       />
     );
   }
@@ -1734,12 +1739,13 @@ function ClientForm({ onClose, onSave }) {
   );
 }
 
-function ClientProfile({ clientId, providers, services, durationOf, onApptSaved, onBack }) {
+function ClientProfile({ clientId, providers, services, durationOf, onApptSaved, onBack, onDeleted }) {
   const [data, setData] = useState(null);
   const [notes, setNotes] = useState("");
   const [savedNotes, setSavedNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null); // appointment modal
+  const [delErr, setDelErr] = useState("");
 
   const reload = useCallback(() => {
     fetch(`/api/clients/${clientId}`)
@@ -1770,6 +1776,14 @@ function ClientProfile({ clientId, providers, services, durationOf, onApptSaved,
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
     });
     setEditing(null); reload(); onApptSaved?.();
+  }
+
+  async function deleteClient() {
+    setDelErr("");
+    if (!window.confirm(`Delete ${data.name || "this client"}? Their profile is removed; past appointments are kept.`)) return;
+    const res = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
+    if (!res.ok) { const { error } = await res.json().catch(() => ({})); setDelErr(error || "Could not delete client"); return; }
+    onApptSaved?.(); onDeleted?.();
   }
 
   if (!data) return <div className="pageview"><div className="pv__body"><Loader /></div></div>;
@@ -1841,6 +1855,11 @@ function ClientProfile({ clientId, providers, services, durationOf, onApptSaved,
               </div>
             )
           }
+        </section>
+
+        <section className="sp__block">
+          {delErr && <p className="form__error">{delErr}</p>}
+          <button className="action action--danger" onClick={deleteClient}>Delete client</button>
         </section>
       </div>
 

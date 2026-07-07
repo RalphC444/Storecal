@@ -190,9 +190,35 @@ router.delete("/:providerId/overrides/:id", async (req, res) => {
   }
 });
 
-// GET /api/availability/:providerId/slots?key=&date=YYYY-MM-DD&durationMin=&stepMin=
-// Public: the bookable start times for one staff member on one day — open hours
-// minus already-booked appointments. Returns ONLY times (no client data).
+// Bookable start times ("HH:MM") for one provider on one date: shop∩staff hours
+// minus booked appointments minus past times (for today).
+async function computeSlots(db, shopId, providerId, date, dur, step) {
+  const ranges = await effectiveRanges(db, shopId, providerId, date);
+  if (!ranges) return [];
+  const booked = await db.collection("appointments").find({
+    shopId, providerId, dateKey: date, status: { $in: ["pending", "confirmed", "completed"] },
+  }).toArray();
+  const busy = booked.map((a) => { const s = toMin(a.timeValue); return { start: s, end: s + (a.durationMin || dur) }; });
+
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isToday = date === localToday;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const out = [];
+  for (const r of ranges) {
+    for (let m = r.startMin; m + dur <= r.endMin; m += step) {
+      if (isToday && m <= nowMin) continue;
+      if (!busy.some((b) => m < b.end && m + dur > b.start)) out.push(minToTime(m));
+    }
+  }
+  return out;
+}
+
+// GET /api/availability/:providerId/slots?key=&date=&durationMin=&stepMin=[&serviceId=]
+// Public. For a specific provider → { slots: ["HH:MM"] }. For providerId "any" →
+// the union across all active staff (optionally only those offering serviceId),
+// plus providersByTime so the widget can assign an available staff member.
 router.get("/:providerId/slots", async (req, res) => {
   try {
     const db = await getDb();
@@ -205,34 +231,21 @@ router.get("/:providerId/slots", async (req, res) => {
     const dur = Number(req.query.durationMin) || 30;
     const step = Number(req.query.stepMin) || 15;
 
-    // Combine shop hours + staff hours; null = no schedule set → no bookable times.
-    const ranges = await effectiveRanges(db, shopId, providerId, date);
+    if (providerId === "any") {
+      let staff = await db.collection("providers").find({ shopId, active: true }).toArray();
+      const serviceId = req.query.serviceId;
+      if (serviceId) staff = staff.filter((p) => (p.serviceIds || []).map(String).includes(serviceId));
 
-    const booked = await db.collection("appointments").find({
-      shopId, providerId, dateKey: date,
-      status: { $in: ["pending", "confirmed", "completed"] },
-    }).toArray();
-    const busy = booked.map((a) => {
-      const s = toMin(a.timeValue);
-      return { start: s, end: s + (a.durationMin || dur) };
-    });
-
-    // Don't offer times in the past when booking for today. Use LOCAL date/time
-    // (the app keys dates locally) — toISOString() would use UTC and misfire.
-    const now = new Date();
-    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const isToday = date === localToday;
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-
-    const slots = [];
-    for (const r of ranges || []) {
-      for (let m = r.startMin; m + dur <= r.endMin; m += step) {
-        if (isToday && m <= nowMin) continue;
-        const clash = busy.some((b) => m < b.end && m + dur > b.start);
-        if (!clash) slots.push(minToTime(m));
+      const providersByTime = {};
+      for (const p of staff) {
+        const times = await computeSlots(db, shopId, p._id.toString(), date, dur, step);
+        for (const t of times) (providersByTime[t] = providersByTime[t] || []).push(p._id.toString());
       }
+      const slots = Object.keys(providersByTime).sort();
+      return res.json({ date, providerId: "any", durationMin: dur, slots, providersByTime });
     }
 
+    const slots = await computeSlots(db, shopId, providerId, date, dur, step);
     res.json({ date, providerId, durationMin: dur, slots });
   } catch (err) {
     res.status(500).json({ error: err.message });

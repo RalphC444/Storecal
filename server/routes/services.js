@@ -18,6 +18,7 @@ router.get("/", async (req, res) => {
     res.json(services.map((s) => ({
       _id: s._id.toString(),
       name: s.name,
+      description: s.description || "",
       durationMin: s.durationMin || null,
       price: s.price || "",
       sortOrder: s.sortOrder ?? 0,
@@ -30,7 +31,7 @@ router.get("/", async (req, res) => {
 // POST /api/services — add a service.
 router.post("/", async (req, res) => {
   try {
-    const { name, durationMin, price, sortOrder } = req.body;
+    const { name, description, durationMin, price, sortOrder } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: "Service name is required" });
 
     const db = await getDb();
@@ -40,6 +41,7 @@ router.post("/", async (req, res) => {
     const doc = {
       shopId,
       name: name.trim(),
+      description: (description || "").trim(),
       durationMin: durationMin ? Number(durationMin) : null,
       price: (price || "").trim(),
       sortOrder: Number(sortOrder) || 0,
@@ -60,7 +62,7 @@ router.post("/", async (req, res) => {
 // PUT /api/services/:id — edit a service.
 router.put("/:id", async (req, res) => {
   try {
-    const { name, durationMin, price, sortOrder } = req.body;
+    const { name, description, durationMin, price, sortOrder } = req.body;
     if (name !== undefined && !name.trim()) return res.status(400).json({ error: "Service name cannot be empty" });
 
     const db = await getDb();
@@ -69,6 +71,7 @@ router.put("/:id", async (req, res) => {
 
     const set = { updatedAt: new Date() };
     if (name !== undefined) set.name = name.trim();
+    if (description !== undefined) set.description = (description || "").trim();
     if (durationMin !== undefined) set.durationMin = durationMin ? Number(durationMin) : null;
     if (price !== undefined) set.price = (price || "").trim();
     if (sortOrder !== undefined) set.sortOrder = Number(sortOrder) || 0;

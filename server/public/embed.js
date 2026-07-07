@@ -70,6 +70,7 @@
     ".sc__opt-meta{font-size:13px;color:#5a6069;white-space:nowrap}",
     ".sc__av{width:38px;height:38px;border-radius:50%;background:" + ACCENT + "22;color:" + ACCENT + ";",
     "display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none}",
+    ".sc__av--any{background:" + ACCENT + ";color:#fff}",
     /* staff row: avatar + stacked name/bio */
     ".sc__opt--staff{justify-content:flex-start;gap:12px;text-align:left}",
     ".sc__opt-text{display:flex;flex-direction:column;gap:3px;min-width:0}",
@@ -158,7 +159,10 @@
 
   // ── State ──────────────────────────────────────────────────────────────────
   var cfg = null;                 // shop-config payload
-  var state = { service: null, provider: null, date: "", time: "" };
+  // provider = the chosen option ({_id:"any"} allowed); assigned = the concrete
+  // staff member (set when a slot is picked, incl. the one chosen for "any").
+  var state = { service: null, provider: null, assigned: null, date: "", time: "" };
+  function findProvider(id) { return (cfg && cfg.providers || []).filter(function (p) { return p._id === id; })[0] || null; }
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -221,7 +225,7 @@
   }
 
   function chooseService() {
-    state.service = null; state.provider = null; state.date = ""; state.time = "";
+    state.service = null; state.provider = null; state.assigned = null; state.date = ""; state.time = "";
     var body = document.createElement("div");
     body.appendChild(el('<h3 class="sc__h">Choose a service</h3>'));
     var list = el('<div class="sc__list"></div>');
@@ -246,12 +250,21 @@
     var body = document.createElement("div");
     body.appendChild(el('<h3 class="sc__h">Choose a team member</h3>'));
     var list = el('<div class="sc__list"></div>');
+
+    // "Any available" first (the default-friendly choice): shows every open time
+    // across the team and assigns whoever is free when a slot is picked.
+    var anyB = el('<button class="sc__opt sc__opt--staff"><span class="sc__av sc__av--any">★</span>' +
+      '<span class="sc__opt-text"><span class="sc__opt-main">Any available</span>' +
+      '<span class="sc__opt-sub">First open time with any team member</span></span></button>');
+    anyB.onclick = function () { state.provider = { _id: "any", name: "Any available" }; state.assigned = null; chooseWhen(); };
+    list.appendChild(anyB);
+
     if (!staff.length) list.appendChild(el('<div class="sc__msg">No one is available for this service.</div>'));
     staff.forEach(function (p) {
       var b = el('<button class="sc__opt sc__opt--staff"><span class="sc__av">' + esc(initials(p.name)) +
         '</span><span class="sc__opt-text"><span class="sc__opt-main">' + esc(p.name) + "</span>" +
         (p.bio ? '<span class="sc__opt-sub">' + esc(p.bio) + "</span>" : "") + "</span></button>");
-      b.onclick = function () { state.provider = p; chooseWhen(); };
+      b.onclick = function () { state.provider = p; state.assigned = null; chooseWhen(); };
       list.appendChild(b);
     });
     body.appendChild(list);
@@ -339,15 +352,30 @@
       listWrap.appendChild(loading("Finding open times…"));
       timePane.appendChild(listWrap);
       var dur = state.service.durationMin || 45;
-      fetch(api("/api/availability/" + state.provider._id + "/slots") + "&date=" + state.date + "&durationMin=" + dur)
+      var isAny = state.provider._id === "any";
+      var url = api("/api/availability/" + state.provider._id + "/slots") + "&date=" + state.date + "&durationMin=" + dur +
+        (isAny ? "&serviceId=" + encodeURIComponent(state.service._id) : "");
+      fetch(url)
         .then(function (r) { return r.json(); })
         .then(function (d) {
           listWrap.innerHTML = "";
           var slots = (d && d.slots) || [];
           if (!slots.length) { listWrap.appendChild(el('<div class="sc__times-empty">No open times this day.</div>')); return; }
+          var byTime = (d && d.providersByTime) || {};
           slots.forEach(function (t) {
             var b = el('<button class="sc__slot sc__slot--row">' + esc(fmtTime(t)) + "</button>");
-            b.onclick = function () { state.time = t; contact(); };
+            b.onclick = function () {
+              state.time = t;
+              // Resolve the concrete staff member for the booking.
+              if (isAny) {
+                var pid = (byTime[t] || [])[0];
+                var prov = pid && findProvider(pid);
+                state.assigned = prov ? { _id: prov._id, name: prov.name } : null;
+              } else {
+                state.assigned = { _id: state.provider._id, name: state.provider.name };
+              }
+              contact();
+            };
             listWrap.appendChild(b);
           });
         })
@@ -375,9 +403,10 @@
   }
 
   function contact() {
+    var prov = state.assigned || state.provider;
     var body = document.createElement("div");
     body.appendChild(el(
-      '<div class="sc__summary"><b>' + esc(state.service.name) + "</b> with <b>" + esc(state.provider.name) +
+      '<div class="sc__summary"><b>' + esc(state.service.name) + "</b> with <b>" + esc(prov.name) +
       "</b><br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b></div>"
     ));
     var form = el(
@@ -399,7 +428,7 @@
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           key: STORE_KEY,
-          providerId: state.provider._id,
+          providerId: (state.assigned || state.provider)._id,
           service: state.service.name,
           durationMin: state.service.durationMin || 45,
           dateKey: state.date,
@@ -424,7 +453,7 @@
     var body = el(
       '<div class="sc__done"><div class="sc__check">✓</div>' +
       '<div class="sc__done-t">You\'re booked!</div>' +
-      '<div class="sc__done-s">' + esc(state.service.name) + " with " + esc(state.provider.name) + "<br>" +
+      '<div class="sc__done-s">' + esc(state.service.name) + " with " + esc((state.assigned || state.provider).name) + "<br>" +
       esc(fmtDate(state.date)) + " at " + esc(fmtTime(state.time)) + "</div></div>"
     );
     var actions = el('<div class="sc__done-actions"></div>');
@@ -460,7 +489,7 @@
       "DTEND:" + icsLocal(state.date, state.time, dur),
       "SUMMARY:" + icsEsc(state.service.name + " · " + cfg.shop.name),
       "LOCATION:" + icsEsc(cfg.shop.address || ""),
-      "DESCRIPTION:" + icsEsc("Appointment with " + state.provider.name),
+      "DESCRIPTION:" + icsEsc("Appointment with " + (state.assigned || state.provider).name),
       "END:VEVENT", "END:VCALENDAR",
     ].join("\r\n");
     var url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
