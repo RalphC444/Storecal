@@ -111,15 +111,16 @@ const STATUS_LABEL = {
 // Effective status: an appointment auto-completes once its end time has passed
 // (a past day, or today with end ≤ now). Cancelled/completed are left as-is.
 function effStatus(a, durationOf) {
-  if (a.status === "cancelled" || a.status === "completed") return a.status;
+  if (a.status === "cancelled") return "cancelled";
+  // "Completed" is time-driven, not a stored state: an appointment is done only
+  // once its end time has passed. A future appointment is never completed — even
+  // if an old record carries that status.
   const today = todayKey();
-  if (a.dateKey < today) return "completed";
-  if (a.dateKey === today) {
-    const now = new Date();
-    const endMin = toMin(a.timeValue) + (durationOf ? durationOf(a.service) : 45);
-    if (endMin <= now.getHours() * 60 + now.getMinutes()) return "completed";
-  }
-  return a.status;
+  const now = new Date();
+  const endMin = toMin(a.timeValue) + (durationOf ? durationOf(a.service) : 45);
+  const past = a.dateKey < today || (a.dateKey === today && endMin <= now.getHours() * 60 + now.getMinutes());
+  if (past) return "completed";
+  return a.status === "completed" ? "confirmed" : a.status;
 }
 
 // Team wording per vertical (hair / nail / barber), driven by shop.businessType.
