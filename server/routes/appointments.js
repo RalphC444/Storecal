@@ -130,8 +130,25 @@ router.post("/", async (req, res) => {
     const doc = await buildDoc(db, shopId, req.body);
     doc.createdAt = new Date();
     doc.clientId = await upsertClient(db, shopId, doc.client);
-    const result = await db.collection("appointments").insertOne(doc);
-    res.status(201).json({ success: true, _id: result.insertedId.toString() });
+
+    // A unique index blocks two bookings at the same provider+start. A CANCELLED
+    // appointment still sits in that slot, so free it up before rebooking; an
+    // active one means the time was genuinely just taken.
+    if (doc.providerId && doc.start) {
+      const clash = await db.collection("appointments").findOne({ providerId: doc.providerId, start: doc.start });
+      if (clash) {
+        if (clash.status === "cancelled") await db.collection("appointments").deleteOne({ _id: clash._id });
+        else return res.status(409).json({ error: "Sorry, that time was just booked. Please pick another." });
+      }
+    }
+
+    try {
+      const result = await db.collection("appointments").insertOne(doc);
+      res.status(201).json({ success: true, _id: result.insertedId.toString() });
+    } catch (e) {
+      if (e && e.code === 11000) return res.status(409).json({ error: "Sorry, that time was just booked. Please pick another." });
+      throw e;
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -156,11 +173,27 @@ router.put("/:id", async (req, res) => {
     const doc = await buildDoc(db, shopId, req.body);
     doc.updatedAt = new Date();
     doc.clientId = await upsertClient(db, shopId, doc.client);
-    const result = await db.collection("appointments").updateOne(
-      { _id: new ObjectId(req.params.id), shopId },
-      { $set: doc }
-    );
 
+    // Free a cancelled slot at the new time; reject if an active one holds it.
+    if (doc.providerId && doc.start) {
+      const clash = await db.collection("appointments").findOne({
+        providerId: doc.providerId, start: doc.start, _id: { $ne: new ObjectId(req.params.id) },
+      });
+      if (clash) {
+        if (clash.status === "cancelled") await db.collection("appointments").deleteOne({ _id: clash._id });
+        else return res.status(409).json({ error: "That time is already booked for this staff member." });
+      }
+    }
+
+    let result;
+    try {
+      result = await db.collection("appointments").updateOne(
+        { _id: new ObjectId(req.params.id), shopId }, { $set: doc }
+      );
+    } catch (e) {
+      if (e && e.code === 11000) return res.status(409).json({ error: "That time is already booked for this staff member." });
+      throw e;
+    }
     if (result.matchedCount === 0) return res.status(404).json({ error: "Appointment not found" });
     res.json({ success: true });
   } catch (err) {
