@@ -1521,6 +1521,7 @@ function ProviderForm({ provider, onClose, onSave }) {
 function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
   const [services, setServices] = useState(null);
   const [editing, setEditing] = useState(null);   // service form
+  const [confirmDel, setConfirmDel] = useState(null); // service pending deletion
   const [err, setErr] = useState("");
   const singular = (teamLabel || "staff").replace(/s$/, "").toLowerCase();
 
@@ -1570,7 +1571,7 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
                     </span>
                     <span className="svc-row__acts">
                       <button className="linkbtn" onClick={() => setEditing(s)}>Edit</button>
-                      <button className="linkbtn linkbtn--danger" onClick={() => remove(s)}>Delete</button>
+                      <button className="linkbtn linkbtn--danger" onClick={() => setConfirmDel(s)}>Delete</button>
                     </span>
                   </div>
                 ))}
@@ -1608,6 +1609,40 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
       </div>
 
       {editing && <ServiceForm service={editing} onClose={() => setEditing(null)} onSave={save} />}
+      {confirmDel && (
+        <ConfirmModal
+          title={`Delete “${confirmDel.name}”?`}
+          message="This removes the service from your menu, the booking widget, and every staff member who offers it. Past appointments keep their record. This can’t be undone."
+          confirmLabel="Delete service"
+          onCancel={() => setConfirmDel(null)}
+          onConfirm={async () => { await remove(confirmDel); setConfirmDel(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Generic confirm dialog for destructive actions.
+function ConfirmModal({ title, message, confirmLabel, onCancel, onConfirm }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="modal" onMouseDown={onCancel}>
+      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
+        <div className="modal__head">
+          <h2 className="modal__title">{title}</h2>
+          <button className="modal__x" onClick={onCancel} aria-label="Close">✕</button>
+        </div>
+        <div className="form">
+          <div className="danger-note"><p style={{ margin: 0 }}>{message}</p></div>
+          <div className="form__actions">
+            <button type="button" className="action" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn btn--danger" disabled={busy}
+              onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}>
+              {busy ? "Deleting…" : (confirmLabel || "Delete")}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
