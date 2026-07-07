@@ -61,6 +61,7 @@
     "display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none}",
     ".sc__opt-row{display:flex;align-items:center;gap:11px}",
     ".sc__slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}",
+    ".sc__when-slots{min-height:64px;margin-top:4px}",
     ".sc__slot{padding:10px 6px;border:1px solid #e6e8ec;border-radius:9px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;color:#111}",
     ".sc__slot:hover{border-color:" + ACCENT + ";background:#f7f9ff;color:" + ACCENT + "}",
     ".sc__field{display:block;margin-bottom:12px}",
@@ -177,62 +178,55 @@
       var b = el('<button class="sc__opt"><span class="sc__opt-row"><span class="sc__av">' + esc(initials(p.name)) +
         '</span><span><span class="sc__opt-main">' + esc(p.name) + "</span>" +
         (p.bio ? '<span class="sc__opt-sub">' + esc(p.bio) + "</span>" : "") + "</span></span></button>");
-      b.onclick = function () { state.provider = p; chooseDate(); };
+      b.onclick = function () { state.provider = p; chooseWhen(); };
       list.appendChild(b);
     });
     body.appendChild(list);
     frame("Step 2 of 4 · Team member", body, { onBack: chooseService });
   }
 
-  function chooseDate() {
+  // Day + time on ONE screen: pick a date and the open timeslots load below it.
+  function chooseWhen() {
+    if (!state.date) state.date = todayStr();
     var body = document.createElement("div");
-    body.appendChild(el('<h3 class="sc__h">Pick a day</h3>'));
+    body.appendChild(el('<h3 class="sc__h">Pick a day &amp; time</h3>'));
     var field = el('<label class="sc__field"><span class="sc__label">Date</span>' +
       '<input class="sc__input" type="date" min="' + todayStr() + '"></label>');
     var input = field.querySelector("input");
-    input.value = state.date || todayStr();
-    input.onchange = function () { state.date = input.value; chooseTime(); };
+    input.value = state.date;
     body.appendChild(field);
-    var go = el('<button class="sc__btn">See times</button>');
-    go.onclick = function () { state.date = input.value; chooseTime(); };
-    body.appendChild(go);
-    frame("Step 3 of 4 · Date", body, { onBack: chooseProvider });
-  }
+    var slotsWrap = el('<div class="sc__when-slots"></div>');
+    body.appendChild(slotsWrap);
+    frame("Step 3 of 4 · Day & time", body, { onBack: chooseProvider });
 
-  function chooseTime() {
-    if (!state.date) { chooseDate(); return; }
-    var body = document.createElement("div");
-    body.appendChild(el('<h3 class="sc__h">' + esc(fmtDate(state.date)) + "</h3>"));
-    var holder = el('<div class="sc__slots"></div>');
-    body.appendChild(loading("Finding open times…"));
-    frame("Step 3 of 4 · Time", body, { onBack: chooseDate });
-
-    var dur = state.service.durationMin || 45;
-    fetch(api("/api/availability/" + state.provider._id + "/slots") + "&date=" + state.date + "&durationMin=" + dur)
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        body.innerHTML = "";
-        body.appendChild(el('<h3 class="sc__h">' + esc(fmtDate(state.date)) + "</h3>"));
-        var slots = (d && d.slots) || [];
-        if (!slots.length) {
-          body.appendChild(el('<div class="sc__msg">No open times on this day. Try another date.</div>'));
-          var pick = el('<button class="sc__btn">Choose another day</button>');
-          pick.onclick = chooseDate; body.appendChild(pick);
-        } else {
+    function loadSlots() {
+      slotsWrap.innerHTML = "";
+      slotsWrap.appendChild(loading("Finding open times…"));
+      var dur = state.service.durationMin || 45;
+      fetch(api("/api/availability/" + state.provider._id + "/slots") + "&date=" + state.date + "&durationMin=" + dur)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          slotsWrap.innerHTML = "";
+          var slots = (d && d.slots) || [];
+          if (!slots.length) {
+            slotsWrap.appendChild(el('<div class="sc__msg">No open times on this day. Try another date.</div>'));
+            return;
+          }
+          var grid = el('<div class="sc__slots"></div>');
           slots.forEach(function (t) {
             var b = el('<button class="sc__slot">' + esc(fmtTime(t)) + "</button>");
             b.onclick = function () { state.time = t; contact(); };
-            holder.appendChild(b);
+            grid.appendChild(b);
           });
-          body.appendChild(holder);
-        }
-        frame("Step 3 of 4 · Time", body, { onBack: chooseDate });
-      })
-      .catch(function () {
-        body.innerHTML = "";
-        body.appendChild(el('<div class="sc__err">Couldn\'t load times. Please try again.</div>'));
-        frame("Step 3 of 4 · Time", body, { onBack: chooseDate });
-      });
+          slotsWrap.appendChild(grid);
+        })
+        .catch(function () {
+          slotsWrap.innerHTML = "";
+          slotsWrap.appendChild(el('<div class="sc__err">Couldn\'t load times. Please try again.</div>'));
+        });
+    }
+    input.onchange = function () { state.date = input.value; loadSlots(); };
+    loadSlots();
   }
 
   function contact() {
@@ -278,7 +272,7 @@
         });
     };
     body.appendChild(form); body.appendChild(btn); body.appendChild(err);
-    frame("Step 4 of 4 · Your details", body, { onBack: chooseTime });
+    frame("Step 4 of 4 · Your details", body, { onBack: chooseWhen });
   }
 
   function done() {
