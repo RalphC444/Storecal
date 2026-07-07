@@ -197,6 +197,15 @@ router.delete("/:id", async (req, res) => {
 
     const result = await db.collection("providers").deleteOne({ _id: new ObjectId(req.params.id), shopId });
     if (result.deletedCount === 0) return res.status(404).json({ error: "Provider not found" });
+
+    // Revoke the removed staff member's login — they can no longer sign in, and
+    // are told they're no longer part of the store. Keep the user record (marked
+    // disabled) so the login can show that message rather than a generic error.
+    await db.collection("users").updateMany(
+      { shopId, providerId: req.params.id, role: "provider" },
+      { $set: { disabled: true, disabledAt: new Date() }, $unset: { inviteToken: "" } }
+    );
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

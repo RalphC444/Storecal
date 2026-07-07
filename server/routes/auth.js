@@ -68,6 +68,10 @@ router.post("/login", async (req, res) => {
     if (!user || !(await comparePassword(password, user.passwordHash))) {
       return res.status(401).json({ error: "Incorrect email or password" });
     }
+    if (user.disabled) {
+      const shop = await db.collection("shops").findOne({ _id: new ObjectId(user.shopId) }).catch(() => null);
+      return res.status(403).json({ error: `You're no longer part of ${shop?.name || "this store"}. Contact the store owner if this is a mistake.` });
+    }
     setAuthCookie(res, signToken(user));
     res.json({ user: publicUser(user) });
   } catch (err) {
@@ -104,6 +108,7 @@ router.get("/me", requireAuth, async (req, res) => {
     const db = await getDb();
     const user = await db.collection("users").findOne({ _id: new ObjectId(req.auth.uid) });
     if (!user) return res.status(401).json({ error: "Account not found" });
+    if (user.disabled) return res.status(401).json({ error: "Access removed" }); // kicks an open session
     res.json({ user: publicUser(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });

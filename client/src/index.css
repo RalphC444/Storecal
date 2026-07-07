@@ -764,6 +764,12 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 /* Stylist profile */
 .action--danger { color: #c0392b; }
 .action--danger:hover:not(:disabled) { border-color: #c0392b; color: #c0392b; }
+.btn--danger { background: #c0392b; }
+.btn--danger:hover:not(:disabled) { background: #a93226; }
+.danger-note { background: #fdecea; border: 1px solid #f5c6cb; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #7a1c12; line-height: 1.5; }
+.danger-note p { margin: 0 0 6px; }
+.danger-list { margin: 0; padding-left: 18px; }
+.danger-list li { margin: 3px 0; }
 .sp__hero { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
 .sp__hero-main { flex: 1; min-width: 0; }
 .sp__hero-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

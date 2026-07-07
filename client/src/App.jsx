@@ -899,6 +899,7 @@ function ProvidersView({ onChange, teamLabel, addReq }) {
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState(null); // null | {} | {…provider}
   const [invite, setInvite] = useState(null);   // { name, url } after adding w/ email
+  const [confirmRemove, setConfirmRemove] = useState(null); // provider pending removal
   const [err, setErr] = useState("");
 
   // Open the add-stylist modal when the top-nav action fires (ignore mount).
@@ -951,7 +952,7 @@ function ProvidersView({ onChange, teamLabel, addReq }) {
           onBack={() => { setErr(""); setSelectedId(null); }}
           onEdit={() => setEditing(selected)}
           onToggleActive={() => toggleActive(selected)}
-          onDelete={() => remove(selected)}
+          onDelete={() => setConfirmRemove(selected)}
           onSaved={() => { load(); onChange?.(); }}
         />
       ) : (
@@ -978,6 +979,13 @@ function ProvidersView({ onChange, teamLabel, addReq }) {
 
       {editing && <ProviderForm provider={editing} onClose={() => setEditing(null)} onSave={save} />}
       {invite && <InviteModal invite={invite} onClose={() => setInvite(null)} />}
+      {confirmRemove && (
+        <RemoveStaffModal
+          provider={confirmRemove}
+          onCancel={() => setConfirmRemove(null)}
+          onConfirm={async () => { await remove(confirmRemove); setConfirmRemove(null); }}
+        />
+      )}
     </>
   );
 }
@@ -1005,6 +1013,45 @@ function InviteModal({ invite, onClose }) {
           </div>
           <div className="form__actions">
             <button className="btn" onClick={onClose}>Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Heavy confirmation for removing a staff member — a destructive, hard-to-undo
+// action, so it requires typing the person's name to enable the button.
+function RemoveStaffModal({ provider, onCancel, onConfirm }) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const match = typed.trim().toLowerCase() === (provider.name || "").trim().toLowerCase();
+  async function confirm() { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }
+  return (
+    <div className="modal" onMouseDown={onCancel}>
+      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
+        <div className="modal__head">
+          <h2 className="modal__title">Remove {provider.name} from the team?</h2>
+          <button className="modal__x" onClick={onCancel} aria-label="Close">✕</button>
+        </div>
+        <div className="form">
+          <div className="danger-note">
+            <p><b>This can’t be undone.</b> Removing {provider.name} will:</p>
+            <ul className="danger-list">
+              <li>Immediately <b>block their sign-in</b> — they’ll be told they’re no longer part of the store.</li>
+              <li>Remove them from your team, calendar filters, and the booking widget.</li>
+              <li>Keep past appointments for your records.</li>
+            </ul>
+          </div>
+          <label className="field">
+            <span className="field__label">Type <b>{provider.name}</b> to confirm</span>
+            <input type="text" value={typed} onChange={e => setTyped(e.target.value)} placeholder={provider.name} autoFocus />
+          </label>
+          <div className="form__actions">
+            <button type="button" className="action" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn btn--danger" disabled={!match || busy} onClick={confirm}>
+              {busy ? "Removing…" : "Remove from team"}
+            </button>
           </div>
         </div>
       </div>
