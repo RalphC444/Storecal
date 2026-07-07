@@ -281,7 +281,6 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   display: flex;
   flex-direction: column;
   gap: 32px;
-  max-width: 560px;
 }
 
 .sched__head {
