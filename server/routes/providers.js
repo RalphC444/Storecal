@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const { getDb } = require("../db");
 const { ObjectId } = require("mongodb");
-const { hashPassword, generateTempPassword, signInvite } = require("../auth");
+const { hashPassword, generateTempPassword, signInvite, requireAuth, requireOwner } = require("../auth");
 const { sendInvite } = require("../mailer");
 const { resolveShopId } = require("../shopScope");
 
@@ -12,6 +12,45 @@ function inviteUrl(req, token) {
   const origin = req.headers.origin || "http://localhost:5173";
   return `${origin}/invite?token=${token}`;
 }
+
+// GET /api/providers/self — the owner's own bookable provider record (or null).
+// Defined before /:id-style routes so "self" isn't treated as an id.
+router.get("/self", requireAuth, requireOwner, async (req, res) => {
+  try {
+    const db = await getDb();
+    const p = await db.collection("providers").findOne({ shopId: req.auth.shopId, ownerUserId: req.auth.uid });
+    res.json({ listed: !!p && p.active !== false, providerId: p ? p._id.toString() : null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/providers/self { listed } — owner lists/unlists themselves as
+// bookable staff. Creates their provider record on first list; toggling just
+// flips active so their profile/hours are preserved when they re-list.
+router.post("/self", requireAuth, requireOwner, async (req, res) => {
+  try {
+    const listed = !!req.body.listed;
+    const db = await getDb();
+    const shopId = req.auth.shopId;
+    let p = await db.collection("providers").findOne({ shopId, ownerUserId: req.auth.uid });
+
+    if (listed && !p) {
+      const owner = await db.collection("users").findOne({ _id: new ObjectId(req.auth.uid) });
+      const svcIds = (await db.collection("services").find({ shopId }).toArray()).map((s) => s._id.toString());
+      const r = await db.collection("providers").insertOne({
+        shopId, name: owner?.name || "Owner", email: owner?.email || "", bio: "", photo: "",
+        active: true, ownerUserId: req.auth.uid, serviceIds: svcIds, sortOrder: 0, createdAt: new Date(),
+      });
+      p = { _id: r.insertedId };
+    } else if (p) {
+      await db.collection("providers").updateOne({ _id: p._id }, { $set: { active: listed } });
+    }
+    res.json({ listed, providerId: p ? p._id.toString() : null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/providers            → active providers (booking + calendar use this)
 // GET /api/providers?all=1      → every provider, incl. inactive (admin manage)
@@ -44,6 +83,7 @@ router.get("/", async (req, res) => {
         email: p.email || "",
         phone: p.phone || "",
         photo: p.photo || "",
+        ownerUserId: p.ownerUserId || null,
         active: p.active !== false,
         sortOrder: p.sortOrder ?? 0,
         serviceIds: p.serviceIds || [],

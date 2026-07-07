@@ -457,7 +457,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
         ) : view === "myprofile" ? (
           <ProviderSelfView provider={myProvider} onChange={loadProviders} onEditHours={() => setProvHoursOpen(true)} />
         ) : view === "providers" ? (
-          <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} />
+          <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} />
         ) : view === "services" ? (
           <ServicesView providers={providers} teamLabel={teamLabel} onProvidersChange={loadProviders} addReq={addReq} />
         ) : view === "settings" ? (
@@ -924,12 +924,13 @@ function ScheduleView({ providers, initialProviderId }) {
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
-function ProvidersView({ onChange, teamLabel, addReq }) {
+function ProvidersView({ onChange, teamLabel, addReq, user }) {
   const [list, setList] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState(null); // null | {} | {…provider}
   const [invite, setInvite] = useState(null);   // { name, url } after adding w/ email
   const [confirmRemove, setConfirmRemove] = useState(null); // provider pending removal
+  const [selfHoursOpen, setSelfHoursOpen] = useState(false); // owner editing own hours
   const [err, setErr] = useState("");
 
   // Open the add-stylist modal when the top-nav action fires (ignore mount).
@@ -972,10 +973,19 @@ function ProvidersView({ onChange, teamLabel, addReq }) {
 
   const selected = list?.find(p => p._id === selectedId);
   const label = teamLabel || "Staff";
+  const isOwnCard = selected && user && selected.ownerUserId === user._id;
 
   return (
     <>
-      {selected ? (
+      {selected && isOwnCard ? (
+        <ProviderSelfView
+          provider={selected}
+          onChange={() => { load(); onChange?.(); }}
+          onEditHours={() => setSelfHoursOpen(true)}
+          onBack={() => setSelectedId(null)}
+          backLabel={`← All ${label.toLowerCase()}`}
+        />
+      ) : selected ? (
         <StylistProfile
           provider={selected}
           err={err}
@@ -1015,6 +1025,9 @@ function ProvidersView({ onChange, teamLabel, addReq }) {
           onCancel={() => setConfirmRemove(null)}
           onConfirm={async () => { await remove(confirmRemove); setConfirmRemove(null); }}
         />
+      )}
+      {selfHoursOpen && selected && (
+        <ProviderHoursModal provider={selected} onClose={() => setSelfHoursOpen(false)} />
       )}
     </>
   );
@@ -1252,8 +1265,9 @@ function StylistProfile({ provider: p, err, onBack, onDelete }) {
 // A provider's own profile — edit bio, choose which services they offer, and
 // manage their hours. This is the provider-role counterpart to the owner's
 // read-only StylistProfile.
-function ProviderSelfView({ provider, onChange, onEditHours }) {
+function ProviderSelfView({ provider, onChange, onEditHours, onBack, backLabel }) {
   const [services, setServices] = useState([]);
+  const [name, setName] = useState(provider?.name || "");
   const [bio, setBio] = useState(provider?.bio || "");
   const [phone, setPhone] = useState(provider?.phone || "");
   const [photo, setPhoto] = useState(provider?.photo || "");
@@ -1264,7 +1278,7 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
 
   useEffect(() => { fetch("/api/services").then(r => r.json()).then(d => Array.isArray(d) && setServices(d)); }, []);
   useEffect(() => {
-    if (provider) { setBio(provider.bio || ""); setPhone(provider.phone || ""); setPhoto(provider.photo || ""); setIds(provider.serviceIds || []); }
+    if (provider) { setName(provider.name || ""); setBio(provider.bio || ""); setPhone(provider.phone || ""); setPhoto(provider.photo || ""); setIds(provider.serviceIds || []); }
   }, [provider?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function pickPhoto(e) {
@@ -1280,10 +1294,12 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
   const toggle = (sid) => { setSaved(false); setIds(prev => prev.includes(sid) ? prev.filter(x => x !== sid) : [...prev, sid]); };
 
   async function save() {
-    setSaving(true); setErr(""); setSaved(false);
+    setErr(""); setSaved(false);
+    if (!name.trim()) { setErr("Please enter your display name."); return; }
+    setSaving(true);
     const res = await fetch(`/api/providers/${provider._id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bio, phone, photo, serviceIds: ids }),
+      body: JSON.stringify({ name, bio, phone, photo, serviceIds: ids }),
     });
     setSaving(false);
     if (!res.ok) { const { error } = await res.json().catch(() => ({})); setErr(error || "Could not save"); return; }
@@ -1292,6 +1308,11 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
 
   return (
     <div className="pageview">
+      {onBack && (
+        <div className="pv__head pv__head--bar">
+          <button className="backlink" onClick={onBack}>{backLabel || "← Back"}</button>
+        </div>
+      )}
       <div className="pv__head">
         <h1 className="pv__title">My profile</h1>
         <button className="btn btn--new" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
@@ -1316,8 +1337,11 @@ function ProviderSelfView({ provider, onChange, onEditHours }) {
         </div>
 
         <section className="sp__block">
-          <h3 className="sched__label">Contact</h3>
-          <p className="sp__hint">How your manager can reach you. Your email is your login.</p>
+          <h3 className="sched__label">Details</h3>
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span className="field__label">Display name <span className="field__hint">— how clients see you when booking</span></span>
+            <input type="text" value={name} onChange={e => { setSaved(false); setName(e.target.value); }} placeholder="e.g. Maria L." />
+          </label>
           <div className="set__grid">
             <label className="field">
               <span className="field__label">Email</span>
@@ -2529,6 +2553,7 @@ function SettingsView({ user, onUserChange, onSignOut }) {
           <ChangePasswordInline />
         </section>
 
+        {user.role === "owner" && <BookableSelfSection />}
         {user.role === "owner" && <BookingLinksSection />}
         {user.role === "owner" && <BillingSection />}
 
@@ -2625,6 +2650,36 @@ function BookingLinksSection() {
             </div>
           </>
         )}
+    </section>
+  );
+}
+
+// Owner opt-in to being a bookable provider themselves (toggleable).
+function BookableSelfSection() {
+  const [listed, setListed] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { fetch("/api/providers/self").then(r => r.json()).then(d => setListed(!!d.listed)).catch(() => setListed(false)); }, []);
+
+  async function toggle() {
+    const next = !listed;
+    setBusy(true);
+    const res = await fetch("/api/providers/self", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ listed: next }),
+    });
+    setBusy(false);
+    if (res.ok) setListed(next);
+  }
+
+  return (
+    <section className="sp__block">
+      <h3 className="sched__label">My booking profile</h3>
+      <p className="sp__hint">Take appointments yourself? List your own profile so clients can book with you.</p>
+      <label className="switch switch--field">
+        <input type="checkbox" checked={!!listed} onChange={toggle} disabled={listed === null || busy} />
+        <span>Show me as bookable staff</span>
+      </label>
+      {listed && <p className="sp__hint">You now appear in the <b>Staff</b> tab — open your card there to add a photo, choose your services, and set your hours (needed before clients can book you).</p>}
     </section>
   );
 }
