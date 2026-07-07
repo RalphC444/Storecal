@@ -41,7 +41,7 @@
   style.textContent = [
     ":host,*{box-sizing:border-box}",
     ".sc{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;",
-    "width:100%;max-width:800px;margin:0 auto;border:1px solid #e6e8ec;border-radius:16px;overflow:hidden;",
+    "width:100%;max-width:800px;margin:0 auto;border:1px solid #e6e8ec;border-radius:16px;overflow:hidden;text-align:left;",
     "background:#fff;color:#111;box-shadow:0 24px 60px rgba(16,18,28,.28);display:flex;flex-direction:column;max-height:92vh}",
     /* trigger button (what the CTA looks like inline on the site) */
     ".sc-trigger{background:" + ACCENT + ";color:#fff;border:0;border-radius:10px;padding:13px 26px;",
