@@ -1439,6 +1439,22 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .planc__blurb { font-size: 12.5px; color: var(--ink-2); }
 .sp__block code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
 
+/* Booking links (Settings) */
+.bl { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.bl__title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.bl__sub { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; margin: 0 0 12px; }
+.bl__code {
+  width: 100%; resize: none; font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+  color: var(--ink); background: var(--wash); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 10px; line-height: 1.5;
+}
+.bl__row { display: flex; gap: 8px; margin-bottom: 10px; }
+.bl__link {
+  flex: 1; min-width: 0; font-size: 13px; color: var(--ink); background: var(--wash);
+  border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 12px;
+}
+.bl__row .btn { flex: none; }
+
 /* Simplified weekly day row (open/close, single range) */
 .sday__times { display: flex; align-items: center; gap: 8px; flex: 1; }
 .sday__times select {

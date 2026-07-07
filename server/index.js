@@ -35,7 +35,7 @@ app.use(attachAuth);
 
 // Public assets served at the root — notably /embed.js, the booking widget that
 // customer sites load with <script src="…/embed.js" data-store="KEY">.
-app.use(express.static(path.resolve(__dirname, "public")));
+app.use(express.static(path.resolve(__dirname, "public"), { extensions: ["html"] }));
 
 app.use("/api/auth", authRouter);
 app.use("/api/providers", providersRouter);

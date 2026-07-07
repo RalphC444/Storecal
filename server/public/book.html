@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book an appointment</title>
+  <style>
+    :root { --accent: #2563eb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(160deg, #eef2fb 0%, #f6f7f9 100%); color: #111;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; }
+    .bio { text-align: center; max-width: 520px; width: 100%; }
+    .bio__name { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
+    .bio__sub { font-size: 15px; color: #5a6069; margin: 0 0 26px; }
+    .storecal-widget { display: flex; justify-content: center; }
+    .bio__foot { margin-top: 28px; font-size: 12px; color: #aab0b8; }
+    .bio__err { font-size: 14px; color: #c0392b; }
+  </style>
+</head>
+<body>
+  <div class="bio">
+    <h1 class="bio__name" id="name">Book an appointment</h1>
+    <p class="bio__sub" id="sub">Choose a time that works for you.</p>
+    <div id="mount"></div>
+    <p class="bio__foot">Powered by StoreCal</p>
+  </div>
+  <script>
+    (function () {
+      var key = new URLSearchParams(location.search).get("key");
+      var mount = document.getElementById("mount");
+      if (!key) { mount.innerHTML = '<p class="bio__err">This booking link is missing its store key.</p>'; return; }
+
+      // Show the shop's name once we can load its public config.
+      fetch("/api/shop-config?key=" + encodeURIComponent(key))
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d && d.shop && d.shop.name) document.getElementById("name").textContent = d.shop.name; })
+        .catch(function () {});
+
+      // Load the booking widget and auto-open it.
+      var s = document.createElement("script");
+      s.src = "/embed.js";
+      s.setAttribute("data-store", key);
+      s.setAttribute("data-auto", "open");
+      s.setAttribute("data-button-text", "Book an appointment");
+      mount.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

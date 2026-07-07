@@ -153,6 +153,8 @@
   trigger.onclick = openModal;
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+  // Link-in-bio pages set data-auto to open the booking modal immediately.
+  if (script.getAttribute("data-auto")) setTimeout(openModal, 0);
 
   // ── State ──────────────────────────────────────────────────────────────────
   var cfg = null;                 // shop-config payload

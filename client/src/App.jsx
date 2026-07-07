@@ -2380,6 +2380,7 @@ function SettingsView({ user, onUserChange, onSignOut }) {
           <ChangePasswordInline />
         </section>
 
+        {user.role === "owner" && <BookingLinksSection />}
         {user.role === "owner" && <BillingSection />}
 
         <section className="sp__block">
@@ -2421,6 +2422,61 @@ function ChangePasswordInline() {
         {err && <span className="form__error" style={{ margin: 0 }}>{err}</span>}
       </div>
     </form>
+  );
+}
+
+// Owner: the two ways to put booking online — embed on their website, or a
+// shareable "link in bio" that opens a hosted booking page.
+function BookingLinksSection() {
+  const [publicKey, setPublicKey] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [copied, setCopied] = useState("");
+
+  useEffect(() => {
+    fetch("/api/shop-config")
+      .then(r => r.json())
+      .then(d => setPublicKey(d?.shop?.publicKey || null))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const origin = window.location.origin;
+  const snippet = publicKey ? `<script src="${origin}/embed.js" data-store="${publicKey}"></script>` : "";
+  const bioUrl = publicKey ? `${origin}/book?key=${publicKey}` : "";
+
+  function copy(text, which) {
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(which); setTimeout(() => setCopied(""), 1500);
+  }
+
+  return (
+    <section className="sp__block">
+      <h3 className="sched__label">Booking links</h3>
+      <p className="sp__hint">Let clients book you online — add the widget to your website, or share a link anywhere.</p>
+
+      {!loaded ? <Loader />
+        : !publicKey ? <p className="sp__hint">No booking key yet for this store.</p>
+        : (
+          <>
+            <div className="bl">
+              <div className="bl__title">On your website</div>
+              <p className="bl__sub">Paste this where you want the booking button. It adds a “Book Appointment” button that opens the scheduler in a pop-up.</p>
+              <textarea className="bl__code" readOnly rows={2} value={snippet} onFocus={e => e.target.select()} />
+              <button className="btn" onClick={() => copy(snippet, "web")}>{copied === "web" ? "Copied!" : "Copy code"}</button>
+            </div>
+
+            <div className="bl">
+              <div className="bl__title">Link in bio</div>
+              <p className="bl__sub">Share this anywhere — Instagram, Google, a text message. It opens your booking page directly (no website needed).</p>
+              <div className="bl__row">
+                <input className="bl__link" readOnly value={bioUrl} onFocus={e => e.target.select()} />
+                <a className="btn" href={bioUrl} target="_blank" rel="noreferrer">Open</a>
+              </div>
+              <button className="btn" onClick={() => copy(bioUrl, "bio")}>{copied === "bio" ? "Copied!" : "Copy link"}</button>
+            </div>
+          </>
+        )}
+    </section>
   );
 }
 
