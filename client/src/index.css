@@ -1738,4 +1738,7 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   .mk__links { gap: 14px; }
   .mk__links .mk__link { display: none; }   /* keep only Sign in on small screens */
   .mk__links .mk__signin { display: inline-flex; }
+  /* Footer: stack + wrap so links don't run off-screen */
+  .mk__foot { flex-direction: column; gap: 16px; text-align: center; padding: 24px 20px 40px; }
+  .mk__foot-links { flex-wrap: wrap; justify-content: center; gap: 10px 18px; }
 }
