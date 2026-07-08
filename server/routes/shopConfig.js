@@ -33,19 +33,20 @@ router.get("/", async (req, res) => {
 
     // Whether online booking is turned on for this shop. Gates the widget CTAs:
     // when false, the site shows a "call us" option instead of the booking app.
-    // Order matters — we only want to gate accounts that are genuinely unpaid,
-    // never break existing/demo shops:
+    // Order matters — booking stays on through demo/pre-delivery, and only the
+    // explicit Off or a delivered-but-unpaid account is gated:
     //  1. explicit shop.bookingActive (true/false) always wins,
     //  2. an active subscription (synced onto shop.subscribed) → on,
     //  3. no billing configured (dev / self-host) → on,
-    //  4. otherwise gate only accounts still flagged to subscribe (promptBilling,
-    //     set on new accounts) — grandfathered/demo shops without it stay on.
+    //  4. demo mode (default until the operator marks it delivered) → on,
+    //  5. otherwise (delivered + unpaid) → off ("call us").
     const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
     let bookingActive;
     if (typeof shop.bookingActive === "boolean") bookingActive = shop.bookingActive;
     else if (shop.subscribed === true) bookingActive = true;
     else if (!stripeConfigured) bookingActive = true;
-    else bookingActive = shop.promptBilling !== true;
+    else if (shop.demo !== false) bookingActive = true;
+    else bookingActive = false;
 
     res.json({
       bookingActive,
