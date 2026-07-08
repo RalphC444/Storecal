@@ -6,7 +6,7 @@ import emailjs from "@emailjs/browser";
 // from_name, from_email, phone, business, business_type, plan, message.
 // Until configured, the apply form falls back to opening the visitor's email
 // client with the details prefilled.
-const EMAILJS = { serviceId: "", templateId: "", publicKey: "" };
+const EMAILJS = { serviceId: "service_yyoxg3s", templateId: "template_nnjeipk", publicKey: "bwsFY86eNZ5xIqx8M" };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -3585,8 +3585,6 @@ function Landing({ onSignIn, onDemo, onLegal }) {
           <button className="linklike mk__link" onClick={() => onLegal("terms")}>Terms</button>
           <button className="linklike mk__link" onClick={() => onLegal("privacy")}>Privacy</button>
           <button className="linklike mk__link" onClick={() => onLegal("refunds")}>Refunds &amp; Cancellations</button>
-          <a className="mk__link" href={`mailto:${SUPPORT_EMAIL}`}>Contact</a>
-          <button className="linklike mk__link" onClick={onSignIn}>Sign in</button>
         </span>
       </footer>
 
@@ -3615,18 +3613,22 @@ function ApplyModal({ plan, onClose }) {
       business: form.business.trim(), business_type: form.businessType, plan: form.plan,
       message: form.message.trim(),
     };
+    // Safety net so a lead is never lost if EmailJS is unconfigured or blocked.
+    const mailtoFallback = () => {
+      const body = `Name: ${params.from_name}\nEmail: ${params.from_email}\nPhone: ${params.phone}\n` +
+        `Business: ${params.business} (${params.business_type})\nPlan: ${params.plan}\n\n${params.message}`;
+      window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Website application — " + params.business)}&body=${encodeURIComponent(body)}`;
+    };
     try {
       if (EMAILJS.serviceId && EMAILJS.templateId && EMAILJS.publicKey) {
         await emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, params, { publicKey: EMAILJS.publicKey });
       } else {
-        // Fallback until EmailJS keys are set: open the visitor's email client.
-        const body = `Name: ${params.from_name}\nEmail: ${params.from_email}\nPhone: ${params.phone}\n` +
-          `Business: ${params.business} (${params.business_type})\nPlan: ${params.plan}\n\n${params.message}`;
-        window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Website application — " + params.business)}&body=${encodeURIComponent(body)}`;
+        mailtoFallback();
       }
       setSent(true);
     } catch (e2) {
-      setErr("Couldn’t send just now — please email " + SUPPORT_EMAIL + " directly.");
+      mailtoFallback(); // EmailJS failed (e.g. origin not allow-listed) — open email client
+      setSent(true);
     } finally { setBusy(false); }
   }
 
