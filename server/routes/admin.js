@@ -3,12 +3,73 @@
 const { Router } = require("express");
 const { getDb } = require("../db");
 const { ObjectId } = require("mongodb");
-const { requireAuth, requireSuperAdmin } = require("../auth");
+const { requireAuth, requireSuperAdmin, hashPassword, generateTempPassword, signInvite } = require("../auth");
+const { generatePublicKey } = require("../shopScope");
 
 const router = Router();
 const PLAN_IDS = ["booking", "website"];
 
+// Booking-form presets per vertical (kept in sync with set-business-type.js).
+const BOOKING_PRESETS = {
+  salon: { vehicle: false, pet: false, providerPicker: true, providerLabel: "Choose your stylist", serviceLabel: "Select a service", notesLabel: "Anything we should know? (optional)", notesPlaceholder: "Allergies, preferences, inspiration photos, or anything else…" },
+  grooming: { vehicle: false, pet: true, providerPicker: true, providerLabel: "Choose your groomer", serviceLabel: "Select a service", notesLabel: "Anything we should know? (optional)", notesPlaceholder: "Temperament, matting, sensitivities, or special requests…" },
+  auto: { vehicle: true, pet: false, providerPicker: false, providerLabel: "", serviceLabel: "Select a service", notesLabel: "Describe the issue (optional)", notesPlaceholder: "What symptoms, noises, or concerns should we know about?" },
+  generic: { vehicle: false, pet: false, providerPicker: false, providerLabel: "", serviceLabel: "Select a service", notesLabel: "Notes (optional)", notesPlaceholder: "Anything we should know before your appointment?" },
+};
+
 router.use(requireAuth, requireSuperAdmin);
+
+// POST /api/admin/shops — create a new client (shop + owner login).
+// Body: { businessName, email, businessType?, planId? }. Returns the store key
+// and a one-time invite link the owner uses to set their password.
+router.post("/shops", async (req, res) => {
+  try {
+    const { businessName, email } = req.body;
+    if (!businessName || !businessName.trim()) return res.status(400).json({ error: "Business name is required" });
+    if (!email || !email.trim()) return res.status(400).json({ error: "Owner email is required" });
+    const businessType = BOOKING_PRESETS[req.body.businessType] ? req.body.businessType : "salon";
+    const planId = PLAN_IDS.includes(req.body.planId) ? req.body.planId : "booking";
+
+    const db = await getDb();
+    const em = email.trim().toLowerCase();
+    if (await db.collection("users").findOne({ email: em })) {
+      return res.status(409).json({ error: "An account with that email already exists" });
+    }
+
+    let slug = (businessName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")) || "shop";
+    if (await db.collection("shops").findOne({ slug })) slug += "-" + Math.random().toString(36).slice(2, 6);
+
+    const shopRes = await db.collection("shops").insertOne({
+      slug, name: businessName.trim(), businessType, booking: BOOKING_PRESETS[businessType],
+      publicKey: generatePublicKey(), planId, promptBilling: true, createdAt: new Date(),
+    });
+    const shopId = shopRes.insertedId.toString();
+    const shop = await db.collection("shops").findOne({ _id: shopRes.insertedId });
+
+    // Owner login: created with an unusable placeholder + one-time invite link.
+    const placeholder = generateTempPassword() + generateTempPassword();
+    const userRes = await db.collection("users").insertOne({
+      email: em, passwordHash: await hashPassword(placeholder), name: businessName.trim(),
+      role: "owner", shopId, mustChangePassword: true, createdAt: new Date(),
+    });
+    const inviteToken = signInvite(userRes.insertedId.toString());
+    await db.collection("users").updateOne({ _id: userRes.insertedId }, { $set: { inviteToken } });
+
+    // Owner is a bookable provider by default (mirrors self-registration).
+    await db.collection("providers").insertOne({
+      shopId, name: businessName.trim(), email: em, bio: "", photo: "",
+      active: true, ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
+    });
+
+    const origin = req.headers.origin || "";
+    res.status(201).json({
+      _id: shopId, publicKey: shop.publicKey, slug,
+      inviteUrl: origin ? `${origin}/invite?token=${inviteToken}` : null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/admin/shops — every client with plan + booking status + counts.
 router.get("/shops", async (_req, res) => {

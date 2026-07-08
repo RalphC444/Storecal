@@ -3008,6 +3008,9 @@ function AdminConsole({ user, onSignOut }) {
   const [shops, setShops] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [err, setErr] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [embedFor, setEmbedFor] = useState(null); // shop id whose embed snippet is shown
+  const [copied, setCopied] = useState("");
 
   const load = useCallback(() => {
     fetch("/api/admin/shops").then(r => r.json())
@@ -3027,6 +3030,14 @@ function AdminConsole({ user, onSignOut }) {
     else { setErr("Could not save — refreshing"); load(); }
   }
 
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const embedCode = (key) =>
+    `<!-- StoreCal booking widget -->\n<script src="${origin}/embed.js" data-store="${key}"></script>\n` +
+    `<!-- Optional: live services & staff on the site -->\n<script src="${origin}/storecal-data.js" data-store="${key}"></script>`;
+  function copy(text, id) {
+    navigator.clipboard?.writeText(text).then(() => { setCopied(id); setTimeout(() => setCopied(""), 1500); toast("Copied"); }).catch(() => {});
+  }
+
   return (
     <div className="viewport">
       <ToastHost />
@@ -3036,8 +3047,13 @@ function AdminConsole({ user, onSignOut }) {
           <span className="acon__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
         </header>
         <div className="acon__body">
-          <h1 className="acon__title">Clients</h1>
-          <p className="acon__sub">Manage each client’s plan and booking access. Changes save automatically.</p>
+          <div className="acon__titlerow">
+            <div>
+              <h1 className="acon__title">Clients</h1>
+              <p className="acon__sub">Manage each client’s plan and booking access. Changes save automatically.</p>
+            </div>
+            <button className="btn" onClick={() => setAdding(true)}>+ Add client</button>
+          </div>
           {err && <p className="form__error">{err}</p>}
           {!shops ? <Loader />
             : shops.length === 0 ? <p className="empty">No clients yet.</p>
@@ -3074,12 +3090,102 @@ function AdminConsole({ user, onSignOut }) {
                         </select>
                       </label>
                     </div>
-                    <div className="acon__key">{s.publicKey}</div>
+                    <div className="acon__cardfoot">
+                      <span className="acon__key">{s.publicKey}</span>
+                      <button className="linklike" onClick={() => setEmbedFor(embedFor === s._id ? null : s._id)}>
+                        {embedFor === s._id ? "Hide embed code" : "Embed code"}
+                      </button>
+                    </div>
+                    {embedFor === s._id && (
+                      <div className="acon__embed">
+                        <pre className="acon__code">{embedCode(s.publicKey)}</pre>
+                        <button className="btn" onClick={() => copy(embedCode(s.publicKey), s._id)}>{copied === s._id ? "Copied!" : "Copy code"}</button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
         </div>
+      </div>
+      {adding && <AddClientModal origin={origin} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
+    </div>
+  );
+}
+
+// Create a new client from the admin console: shop + owner login + invite link.
+function AddClientModal({ origin, onClose, onDone }) {
+  const [form, setForm] = useState({ businessName: "", email: "", businessType: "salon", planId: "booking" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState(null); // { publicKey, inviteUrl }
+  const [copied, setCopied] = useState("");
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const embedCode = (key) => `<script src="${origin}/embed.js" data-store="${key}"></script>`;
+  function copy(text, id) { navigator.clipboard?.writeText(text || "").then(() => { setCopied(id); setTimeout(() => setCopied(""), 1500); }).catch(() => {}); }
+
+  async function submit(e) {
+    e.preventDefault(); setErr("");
+    if (!form.businessName.trim()) { setErr("Business name is required"); return; }
+    if (!form.email.trim()) { setErr("Owner email is required"); return; }
+    setBusy(true);
+    const res = await fetch("/api/admin/shops", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+    });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setErr(d.error || "Could not create client"); return; }
+    setResult(d); toast("Client created");
+  }
+
+  return (
+    <div className="modal" onMouseDown={onClose}>
+      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
+        <div className="modal__head">
+          <h2 className="modal__title">{result ? "Client created" : "Add client"}</h2>
+          <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        {result ? (
+          <div className="form">
+            <p className="sp__hint">Send the owner this one-time link to set their password and sign in:</p>
+            <div className="invite__row">
+              <input className="invite__link" readOnly value={result.inviteUrl || ""} onFocus={e => e.target.select()} />
+              <button className="btn" onClick={() => copy(result.inviteUrl, "inv")}>{copied === "inv" ? "Copied!" : "Copy"}</button>
+            </div>
+            <p className="sp__hint" style={{ marginTop: 16 }}>Embed code for their website:</p>
+            <div className="invite__row">
+              <input className="invite__link" readOnly value={embedCode(result.publicKey)} onFocus={e => e.target.select()} />
+              <button className="btn" onClick={() => copy(embedCode(result.publicKey), "emb")}>{copied === "emb" ? "Copied!" : "Copy"}</button>
+            </div>
+            <div className="form__actions"><button className="btn" onClick={onDone}>Done</button></div>
+          </div>
+        ) : (
+          <form className="form" onSubmit={submit}>
+            <label className="field"><span className="field__label">Business name</span>
+              <input type="text" value={form.businessName} onChange={e => set("businessName", e.target.value)} placeholder="e.g. Bloom Nail Studio" required /></label>
+            <label className="field"><span className="field__label">Owner email</span>
+              <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="owner@email.com" required /></label>
+            <div className="form__row form__row--2">
+              <label className="field"><span className="field__label">Business type</span>
+                <select value={form.businessType} onChange={e => set("businessType", e.target.value)}>
+                  <option value="salon">Salon / Barber / Nails</option>
+                  <option value="grooming">Pet grooming</option>
+                  <option value="auto">Auto</option>
+                  <option value="generic">Other</option>
+                </select></label>
+              <label className="field"><span className="field__label">Plan</span>
+                <select value={form.planId} onChange={e => set("planId", e.target.value)}>
+                  <option value="booking">Booking access — $35/mo</option>
+                  <option value="website">Website + Booking — $99/mo</option>
+                </select></label>
+            </div>
+            {err && <p className="form__error">{err}</p>}
+            <div className="form__actions">
+              <button type="button" className="action" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn" disabled={busy}>{busy ? "Creating…" : "Create client"}</button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

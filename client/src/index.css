@@ -1680,7 +1680,12 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .acon__ctl { display: flex; flex-direction: column; gap: 5px; }
 .acon__ctl-lbl { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
 .acon__ctl select { padding: 9px 10px; border: 1px solid var(--line-2); border-radius: 9px; font-size: 14px; font-family: inherit; background: var(--paper); }
-.acon__key { margin-top: 12px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink-3); }
+.acon__titlerow { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.acon__cardfoot { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.acon__key { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink-3); }
+.acon__embed { margin-top: 12px; }
+.acon__code { background: #0f1420; color: #e6e8ef; border-radius: 10px; padding: 14px; font-family: ui-monospace, Menlo, monospace;
+  font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; margin: 0 0 10px; overflow-x: auto; }
 @media (max-width: 560px) { .acon__controls { grid-template-columns: 1fr; } }
 
 .authback { display: block; margin-top: 4px; color: var(--ink-3); }
