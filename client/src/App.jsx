@@ -2985,8 +2985,13 @@ function BillingSection() {
         </div>
         {data && (data.subscribed
           ? <button className="btn" onClick={() => go("/api/billing/portal")} disabled={busy}>{busy ? "Opening…" : "Manage payment & plan"}</button>
-          : <button className="btn" onClick={() => go("/api/billing/checkout")} disabled={busy || !data.stripeConfigured}>{busy ? "Opening…" : "Subscribe"}</button>)}
+          : <button className="btn" onClick={() => go("/api/billing/checkout")} disabled={busy || !data.stripeConfigured}>
+              {busy ? "Opening…" : (data.assignedPlan ? `Subscribe — ${data.assignedPlan.name} ${data.assignedPlan.price}` : "Subscribe")}
+            </button>)}
       </div>
+      {data && !data.subscribed && data.assignedPlan && (
+        <p className="sp__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}</p>
+      )}
 
       {err && <p className="form__error">{err}</p>}
       {data && !data.stripeConfigured && (
@@ -3004,11 +3009,18 @@ export default function App() {
   const [fresh, setFresh] = useState(false); // just registered / first-login → run onboarding
 
   const [resetToken, setResetToken] = useState(null);
+  const [legalSection, setLegalSection] = useState(null);
+  const openLegal = (sec) => { setLegalSection(sec); setPhase("legal"); };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
     const reset = params.get("reset");
+    // Direct links to the public policy pages (Stripe reviewers, footer links).
+    const hash = (window.location.hash || "").replace("#", "");
+    if (["terms", "privacy", "refunds"].includes(hash)) {
+      setLegalSection(hash); setPhase("legal"); return;
+    }
     if (reset) {
       window.history.replaceState({}, "", window.location.pathname);
       setResetToken(reset); setPhase("reset"); return;
@@ -3058,7 +3070,10 @@ export default function App() {
   if (phase === "loading") return <div className="authwrap"><Loader /></div>;
 
   if (phase === "landing")
-    return <Landing onSignIn={() => setPhase("login")} onDemo={demoLogin} />;
+    return <Landing onSignIn={() => setPhase("login")} onDemo={demoLogin} onLegal={openLegal} />;
+
+  if (phase === "legal")
+    return <LegalView section={legalSection} onBack={() => setPhase("landing")} />;
 
   if (phase === "login")
     return <LoginScreen onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onForgot={() => setPhase("forgot")} onBack={() => setPhase("landing")} />;
@@ -3096,7 +3111,25 @@ const MK_FEATURES = [
   { icon: "clients", t: "Client list", d: "Every booking builds a client record with visit history and contact details." },
 ];
 
-function Landing({ onSignIn, onDemo }) {
+// Public pricing (mirrors the billing plans in server/routes/billing.js).
+const MK_PLANS = [
+  {
+    name: "Booking access", price: "$35", per: "/month",
+    blurb: "The online booking widget for your existing website.",
+    points: ["Embeddable booking widget", "Staff calendars & schedules", "Store hours & closures", "Client list & visit history"],
+  },
+  {
+    name: "Website + Booking", price: "$99", per: "/month", featured: true,
+    blurb: "A custom website for your business with booking built in.",
+    points: ["Everything in Booking access", "Custom-designed website", "Live services & staff synced from StoreCal", "Hosting & ongoing updates"],
+  },
+];
+
+// Support / business contact shown on the site and policy pages (Stripe requires
+// reachable customer-service contact details).
+const SUPPORT_EMAIL = "capriglioner@gmail.com";
+
+function Landing({ onSignIn, onDemo, onLegal }) {
   return (
     <div className="mk" id="top">
       <header className="mk__nav">
@@ -3107,6 +3140,7 @@ function Landing({ onSignIn, onDemo }) {
           </a>
           <nav className="mk__links">
             <a className="mk__link" href="#features">Features</a>
+            <a className="mk__link" href="#pricing">Pricing</a>
             <a className="mk__link" href="#how">How it works</a>
             <a className="mk__link" href={CONTACT_HREF}>Get a website</a>
             <button className="btn mk__signin" onClick={onSignIn}>Sign in</button>
@@ -3176,6 +3210,26 @@ function Landing({ onSignIn, onDemo }) {
         </div>
       </section>
 
+      <section className="mk__section" id="pricing">
+        <h2 className="mk__h2">Simple monthly pricing</h2>
+        <p className="mk__sub">No contracts — cancel anytime. Billed monthly.</p>
+        <div className="mk__plans">
+          {MK_PLANS.map(p => (
+            <div className={"mk__plan" + (p.featured ? " mk__plan--featured" : "")} key={p.name}>
+              {p.featured && <span className="mk__plan-tag">Most popular</span>}
+              <h3 className="mk__plan-name">{p.name}</h3>
+              <div className="mk__plan-price">{p.price}<span className="mk__plan-per">{p.per}</span></div>
+              <p className="mk__plan-blurb">{p.blurb}</p>
+              <ul className="mk__plan-points">
+                {p.points.map(pt => <li key={pt}>{pt}</li>)}
+              </ul>
+              <button className="btn mk__plan-cta" onClick={onSignIn}>Get started</button>
+            </div>
+          ))}
+        </div>
+        <p className="mk__sub mk__sub--fine">Prices in USD. Subscription renews monthly until cancelled; all payments are final. See our <button className="linklike" onClick={() => onLegal("refunds")}>refund &amp; cancellation policy</button>.</p>
+      </section>
+
       <section className="mk__section" id="contact">
         <div className="mk__contact">
           <h2 className="mk__contact-h">Need a website to go with it?</h2>
@@ -3183,6 +3237,7 @@ function Landing({ onSignIn, onDemo }) {
             I design and build custom websites for local businesses — with StoreCal booking built right in.
           </p>
           <a className="btn mk__contact-btn" href={CONTACT_HREF}>Contact me for a website</a>
+          <p className="mk__contact-sub">Questions? Email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>
         </div>
       </section>
 
@@ -3192,10 +3247,55 @@ function Landing({ onSignIn, onDemo }) {
           <span className="saas__name">StoreCal</span>
         </a>
         <span className="mk__foot-links">
-          <a className="mk__link" href={CONTACT_HREF}>Contact</a>
+          <a className="mk__link" href="#pricing">Pricing</a>
+          <button className="linklike mk__link" onClick={() => onLegal("terms")}>Terms</button>
+          <button className="linklike mk__link" onClick={() => onLegal("privacy")}>Privacy</button>
+          <button className="linklike mk__link" onClick={() => onLegal("refunds")}>Refunds &amp; Cancellations</button>
+          <a className="mk__link" href={`mailto:${SUPPORT_EMAIL}`}>Contact</a>
           <button className="linklike mk__link" onClick={onSignIn}>Sign in</button>
         </span>
       </footer>
+    </div>
+  );
+}
+
+// Public policy pages — required for Stripe account activation (refund/dispute,
+// cancellation) plus standard Terms & Privacy. Reachable without a login.
+function LegalView({ section, onBack }) {
+  useEffect(() => {
+    const el = section && document.getElementById("lgl-" + section);
+    if (el) el.scrollIntoView({ block: "start" });
+  }, [section]);
+  return (
+    <div className="legal">
+      <header className="legal__nav">
+        <button className="linklike legal__back" onClick={onBack}>← Back to StoreCal</button>
+      </header>
+      <div className="legal__body">
+        <h1 className="legal__title">StoreCal — Policies</h1>
+        <p className="legal__meta">StoreCal · Booking &amp; scheduling software for local businesses.<br />
+          Support &amp; billing questions: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>
+
+        <section id="lgl-terms" className="legal__sec">
+          <h2>Terms of Service</h2>
+          <p>StoreCal provides online booking and scheduling software on a monthly subscription. By creating an account or subscribing you agree to these terms. You are responsible for the accuracy of the business information, services, staff, and hours you publish, and for how you use client contact details you collect.</p>
+          <p>Subscriptions are billed monthly in advance through our payment processor, Stripe. Your plan renews automatically each month until you cancel. We may update features or these terms; material changes will be reflected on this page. We may suspend accounts that misuse the service or fail payment.</p>
+        </section>
+
+        <section id="lgl-refunds" className="legal__sec">
+          <h2>Refund &amp; Dispute Policy</h2>
+          <p>StoreCal is a monthly software subscription billed in advance. <b>All payments are final and non-refundable</b>, including for unused time in a billing period. You can cancel at any time to stop future charges (see the Cancellation Policy below) — cancelling prevents your next renewal but does not refund the current period.</p>
+          <p>If you believe you were charged in error, email us at <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> before opening a dispute and we’ll look into it promptly.</p>
+          <h3>Cancellation Policy</h3>
+          <p>You can cancel anytime from <b>Settings → Billing</b> in your StoreCal account, or by emailing <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. Cancellation stops future monthly renewals; your account stays active until the end of the current billing period. There are no cancellation fees and no long-term contracts.</p>
+        </section>
+
+        <section id="lgl-privacy" className="legal__sec">
+          <h2>Privacy Policy</h2>
+          <p>We collect the account information you provide (business details, staff, services, hours) and the booking and client information entered into your account, in order to operate the service. Payment card details are handled directly by Stripe — StoreCal never stores full card numbers.</p>
+          <p>We do not sell personal information. We share data only with the processors needed to run StoreCal (e.g. hosting, database, Stripe for payments, and email delivery for invites and password resets). To request access to or deletion of your data, email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>
+        </section>
+      </div>
     </div>
   );
 }

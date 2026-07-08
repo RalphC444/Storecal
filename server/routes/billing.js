@@ -8,8 +8,8 @@ const router = Router();
 // Plan catalog. `amount` is in cents — Checkout builds the price inline, so no
 // Stripe dashboard products/price IDs are required to start charging.
 const PLANS = [
-  { id: "starter", name: "Starter", amount: 2900, price: "$29/mo", blurb: "1 location, up to 3 staff" },
-  { id: "pro", name: "Pro", amount: 5900, price: "$59/mo", blurb: "Unlimited staff, reminders, analytics" },
+  { id: "booking", name: "Booking access", amount: 3500, price: "$35/mo", blurb: "The online booking widget for your existing website" },
+  { id: "website", name: "Website + Booking", amount: 9900, price: "$99/mo", blurb: "A custom website for your business with booking built in" },
 ];
 
 function stripeClient() {
@@ -60,10 +60,16 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       try { await db.collection("shops").updateOne({ _id: shop._id }, { $set: { subscribed } }); } catch { /* non-fatal */ }
     }
 
+    // The plan the operator assigned this shop (set via set-plan.js); the
+    // Subscribe button charges this. Defaults to the first plan if unset.
+    const assignedPlan = PLANS.find((p) => p.id === shop?.planId) || PLANS[0];
+
     res.json({
       subscribed,
       planId,
       status,
+      assignedPlanId: assignedPlan.id,
+      assignedPlan,
       promptBilling: shop?.promptBilling === true, // only new accounts prompt
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
       mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live") ? "live" : "test",
@@ -80,14 +86,14 @@ router.post("/checkout", requireAuth, requireOwner, async (req, res) => {
   const stripe = stripeClient();
   if (!stripe) return res.status(400).json({ error: "Billing isn't connected yet." });
   try {
-    // Default to the primary plan so the client can open Checkout without a
-    // plan chooser ("just open Stripe").
-    const plan = PLANS.find((p) => p.id === req.body.planId) || PLANS[0];
-    if (!plan) return res.status(400).json({ error: "No plan configured" });
-
     const db = await getDb();
     const shop = await db.collection("shops").findOne({ _id: new ObjectId(req.auth.shopId) });
     if (!shop) return res.status(404).json({ error: "Shop not found" });
+
+    // Use the plan the operator assigned to this shop (shop.planId). An explicit
+    // planId in the request still wins; otherwise fall back to the first plan.
+    const plan = PLANS.find((p) => p.id === (req.body.planId || shop.planId)) || PLANS[0];
+    if (!plan) return res.status(400).json({ error: "No plan configured" });
 
     const customerId = await ensureCustomer(stripe, db, shop);
     const origin = req.headers.origin || "http://localhost:5173";

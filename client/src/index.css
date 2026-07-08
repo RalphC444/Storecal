@@ -1629,6 +1629,36 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }
 .mk__foot-links { display: flex; gap: 20px; align-items: center; }
 
+/* Pricing */
+.mk__sub { text-align: center; color: var(--ink-2); font-size: 15px; margin: -18px 0 26px; }
+.mk__sub--fine { font-size: 13px; color: var(--ink-3); margin: 22px 0 0; }
+.mk__plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 18px; max-width: 760px; margin: 0 auto; }
+.mk__plan { position: relative; border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; background: var(--paper); display: flex; flex-direction: column; }
+.mk__plan--featured { border-color: var(--accent); box-shadow: 0 10px 30px rgba(37,99,235,.12); }
+.mk__plan-tag { position: absolute; top: -11px; left: 24px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.mk__plan-name { font-size: 17px; font-weight: 700; margin: 0 0 8px; }
+.mk__plan-price { font-size: 38px; font-weight: 800; letter-spacing: -0.02em; }
+.mk__plan-per { font-size: 15px; font-weight: 600; color: var(--ink-3); margin-left: 2px; }
+.mk__plan-blurb { font-size: 14px; color: var(--ink-2); line-height: 1.5; margin: 10px 0 16px; }
+.mk__plan-points { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 9px; }
+.mk__plan-points li { font-size: 14px; padding-left: 24px; position: relative; color: var(--ink); }
+.mk__plan-points li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+.mk__plan-cta { margin-top: auto; width: 100%; justify-content: center; }
+.mk__contact-sub { font-size: 13px; color: rgba(255,255,255,.85); margin: 14px 0 0; }
+.mk__contact-sub a { color: #fff; }
+
+/* Public policy pages (Terms / Refund & Cancellation / Privacy) */
+.legal { max-width: 760px; margin: 0 auto; padding: 24px; }
+.legal__nav { padding: 8px 0 16px; }
+.legal__back { color: var(--accent); font-size: 14px; }
+.legal__title { font-size: 30px; font-weight: 800; letter-spacing: -0.01em; margin: 8px 0 6px; }
+.legal__meta { font-size: 14px; color: var(--ink-2); line-height: 1.6; margin: 0 0 28px; }
+.legal__sec { padding: 22px 0; border-top: 1px solid var(--line); }
+.legal__sec h2 { font-size: 22px; font-weight: 700; margin: 0 0 12px; }
+.legal__sec h3 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; }
+.legal__sec p { font-size: 15px; line-height: 1.65; color: var(--ink-2); margin: 0 0 12px; }
+.legal__sec a { color: var(--accent); }
+
 .authback { display: block; margin-top: 4px; color: var(--ink-3); }
 
 @media (max-width: 780px) {
