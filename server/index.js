@@ -49,6 +49,7 @@ app.use("/api/billing", billingRouter);
 app.use("/api/public", require("./routes/public")); // website: services + staff
 app.use("/api/addons", require("./routes/addons"));
 app.use("/api/admin", require("./routes/admin")); // platform operator: manage clients
+app.use("/api/apply", require("./routes/apply")); // marketing: "apply for a website" form
 
 // In production, serve the built React app from the same origin as the API, so
 // the client's relative /api calls and the sameSite auth cookie just work with

@@ -1,12 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import emailjs from "@emailjs/browser";
-
-// EmailJS — fill these from your dashboard (https://dashboard.emailjs.com) to
-// email website applications. Template should reference these variables:
-// from_name, from_email, phone, business, business_type, plan, message.
-// Until configured, the apply form falls back to opening the visitor's email
-// client with the details prefilled.
-const EMAILJS = { serviceId: "service_yyoxg3s", templateId: "template_nnjeipk", publicKey: "bwsFY86eNZ5xIqx8M" };
+// Website applications are sent server-side via POST /api/apply (which relays to
+// EmailJS) — this avoids the browser CORS/preflight block on EmailJS's API.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -3608,27 +3602,19 @@ function ApplyModal({ plan, onClose }) {
       setErr("Please add your name, email, and business name."); return;
     }
     setBusy(true);
-    const params = {
-      from_name: form.name.trim(), from_email: form.email.trim(), phone: form.phone.trim(),
-      business: form.business.trim(), business_type: form.businessType, plan: form.plan,
-      message: form.message.trim(),
-    };
-    // Safety net so a lead is never lost if EmailJS is unconfigured or blocked.
-    const mailtoFallback = () => {
-      const body = `Name: ${params.from_name}\nEmail: ${params.from_email}\nPhone: ${params.phone}\n` +
-        `Business: ${params.business} (${params.business_type})\nPlan: ${params.plan}\n\n${params.message}`;
-      window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Website application — " + params.business)}&body=${encodeURIComponent(body)}`;
-    };
     try {
-      if (EMAILJS.serviceId && EMAILJS.templateId && EMAILJS.publicKey) {
-        await emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, params, { publicKey: EMAILJS.publicKey });
-      } else {
-        mailtoFallback();
-      }
+      const res = await fetch("/api/apply", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
+          business: form.business.trim(), businessType: form.businessType, plan: form.plan,
+          message: form.message.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error();
       setSent(true);
-    } catch (e2) {
-      mailtoFallback(); // EmailJS failed (e.g. origin not allow-listed) — open email client
-      setSent(true);
+    } catch {
+      setErr("Couldn’t send just now — please try again in a moment.");
     } finally { setBusy(false); }
   }
 
