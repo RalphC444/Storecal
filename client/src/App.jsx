@@ -363,6 +363,9 @@ function AdminApp({ user, onSignOut, onUserChange }) {
   }, [hoursId]);
   useEffect(() => { recheckHours(); }, [recheckHours]);
   const myProvider = providers.find(p => p._id === user.providerId);
+  // Re-check the "hours needed" banner and force the calendar to refetch hours
+  // (bumping hoursVersion). Called after any hours save, from any editor.
+  const refreshHours = useCallback(() => { recheckHours(); setHoursVersion(v => v + 1); }, [recheckHours]);
   function openHours() {
     if (user.role === "owner") setStoreHoursOpen(true);
     else if (myProvider) setProvHoursOpen(true);
@@ -510,7 +513,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
         ) : view === "myprofile" ? (
           <ProviderSelfView provider={myProvider} onChange={loadProviders} onEditHours={() => setProvHoursOpen(true)} />
         ) : view === "providers" ? (
-          <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} />
+          <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} onHoursSaved={refreshHours} />
         ) : view === "services" ? (
           <ServicesView providers={providers} teamLabel={teamLabel} onProvidersChange={loadProviders} addReq={addReq} />
         ) : view === "settings" ? (
@@ -539,9 +542,9 @@ function AdminApp({ user, onSignOut, onUserChange }) {
         />
       )}
 
-      {storeHoursOpen && <StoreHoursModal onClose={() => { setStoreHoursOpen(false); recheckHours(); setHoursVersion(v => v + 1); }} />}
+      {storeHoursOpen && <StoreHoursModal onSaved={refreshHours} onClose={() => { setStoreHoursOpen(false); refreshHours(); }} />}
       {provHoursOpen && myProvider && (
-        <ProviderHoursModal provider={myProvider} onClose={() => { setProvHoursOpen(false); recheckHours(); setHoursVersion(v => v + 1); }} />
+        <ProviderHoursModal provider={myProvider} onSaved={refreshHours} onClose={() => { setProvHoursOpen(false); refreshHours(); }} />
       )}
       </div>
     </div>
@@ -843,7 +846,7 @@ function ScheduleModal({ providers, initialProviderId, onClose }) {
 // Store-level hours & closures. Reuses the SAME schedule editor as providers,
 // bound to a "shop" entity — so weekly hours, single-day "close early", and
 // time off all work identically to a stylist's schedule.
-function StoreHoursModal({ onClose }) {
+function StoreHoursModal({ onClose, onSaved }) {
   return (
     <div className="modal" onMouseDown={onClose}>
       <div className="modal__panel modal__panel--wide" onMouseDown={e => e.stopPropagation()}>
@@ -856,7 +859,7 @@ function StoreHoursModal({ onClose }) {
           <span>These are the hours shown on your booking site — clients can only book within them. Set your weekly hours below, or add one-off closures &amp; time off.</span>
         </div>
         <div className="modal__scroll modal__scroll--docked">
-          <ScheduleEditor provider={{ _id: "shop", name: "Store" }} mode="store" docked />
+          <ScheduleEditor provider={{ _id: "shop", name: "Store" }} mode="store" docked onSaved={onSaved} />
         </div>
       </div>
     </div>
@@ -980,7 +983,7 @@ function ScheduleView({ providers, initialProviderId }) {
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
-function ProvidersView({ onChange, teamLabel, addReq, user }) {
+function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved }) {
   const [list, setList] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState(null); // null | {} | {…provider}
@@ -1083,7 +1086,7 @@ function ProvidersView({ onChange, teamLabel, addReq, user }) {
         />
       )}
       {selfHoursOpen && selected && (
-        <ProviderHoursModal provider={selected} onClose={() => setSelfHoursOpen(false)} />
+        <ProviderHoursModal provider={selected} onSaved={onHoursSaved} onClose={() => setSelfHoursOpen(false)} />
       )}
     </>
   );
@@ -1856,7 +1859,7 @@ function ServiceForm({ service, onClose, onSave }) {
 }
 
 // Editable hours for one provider (from the Services tab).
-function ProviderHoursModal({ provider, onClose }) {
+function ProviderHoursModal({ provider, onClose, onSaved }) {
   return (
     <div className="modal" onMouseDown={onClose}>
       <div className="modal__panel modal__panel--wide" onMouseDown={e => e.stopPropagation()}>
@@ -1865,7 +1868,7 @@ function ProviderHoursModal({ provider, onClose }) {
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="modal__scroll modal__scroll--docked">
-          <ScheduleEditor provider={provider} mode="owner" docked />
+          <ScheduleEditor provider={provider} mode="owner" docked onSaved={onSaved} />
         </div>
       </div>
     </div>
@@ -2584,7 +2587,7 @@ function DayRow({ day, onToggle, onStart, onEnd }) {
   );
 }
 
-function ScheduleEditor({ provider, mode, docked }) {
+function ScheduleEditor({ provider, mode, docked, onSaved }) {
   const [week, setWeek] = useState(null);
   const [overrides, setOverrides] = useState([]);
   const [timeOff, setTimeOff]   = useState([]);
@@ -2629,7 +2632,7 @@ function ScheduleEditor({ provider, mode, docked }) {
       body: JSON.stringify({ meta: { biweekly: false, anchorDate: sundayKey() }, weekA: week, weekB: week }),
     });
     setSaveMsg(res.ok ? "Saved" : "Error saving");
-    if (res.ok) setTimeout(() => setSaveMsg(""), 2500);
+    if (res.ok) { setTimeout(() => setSaveMsg(""), 2500); onSaved?.(); }
     setSaving(false);
   }
 
@@ -2641,11 +2644,12 @@ function ScheduleEditor({ provider, mode, docked }) {
     const res = await fetch(`/api/availability/${provider._id}/overrides`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
-    if (res.ok) { setOvDate(todayKey()); setOvMode("closed"); loadAvailability(); }
+    if (res.ok) { setOvDate(todayKey()); setOvMode("closed"); loadAvailability(); onSaved?.(); }
   }
   async function removeOverride(id) {
     await fetch(`/api/availability/${provider._id}/overrides/${id}`, { method: "DELETE" });
     setOverrides(p => p.filter(o => o._id !== id));
+    onSaved?.();
   }
   async function addTimeOff() {
     if (!newStart || !newEnd) return;
@@ -2653,11 +2657,12 @@ function ScheduleEditor({ provider, mode, docked }) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ startDate: newStart, endDate: newEnd, reason: newReason }),
     });
-    if (res.ok) { setNewStart(""); setNewEnd(""); setNewReason(""); loadTimeOff(); }
+    if (res.ok) { setNewStart(""); setNewEnd(""); setNewReason(""); loadTimeOff(); onSaved?.(); }
   }
   async function removeTimeOff(id) {
     await fetch(`/api/timeoff/${provider._id}/${id}`, { method: "DELETE" });
     setTimeOff(p => p.filter(t => t._id !== id));
+    onSaved?.();
   }
 
   if (!week) return <Loader />;
