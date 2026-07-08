@@ -3023,13 +3023,24 @@ function BillingSection() {
 // ── Platform operator console ────────────────────────────────────────────────
 // A simplified admin view (not a store view) for managing clients: change each
 // shop's plan and booking access. Super-admin only.
+// Booking control maps to (bookingActive, demo). Shared by the table + detail.
+const bookingValueOf = (s) => s.bookingActive === true ? "on" : s.bookingActive === false ? "off" : s.demo ? "demo" : "auto";
+const bookingPatchFor = (v) =>
+  v === "on" ? { bookingActive: true }
+  : v === "off" ? { bookingActive: false }
+  : v === "demo" ? { bookingActive: null, demo: true }
+  : { bookingActive: null, demo: false };
+const BOOKING_LABEL = { demo: "Demo", auto: "Auto", on: "On", off: "Off — call us" };
+const planLabelOf = (s) => s.planId === "website" ? "$99 · Website + Booking" : "$35 · Booking";
+const fmtRenewDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
+
 function AdminConsole({ user, onSignOut }) {
   const [shops, setShops] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [err, setErr] = useState("");
   const [adding, setAdding] = useState(false);
-  const [embedShop, setEmbedShop] = useState(null); // shop shown in the embed modal
-  const [delShop, setDelShop] = useState(null);     // shop pending deletion
+  const [selectedId, setSelectedId] = useState(null);
+  const [delShop, setDelShop] = useState(null); // shop pending deletion
 
   const load = useCallback(() => {
     fetch("/api/admin/shops").then(r => r.json())
@@ -3051,21 +3062,12 @@ function AdminConsole({ user, onSignOut }) {
 
   async function del(shop) {
     const res = await fetch(`/api/admin/shops/${shop._id}`, { method: "DELETE" });
-    if (res.ok) { setShops(list => list.filter(s => s._id !== shop._id)); toast("Client deleted"); }
+    if (res.ok) { setShops(list => list.filter(s => s._id !== shop._id)); setSelectedId(null); toast("Client deleted"); }
     else setErr("Could not delete client");
   }
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const fmtRenew = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
-
-  // Single Booking control maps to (bookingActive, demo):
-  //   on/off  → explicit bookingActive; demo  → on until delivered; auto → follows payment.
-  const bookingValue = (s) => s.bookingActive === true ? "on" : s.bookingActive === false ? "off" : s.demo ? "demo" : "auto";
-  const bookingPatch = (v) =>
-    v === "on" ? { bookingActive: true }
-    : v === "off" ? { bookingActive: false }
-    : v === "demo" ? { bookingActive: null, demo: true }
-    : { bookingActive: null, demo: false };
+  const selected = shops && shops.find(s => s._id === selectedId);
 
   return (
     <div className="viewport">
@@ -3076,79 +3078,60 @@ function AdminConsole({ user, onSignOut }) {
           <span className="acon__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
         </header>
         <div className="acon__body">
-          <div className="acon__titlerow">
-            <div>
-              <h1 className="acon__title">Clients</h1>
-              <p className="acon__sub">Every client — plan, booking access, contact, and renewal. Plan &amp; booking changes save automatically.</p>
-            </div>
-            <button className="btn" onClick={() => setAdding(true)}>+ Add client</button>
-          </div>
-          {err && <p className="form__error">{err}</p>}
-          {!shops ? <Loader />
-            : shops.length === 0 ? <p className="empty">No clients yet.</p>
-            : (
-              <div className="acon__tablewrap">
-                <table className="acon__table">
-                  <thead>
-                    <tr>
-                      <th>Business</th><th>Contact</th><th>Plan</th><th>Booking</th><th>Subscription</th><th>Links</th><th aria-label="Actions"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shops.map(s => (
-                      <tr key={s._id}>
-                        <td>
-                          <div className="acon__name">{s.name}</div>
-                          <div className="acon__meta">{s.businessType} · {s.services} svc · {s.staff} staff</div>
-                        </td>
-                        <td className="acon__contact">
-                          {s.ownerEmail ? <a href={`mailto:${s.ownerEmail}`}>{s.ownerEmail}</a> : <span className="acon__dim">no email</span>}
-                          {s.phone ? <a href={`tel:${s.phone}`} className="acon__phone">{s.phone}</a> : <span className="acon__dim">no phone</span>}
-                        </td>
-                        <td>
-                          <select className="acon__sel" value={s.planId} disabled={savingId === s._id}
-                            onChange={e => patch(s._id, { planId: e.target.value }, "Plan updated")}>
-                            <option value="booking">$35 · Booking</option>
-                            <option value="website">$99 · Website + Booking</option>
-                          </select>
-                        </td>
-                        <td>
-                          <select className="acon__sel" value={bookingValue(s)} disabled={savingId === s._id}
-                            onChange={e => patch(s._id, bookingPatch(e.target.value), "Booking updated")}>
-                            <option value="demo">Demo — on until delivered</option>
-                            <option value="auto">Auto — follows payment</option>
-                            <option value="on">On — always</option>
-                            <option value="off">Off — “Call us”</option>
-                          </select>
-                        </td>
-                        <td>
-                          <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
-                          {s.subscribed && fmtRenew(s.renewsAt) && <div className="acon__renew">Renews {fmtRenew(s.renewsAt)}</div>}
-                        </td>
-                        <td className="acon__links">
-                          <a href={`${origin}/book?key=${s.publicKey}`} target="_blank" rel="noreferrer">Booking page ↗</a>
-                          {s.website && <a href={s.website} target="_blank" rel="noreferrer">Website ↗</a>}
-                          <button className="linklike" onClick={() => setEmbedShop(s)}>Embed code</button>
-                        </td>
-                        <td>
-                          <button className="linkbtn linkbtn--danger" onClick={() => setDelShop(s)}>Delete</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {selected ? (
+            <AdminClientDetail
+              shop={selected} origin={origin} saving={savingId === selected._id}
+              onPatch={(body, label) => patch(selected._id, body, label)}
+              onDelete={() => setDelShop(selected)}
+              onBack={() => setSelectedId(null)}
+            />
+          ) : (
+            <>
+              <div className="acon__titlerow">
+                <div>
+                  <h1 className="acon__title">Clients</h1>
+                  <p className="acon__sub">Select a client to manage their plan, booking access, contact, and embed.</p>
+                </div>
+                <button className="btn" onClick={() => setAdding(true)}>+ Add client</button>
               </div>
-            )}
-
-          <section className="acon__account">
-            <h3 className="sched__label">Your admin password</h3>
-            <p className="acon__sub" style={{ marginBottom: 12 }}>Change the password for this admin account.</p>
-            <ChangePasswordInline />
-          </section>
+              {err && <p className="form__error">{err}</p>}
+              {!shops ? <Loader />
+                : shops.length === 0 ? <p className="empty">No clients yet.</p>
+                : (
+                  <div className="acon__tablewrap">
+                    <table className="acon__table acon__table--rows">
+                      <thead>
+                        <tr><th>Business</th><th>Contact</th><th>Plan</th><th>Booking</th><th>Subscription</th><th aria-label="Open"></th></tr>
+                      </thead>
+                      <tbody>
+                        {shops.map(s => (
+                          <tr key={s._id} className="acon__row" onClick={() => setSelectedId(s._id)}>
+                            <td>
+                              <div className="acon__name">{s.name}</div>
+                              <div className="acon__meta">{s.businessType} · {s.services} svc · {s.staff} staff</div>
+                            </td>
+                            <td className="acon__contact">
+                              <span>{s.ownerEmail || <span className="acon__dim">no email</span>}</span>
+                              <span className={s.phone ? "acon__phone" : "acon__dim"}>{s.phone || "no phone"}</span>
+                            </td>
+                            <td>{planLabelOf(s)}</td>
+                            <td>{BOOKING_LABEL[bookingValueOf(s)]}</td>
+                            <td>
+                              <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+                              {s.subscribed && fmtRenewDate(s.renewsAt) && <div className="acon__renew">Renews {fmtRenewDate(s.renewsAt)}</div>}
+                            </td>
+                            <td className="acon__chevron"><Icon name="chevronRight" /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+            </>
+          )}
         </div>
       </div>
       {adding && <AddClientModal origin={origin} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
-      {embedShop && <EmbedModal origin={origin} shop={embedShop} onClose={() => setEmbedShop(null)} />}
       {delShop && (
         <ConfirmModal
           title={`Delete “${delShop.name}”?`}
@@ -3162,36 +3145,86 @@ function AdminConsole({ user, onSignOut }) {
   );
 }
 
-// Embed snippet + hosted booking link for a client (admin).
-function EmbedModal({ origin, shop, onClose }) {
+// Full CRM-style profile for one client (opened from the clients table).
+function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack }) {
+  const [phone, setPhone] = useState(s.phone || "");
+  const [website, setWebsite] = useState(s.website || "");
   const [copied, setCopied] = useState("");
-  const bookingUrl = `${origin}/book?key=${shop.publicKey}`;
+  const bookingUrl = `${origin}/book?key=${s.publicKey}`;
   const embedCode =
-    `<!-- StoreCal booking widget -->\n<script src="${origin}/embed.js" data-store="${shop.publicKey}"></script>\n` +
-    `<!-- Optional: live services & staff on the site -->\n<script src="${origin}/storecal-data.js" data-store="${shop.publicKey}"></script>`;
+    `<!-- StoreCal booking widget -->\n<script src="${origin}/embed.js" data-store="${s.publicKey}"></script>\n` +
+    `<!-- Optional: live services & staff on the site -->\n<script src="${origin}/storecal-data.js" data-store="${s.publicKey}"></script>`;
   const copy = (t, id) => navigator.clipboard?.writeText(t).then(() => { setCopied(id); setTimeout(() => setCopied(""), 1500); }).catch(() => {});
+  const saveContact = (field, val) => { if ((s[field] || "") !== val.trim()) onPatch({ [field]: val.trim() }, "Contact updated"); };
+
   return (
-    <div className="modal" onMouseDown={onClose}>
-      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
-        <div className="modal__head">
-          <h2 className="modal__title">{shop.name} — embed &amp; links</h2>
-          <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
+    <div className="acd">
+      <button className="linklike acd__back" onClick={onBack}>← All clients</button>
+      <div className="acd__head">
+        <div>
+          <h1 className="acd__name">{s.name}</h1>
+          <span className="acd__meta">{s.businessType} · {s.services} services · {s.staff} staff · <code>{s.publicKey}</code></span>
         </div>
-        <div className="form">
-          <p className="sp__hint">Store key: <code>{shop.publicKey}</code></p>
-          <p className="sp__hint" style={{ marginTop: 14 }}>Hosted booking page (share anywhere):</p>
-          <div className="invite__row">
-            <input className="invite__link" readOnly value={bookingUrl} onFocus={e => e.target.select()} />
-            <button className="btn" onClick={() => copy(bookingUrl, "b")}>{copied === "b" ? "Copied!" : "Copy"}</button>
-          </div>
-          <p className="sp__hint" style={{ marginTop: 14 }}>Embed code for their website:</p>
-          <pre className="acon__code">{embedCode}</pre>
-          <div className="form__actions"><button className="btn" onClick={() => copy(embedCode, "e")}>{copied === "e" ? "Copied!" : "Copy code"}</button></div>
-        </div>
+        <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
       </div>
+
+      <div className="acd__grid">
+        <section className="acd__card">
+          <h3 className="sched__label">Plan &amp; booking</h3>
+          <label className="field"><span className="field__label">Plan</span>
+            <select value={s.planId} disabled={saving} onChange={e => onPatch({ planId: e.target.value }, "Plan updated")}>
+              <option value="booking">Booking access — $35/mo</option>
+              <option value="website">Website + Booking — $99/mo</option>
+            </select>
+          </label>
+          <label className="field"><span className="field__label">Booking access</span>
+            <select value={bookingValueOf(s)} disabled={saving} onChange={e => onPatch(bookingPatchFor(e.target.value), "Booking updated")}>
+              <option value="demo">Demo — on until delivered</option>
+              <option value="auto">Auto — follows payment</option>
+              <option value="on">On — always</option>
+              <option value="off">Off — “Call us”</option>
+            </select>
+          </label>
+          <p className="sp__hint">{s.subscribed
+            ? (fmtRenewDate(s.renewsAt) ? `Subscription renews ${fmtRenewDate(s.renewsAt)}.` : "Subscription active.")
+            : "No active subscription."}</p>
+        </section>
+
+        <section className="acd__card">
+          <h3 className="sched__label">Contact</h3>
+          <label className="field"><span className="field__label">Owner email (login)</span>
+            <input type="email" value={s.ownerEmail || ""} readOnly disabled /></label>
+          <label className="field"><span className="field__label">Phone</span>
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => saveContact("phone", phone)} placeholder="(555) 000-0000" /></label>
+          <label className="field"><span className="field__label">Website</span>
+            <input type="url" value={website} onChange={e => setWebsite(e.target.value)} onBlur={() => saveContact("website", website)} placeholder="https://theirsite.com" /></label>
+        </section>
+      </div>
+
+      <section className="acd__card">
+        <h3 className="sched__label">Links &amp; embed</h3>
+        <p className="sp__hint">Hosted booking page:</p>
+        <div className="invite__row">
+          <input className="invite__link" readOnly value={bookingUrl} onFocus={e => e.target.select()} />
+          <a className="action" href={bookingUrl} target="_blank" rel="noreferrer">Open</a>
+          <button className="btn" onClick={() => copy(bookingUrl, "book")}>{copied === "book" ? "Copied!" : "Copy"}</button>
+        </div>
+        <p className="sp__hint" style={{ marginTop: 14 }}>Embed code for their website:</p>
+        <pre className="acon__code">{embedCode}</pre>
+        <button className="btn" onClick={() => copy(embedCode, "emb")}>{copied === "emb" ? "Copied!" : "Copy code"}</button>
+      </section>
+
+      <section className="acd__danger">
+        <div>
+          <h3 className="sched__label">Delete client</h3>
+          <p className="sp__hint">Permanently removes this client and all its data.</p>
+        </div>
+        <button className="btn btn--danger" onClick={onDelete}>Delete client</button>
+      </section>
     </div>
   );
 }
+
 
 // Create a new client from the admin console: shop + owner login (temp password).
 function AddClientModal({ origin, onClose, onDone }) {

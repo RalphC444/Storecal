@@ -1701,11 +1701,33 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .acon__links > *:last-child { margin-bottom: 0; }
 .acon__links a, .acon__links .linklike { font-size: 13px; text-decoration: none; color: var(--accent); }
 .acon__links a:hover, .acon__links .linklike:hover { text-decoration: underline; }
-.acon__table td:last-child { text-align: right; white-space: nowrap; }
 .acon__creds { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
   display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
 .acon__creds > div { display: flex; align-items: baseline; }
 .acon__cred-l { display: inline-block; width: 118px; color: var(--ink-3); font-size: 12.5px; flex: none; }
+
+/* Clickable rows → client detail */
+.acon__row { cursor: pointer; }
+.acon__row:hover td { background: #fafbfc; }
+.acon__chevron { color: var(--ink-3); text-align: right; width: 36px; }
+.acon__chevron .ico { width: 18px; height: 18px; }
+
+/* Client detail (CRM profile) */
+.acd__back { font-size: 13px; color: var(--accent); }
+.acd__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 14px 0 22px; }
+.acd__name { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 4px; }
+.acd__meta { font-size: 13px; color: var(--ink-3); text-transform: capitalize; }
+.acd__meta code { text-transform: none; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink-2); }
+.acd__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.acd__card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.acd__card .sched__label { margin-bottom: 14px; }
+.acd__card .field { margin-bottom: 12px; }
+.acd__card .field:last-of-type { margin-bottom: 0; }
+.acd__danger { background: var(--paper); border: 1px solid #f1d9d9; border-radius: 14px; padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; }
+.acd__danger .sched__label { margin: 0 0 2px; }
+.acd__danger .sp__hint { margin: 0; }
+@media (max-width: 720px) { .acd__grid { grid-template-columns: 1fr; } .acd__danger { flex-direction: column; align-items: flex-start; } }
 
 .authback { display: block; margin-top: 4px; color: var(--ink-3); }
 
