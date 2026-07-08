@@ -65,6 +65,7 @@
     ".sc__opt{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;",
     "padding:13px 14px;border:1px solid #e6e8ec;border-radius:11px;background:#fff;cursor:pointer;font-size:14px;font-family:inherit;color:#111}",
     ".sc__opt:hover{border-color:" + ACCENT + ";background:#f7f9ff}",
+    ".sc__opt--sel{border-color:" + ACCENT + ";background:#f7f9ff;box-shadow:inset 0 0 0 1px " + ACCENT + "}",
     ".sc__opt-main{font-weight:600;display:block}",
     ".sc__opt-sub{font-size:12px;color:#8a9099;line-height:1.45;display:block}",
     ".sc__opt-meta{font-size:13px;color:#5a6069;white-space:nowrap}",
@@ -85,13 +86,16 @@
     ".sc__cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px 0}",
     ".sc__cal-dow{text-align:center;font-size:11px;font-weight:600;color:#9aa0a8;padding-bottom:6px}",
     ".sc__cal-empty{aspect-ratio:1}",
-    ".sc__cal-day{position:relative;aspect-ratio:1;border:0;background:none;border-radius:50%;cursor:pointer;font-size:13px;font-family:inherit;color:#1a2b4a;font-weight:600}",
-    ".sc__cal-day:hover{background:#e9edf5}",
-    ".sc__cal-day--off{color:#c2c7cf;cursor:default;font-weight:500}",
-    ".sc__cal-day--off:hover{background:none}",
-    ".sc__cal-day--sel{background:" + ACCENT + ";color:#fff}",
-    ".sc__cal-day--sel:hover{background:" + ACCENT + "}",
-    ".sc__cal-dot{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:" + ACCENT + "}",
+    ".sc__cal-day{position:relative;aspect-ratio:1;border:0;background:none;padding:0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}",
+    // The number + its hover/selected disc live in a fixed-size inner circle so the
+    // highlight never balloons to the (wide) cell width on desktop.
+    ".sc__cal-n{position:relative;display:flex;align-items:center;justify-content:center;width:min(38px,86%);aspect-ratio:1;border-radius:50%;font-size:13px;font-weight:600;color:#1a2b4a;transition:background .12s}",
+    ".sc__cal-day:not(.sc__cal-day--off):not(.sc__cal-day--sel):hover .sc__cal-n{background:#e9edf5}",
+    ".sc__cal-day--off{cursor:default}",
+    ".sc__cal-day--off .sc__cal-n{color:#c2c7cf;font-weight:500}",
+    ".sc__cal-day--today .sc__cal-n{box-shadow:inset 0 0 0 1.5px " + ACCENT + "66}",
+    ".sc__cal-day--sel .sc__cal-n{background:" + ACCENT + ";color:#fff;box-shadow:none}",
+    ".sc__cal-dot{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:" + ACCENT + "}",
     ".sc__cal-day--sel .sc__cal-dot{background:#fff}",
     ".sc__times-head{margin-bottom:10px}",
     ".sc__times-day{font-size:14px;font-weight:700}",
@@ -100,7 +104,18 @@
     ".sc__slot--row{width:100%;text-align:center;padding:12px;font-size:14px;font-weight:600}",
     ".sc__times-empty{font-size:13px;color:#8a9099;padding:14px 0}",
     ".sc__tz{font-size:11.5px;color:#9aa0a8;margin-top:14px}",
-    "@media(max-width:640px){.sc__panes{grid-template-columns:1fr;gap:14px}}",
+    /* collapsible calendar (mobile): a summary bar replaces the grid once a day is picked */
+    ".sc__cal-toggle{display:none;width:100%;align-items:center;justify-content:space-between;gap:10px;",
+    "background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:13px 15px;font-family:inherit;",
+    "font-size:14px;font-weight:600;color:#111;cursor:pointer;text-align:left}",
+    ".sc__cal-toggle-hint{font-size:12.5px;font-weight:600;color:" + ACCENT + ";display:flex;align-items:center;gap:6px;flex:none}",
+    ".sc__cal-caret{display:inline-block;transition:transform .18s;color:#8a9099}",
+    ".sc__cal--collapsed .sc__cal-caret{transform:rotate(-90deg)}",
+    "@media(max-width:640px){.sc__panes{grid-template-columns:1fr;gap:14px}",
+    ".sc__cal-toggle{display:flex}",
+    ".sc__cal{background:none;border:0;border-radius:0;padding:0}",
+    ".sc__cal-body{margin-top:10px;background:#f7f8fa;border:1px solid #eef0f3;border-radius:14px;padding:14px}",
+    ".sc__cal--collapsed .sc__cal-body{display:none}}",
     ".sc__h-opt{font-weight:400;color:#8a9099}",
     ".sc__addons{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}",
     "@media(max-width:520px){.sc__addons{grid-template-columns:1fr}}",
@@ -115,6 +130,9 @@
     ".sc__label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:#3a4049}",
     ".sc__input{width:100%;padding:11px 12px;border:1px solid #dfe2e7;border-radius:10px;font-size:14px;font-family:inherit;color:#111}",
     ".sc__input:focus{outline:none;border-color:" + ACCENT + "}",
+    ".sc__select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:34px;background-color:#fff;",
+    "background-repeat:no-repeat;background-position:right 12px center;",
+    "background-image:url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1l5 5 5-5' stroke='%238a9099' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")}",
     ".sc__btn{width:100%;padding:13px;border:0;border-radius:11px;background:" + ACCENT + ";color:#fff;",
     "font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:4px}",
     ".sc__btn:hover{filter:brightness(.95)}",
@@ -132,9 +150,26 @@
     ".sc__done-actions .sc__btn{flex:1;margin-top:0}",
     ".sc__btn--ghost{background:#fff;color:#333;border:1px solid #e0e3e8}",
     ".sc__btn--ghost:hover{background:#f5f6f8;filter:none}",
+    /* docked footer (holds the Continue CTA so it stays pinned while the body scrolls) */
+    ".sc__foot{flex:none;padding:14px 20px;border-top:1px solid #eef0f3;background:#fff}",
+    ".sc__foot .sc__btn{margin-top:0}",
+    ".sc__foot-inner{width:100%;max-width:680px;margin:0 auto}",
     ".sc__pow{text-align:center;font-size:11px;color:#b3b8c0;padding:10px}",
+    /* shown in the modal if booking is opened while membership is inactive */
+    ".sc-unavail{text-align:center;padding:20px 6px}",
+    ".sc-unavail-t{font-size:16px;font-weight:700;margin-bottom:6px}",
+    ".sc-unavail-s{font-size:13px;color:#5a6069;line-height:1.6;margin-bottom:16px}",
+    ".sc-callbtn{display:inline-block;text-decoration:none;background:" + ACCENT + ";color:#fff;border:0;border-radius:11px;padding:13px 24px;font-size:15px;font-weight:600}",
+    ".sc-callbtn:hover{filter:brightness(.95)}",
   ].join("");
   root.appendChild(style);
+
+  // Booking gate: when a shop's membership isn't active, booking CTAs are hidden
+  // and replaced with a "Call {phone}" action. Optimistic (active) until the
+  // shop-config load below tells us otherwise, so CTAs never flash-disable.
+  var booking = { active: true, phone: "" };
+  function telHref(p) { return String(p || "").replace(/[^0-9+]/g, ""); }
+  function callStore() { if (booking.phone) window.location.href = "tel:" + telHref(booking.phone); }
 
   // ── Trigger button + modal overlay ──────────────────────────────────────────
   var trigger = document.createElement("button");
@@ -162,26 +197,55 @@
     overlay.classList.remove("sc-overlay--open");
     document.body.style.overflow = "";
   }
-  trigger.onclick = function () { openModal(); };
+  trigger.onclick = function () { if (!booking.active) return callStore(); openModal(); };
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
   // Link-in-bio pages set data-auto to open the booking modal immediately.
-  if (script.getAttribute("data-auto")) setTimeout(function () { openModal(); }, 0);
+  if (script.getAttribute("data-auto")) setTimeout(function () { if (booking.active) openModal(); }, 0);
 
   // Per-service "Book" CTAs anywhere on the page: <button data-storecal-book
   // data-service="SERVICE_ID_OR_NAME">. Opens the widget preselected to that
-  // service (skips to the staff step).
+  // service (skips to the staff step). When booking is inactive, calls instead.
   document.addEventListener("click", function (e) {
     var t = e.target && e.target.closest && e.target.closest("[data-storecal-book]");
     if (!t) return;
     e.preventDefault();
+    if (!booking.active) { callStore(); return; }
     openModal({ service: t.getAttribute("data-service") || undefined });
   });
 
+  // Once the shop's status is known, hide/relabel booking CTAs when inactive.
+  function applyGate() {
+    if (booking.active) return;
+    if (booking.phone) trigger.textContent = "📞 Call " + booking.phone;
+    else trigger.style.display = "none";
+    // Relabel simple (text-only) "Book" CTAs on the host page. CTAs with child
+    // nodes (e.g. rendered service cards) are left to their own renderer.
+    var tel = telHref(booking.phone);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-storecal-book]"), function (el) {
+      if (el === trigger || el.children.length) return;
+      if (booking.phone) {
+        el.textContent = "📞 Call " + booking.phone;
+        if (el.tagName === "A") el.setAttribute("href", "tel:" + tel);
+      } else {
+        el.style.display = "none";
+      }
+    });
+  }
+
+  // Learn booking status up-front so CTAs reflect it before any interaction.
+  fetch(api("/api/shop-config")).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d || d.error) return;
+    cfg = d;
+    booking.active = d.bookingActive !== false;
+    booking.phone = (d.shop && d.shop.phone) || "";
+    applyGate();
+  }).catch(function () {});
+
   // Programmatic API for custom sites: StoreCalWidget.book("Service Name" | {service}).
   window.StoreCalWidget = {
-    open: function () { openModal(); },
-    book: function (arg) { openModal(typeof arg === "string" ? { service: arg } : arg); },
+    open: function () { if (!booking.active) return callStore(); openModal(); },
+    book: function (arg) { if (!booking.active) return callStore(); openModal(typeof arg === "string" ? { service: arg } : arg); },
   };
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -229,6 +293,11 @@
     }
     body.appendChild(bodyNode);
     wrap.appendChild(body);
+    if (opts.footer) {
+      var foot = el('<div class="sc__foot"><div class="sc__foot-inner"></div></div>');
+      foot.querySelector(".sc__foot-inner").appendChild(opts.footer);
+      wrap.appendChild(foot);
+    }
     wrap.appendChild(el('<div class="sc__pow">Powered by StoreCal</div>'));
   }
 
@@ -239,6 +308,16 @@
     return n;
   }
 
+  // Fallback shown if the modal is opened while membership is inactive.
+  function renderUnavailable() {
+    var body = el('<div class="sc-unavail"><div class="sc-unavail-t">Online booking is unavailable</div>' +
+      '<div class="sc-unavail-s">' +
+      (booking.phone ? "Give us a call and we’ll get you booked in." : "Please contact us to book your appointment.") +
+      "</div></div>");
+    if (booking.phone) body.appendChild(el('<a class="sc-callbtn" href="tel:' + telHref(booking.phone) + '">📞 Call ' + esc(booking.phone) + "</a>"));
+    frame("Booking unavailable", body);
+  }
+
   // ── Steps ────────────────────────────────────────────────────────────────
   // preselect (optional): a service id or name. When it matches, skip straight
   // to the staff step with that service already chosen.
@@ -247,12 +326,18 @@
     fetch(api("/api/shop-config")).then(function (r) { return r.json(); }).then(function (d) {
       if (d.error) throw new Error(d.error);
       cfg = d;
+      booking.active = d.bookingActive !== false;
+      booking.phone = (d.shop && d.shop.phone) || "";
+      if (!booking.active) { renderUnavailable(); return; }
       var svc = preselect && (cfg.services || []).filter(function (s) {
         return s._id === preselect || (s.name || "").toLowerCase() === String(preselect).toLowerCase();
       })[0];
       if (svc) {
         state.service = svc; state.provider = null; state.assigned = null; state.addons = []; state.date = ""; state.time = "";
-        afterService();
+        // Deep-link straight to staff when there's nothing to add on the first
+        // step; otherwise show the combined step with the service preselected.
+        if ((cfg.addons || []).length) chooseService();
+        else chooseProvider();
       } else {
         chooseService();
       }
@@ -261,51 +346,64 @@
     });
   }
 
+  // Combined first step: pick one service and, in the same view, toggle any
+  // optional add-ons. A single docked "Continue" CTA advances to staff.
   function chooseService() {
-    state.service = null; state.provider = null; state.assigned = null; state.addons = []; state.date = ""; state.time = "";
+    state.provider = null; state.assigned = null; state.date = ""; state.time = "";
+    var hasAddons = (cfg.addons || []).length;
     var body = document.createElement("div");
+
     body.appendChild(el('<h3 class="sc__h">Choose a service</h3>'));
     var list = el('<div class="sc__list"></div>');
     if (!cfg.services.length) list.appendChild(el('<div class="sc__msg">No services available yet.</div>'));
+
+    var cont = el('<button class="sc__btn">Continue</button>');
+    function refresh() { cont.disabled = !state.service; }
+
     cfg.services.forEach(function (s) {
       var meta = (s.durationMin ? s.durationMin + " min" : "") + (s.price ? "  ·  " + esc(s.price) : "");
-      var b = el('<button class="sc__opt"><span class="sc__opt-main">' + esc(s.name) +
+      var sel = state.service && state.service._id === s._id;
+      var b = el('<button class="sc__opt' + (sel ? " sc__opt--sel" : "") + '"><span class="sc__opt-main">' + esc(s.name) +
         '</span><span class="sc__opt-meta">' + esc(meta) + "</span></button>");
-      b.onclick = function () { state.service = s; afterService(); };
+      b.onclick = function () {
+        state.service = s;
+        var prev = list.querySelector(".sc__opt--sel");
+        if (prev) prev.classList.remove("sc__opt--sel");
+        b.classList.add("sc__opt--sel");
+        refresh();
+      };
       list.appendChild(b);
     });
     body.appendChild(list);
-    frame("Service", body);
-  }
 
-  // After a service is chosen: offer add-ons (if the shop has any), else staff.
-  function afterService() {
-    if ((cfg.addons || []).length) chooseAddons();
-    else chooseProvider();
-  }
-
-  function chooseAddons() {
-    var body = document.createElement("div");
-    body.appendChild(el('<h3 class="sc__h">Add-ons <span class="sc__h-opt">(optional)</span></h3>'));
-    var grid = el('<div class="sc__addons"></div>');
-    var selected = {};
-    (state.addons || []).forEach(function (a) { selected[a.name] = a; });
-    (cfg.addons || []).forEach(function (a) {
-      var on = !!selected[a.name];
-      var b = el('<button type="button" class="sc__addon' + (on ? " sc__addon--on" : "") + '">' +
-        '<span class="sc__addon-name">' + esc(a.name) + "</span>" +
-        (a.price ? '<span class="sc__addon-price">+' + esc(a.price) + "</span>" : "") + "</button>");
-      b.onclick = function () {
-        if (selected[a.name]) { delete selected[a.name]; b.classList.remove("sc__addon--on"); }
-        else { selected[a.name] = { name: a.name, price: a.price }; b.classList.add("sc__addon--on"); }
+    if (hasAddons) {
+      body.appendChild(el('<h3 class="sc__h" style="margin-top:22px">Add-ons <span class="sc__h-opt">(optional)</span></h3>'));
+      var grid = el('<div class="sc__addons"></div>');
+      var selected = {};
+      (state.addons || []).forEach(function (a) { selected[a.name] = a; });
+      (cfg.addons || []).forEach(function (a) {
+        var on = !!selected[a.name];
+        var b = el('<button type="button" class="sc__addon' + (on ? " sc__addon--on" : "") + '">' +
+          '<span class="sc__addon-name">' + esc(a.name) + "</span>" +
+          (a.price ? '<span class="sc__addon-price">+' + esc(a.price) + "</span>" : "") + "</button>");
+        b.onclick = function () {
+          if (selected[a.name]) { delete selected[a.name]; b.classList.remove("sc__addon--on"); }
+          else { selected[a.name] = { name: a.name, price: a.price }; b.classList.add("sc__addon--on"); }
+        };
+        grid.appendChild(b);
+      });
+      body.appendChild(grid);
+      cont.onclick = function () {
+        if (!state.service) return;
+        state.addons = Object.keys(selected).map(function (k) { return selected[k]; });
+        chooseProvider();
       };
-      grid.appendChild(b);
-    });
-    body.appendChild(grid);
-    var cont = el('<button class="sc__btn" style="margin-top:16px">Continue</button>');
-    cont.onclick = function () { state.addons = Object.keys(selected).map(function (k) { return selected[k]; }); chooseProvider(); };
-    body.appendChild(cont);
-    frame("Add-ons", body, { onBack: chooseService });
+    } else {
+      cont.onclick = function () { if (state.service) chooseProvider(); };
+    }
+
+    refresh();
+    frame("Service", body, { footer: cont });
   }
 
   function chooseProvider() {
@@ -338,7 +436,7 @@
       list.appendChild(b);
     });
     body.appendChild(list);
-    frame("Team member", body, { onBack: (cfg.addons || []).length ? chooseAddons : chooseService });
+    frame("Team member", body, { onBack: chooseService });
   }
 
   // Date & time: a month calendar (left) + open timeslots for the chosen day (right).
@@ -348,6 +446,7 @@
     var startFrom = state.date && state.date >= today ? state.date : today;
     var view = new Date(startFrom + "T00:00:00"); // month being shown
     state.date = null;                     // require an explicit pick
+    var calCollapsed = false;              // mobile-only: collapse to a summary bar after a day is picked
 
     var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     var DOW = ["S", "M", "T", "W", "T", "F", "S"];
@@ -379,8 +478,19 @@
     }
 
     function renderCal() {
+      calPane.className = "sc__cal" + (calCollapsed ? " sc__cal--collapsed" : "");
       calPane.innerHTML = "";
       var y = view.getFullYear(), m = view.getMonth();
+
+      // Mobile summary bar: tap to expand/collapse the month grid.
+      var toggle = el('<button type="button" class="sc__cal-toggle"><span>' +
+        (state.date ? esc(fmtDate(state.date)) : "Select a date") +
+        '</span><span class="sc__cal-toggle-hint">' + (calCollapsed ? "Change" : "Done") +
+        ' <span class="sc__cal-caret">▾</span></span></button>');
+      toggle.onclick = function () { calCollapsed = !calCollapsed; renderCal(); };
+      calPane.appendChild(toggle);
+
+      var calBody = el('<div class="sc__cal-body"></div>');
       var nav = el('<div class="sc__cal-nav"><button class="sc__cal-arrow" data-d="prev" aria-label="Previous month">‹</button>' +
         '<span class="sc__cal-title">' + MONTHS[m] + " " + y + '</span>' +
         '<button class="sc__cal-arrow" data-d="next" aria-label="Next month">›</button></div>');
@@ -390,7 +500,7 @@
       if (atCurrentMonth) prevBtn.disabled = true;
       prevBtn.onclick = function () { view = new Date(y, m - 1, 1); renderCal(); };
       nav.querySelector('[data-d="next"]').onclick = function () { view = new Date(y, m + 1, 1); renderCal(); };
-      calPane.appendChild(nav);
+      calBody.appendChild(nav);
 
       var grid = el('<div class="sc__cal-grid"></div>');
       DOW.forEach(function (w) { grid.appendChild(el('<span class="sc__cal-dow">' + w + "</span>")); });
@@ -400,16 +510,18 @@
       for (var day = 1; day <= count; day++) {
         var ds = y + "-" + pad(m + 1) + "-" + pad(day);
         var open = isOpenDay(ds);
-        var cls = "sc__cal-day" + (open ? "" : " sc__cal-day--off") + (ds === state.date ? " sc__cal-day--sel" : "");
-        var cell = el('<button class="' + cls + '">' + day + "</button>");
+        var cls = "sc__cal-day" + (open ? "" : " sc__cal-day--off") +
+          (ds === today ? " sc__cal-day--today" : "") + (ds === state.date ? " sc__cal-day--sel" : "");
+        var cell = el('<button class="' + cls + '"><span class="sc__cal-n">' + day + "</span></button>");
         if (!open) { cell.disabled = true; }
         else {
-          cell.appendChild(el('<i class="sc__cal-dot"></i>'));
-          (function (dsv) { cell.onclick = function () { state.date = dsv; renderCal(); loadTimes(); }; })(ds);
+          cell.querySelector(".sc__cal-n").appendChild(el('<i class="sc__cal-dot"></i>'));
+          (function (dsv) { cell.onclick = function () { state.date = dsv; calCollapsed = true; renderCal(); loadTimes(); }; })(ds);
         }
         grid.appendChild(cell);
       }
-      calPane.appendChild(grid);
+      calBody.appendChild(grid);
+      calPane.appendChild(calBody);
     }
 
     function loadTimes(opts) {
@@ -482,7 +594,7 @@
       // Auto-select the first open day (within ~60 days) so times show immediately.
       var probe = startFrom;
       for (var i = 0; i < 60; i++) {
-        if (isOpenDay(probe)) { state.date = probe; view = new Date(probe + "T00:00:00"); break; }
+        if (isOpenDay(probe)) { state.date = probe; view = new Date(probe + "T00:00:00"); calCollapsed = true; break; }
         probe = addDays(probe, 1);
       }
       renderCal(); loadTimes({ auto: true });
@@ -491,6 +603,10 @@
 
   function contact() {
     var prov = state.assigned || state.provider;
+    // Pet-vertical fields (dog name / breed / weight) are gated by business type
+    // so only grooming shops collect them. Driven by the shop's booking config.
+    var booking = (cfg.shop && cfg.shop.booking) || {};
+    var isPet = cfg.shop.businessType === "grooming" || !!booking.pet;
     var addonLine = (state.addons || []).length
       ? "<br>Add-ons: " + state.addons.map(function (a) { return esc(a.name) + (a.price ? " (" + esc(a.price) + ")" : ""); }).join(", ")
       : "";
@@ -499,8 +615,17 @@
       '<div class="sc__summary"><b>' + esc(state.service.name) + "</b> with <b>" + esc(prov.name) +
       "</b><br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b>" + addonLine + "</div>"
     ));
+    var petFields = isPet ?
+      '<label class="sc__field"><span class="sc__label">Pet’s name</span><input class="sc__input" id="sc-pet-name"></label>' +
+      '<label class="sc__field"><span class="sc__label">Breed</span><input class="sc__input" id="sc-pet-breed"></label>' +
+      '<label class="sc__field"><span class="sc__label">Weight</span>' +
+        '<select class="sc__input sc__select" id="sc-pet-weight">' +
+          '<option value="">Select weight…</option>' +
+          '<option>1–40 lbs</option><option>40–65 lbs</option>' +
+          '<option>65–100 lbs</option><option>100+ lbs</option>' +
+        "</select></label>" : "";
     var form = el(
-      '<div>' +
+      "<div>" + petFields +
       '<label class="sc__field"><span class="sc__label">Your name</span><input class="sc__input" id="sc-name" autocomplete="name"></label>' +
       '<label class="sc__field"><span class="sc__label">Phone</span><input class="sc__input" id="sc-phone" type="tel" autocomplete="tel"></label>' +
       '<label class="sc__field"><span class="sc__label">Email</span><input class="sc__input" id="sc-email" type="email" autocomplete="email"></label>' +
@@ -513,19 +638,31 @@
       var phone = form.querySelector("#sc-phone").value.trim();
       var email = form.querySelector("#sc-email").value.trim();
       if (!name) { err.textContent = "Please enter your name."; err.style.display = "block"; return; }
+      var pet = null;
+      if (isPet) {
+        pet = {
+          name: form.querySelector("#sc-pet-name").value.trim(),
+          breed: form.querySelector("#sc-pet-breed").value.trim(),
+          weight: form.querySelector("#sc-pet-weight").value,
+        };
+        if (!pet.name) { err.textContent = "Please enter your pet’s name."; err.style.display = "block"; return; }
+        if (!pet.weight) { err.textContent = "Please select your pet’s weight."; err.style.display = "block"; return; }
+      }
       err.style.display = "none"; btn.disabled = true; btn.textContent = "Booking…";
+      var payload = {
+        key: STORE_KEY,
+        providerId: (state.assigned || state.provider)._id,
+        service: state.service.name,
+        durationMin: state.service.durationMin || 45,
+        dateKey: state.date,
+        timeValue: state.time,
+        addons: state.addons || [],
+        client: { name: name, phone: phone, email: email },
+      };
+      if (pet) payload.pet = pet;
       fetch(API + "/api/appointments", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: STORE_KEY,
-          providerId: (state.assigned || state.provider)._id,
-          service: state.service.name,
-          durationMin: state.service.durationMin || 45,
-          dateKey: state.date,
-          timeValue: state.time,
-          addons: state.addons || [],
-          client: { name: name, phone: phone, email: email },
-        }),
+        body: JSON.stringify(payload),
       }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
           if (!res.ok) throw new Error(res.d.error || "Could not book");

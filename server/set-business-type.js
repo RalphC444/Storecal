@@ -13,6 +13,7 @@ const { MongoClient } = require("mongodb");
 const BOOKING_PRESETS = {
   salon: {
     vehicle: false,
+    pet: false,
     providerPicker: true,
     providerLabel: "Choose your stylist",
     serviceLabel: "Select a service",
@@ -21,14 +22,25 @@ const BOOKING_PRESETS = {
   },
   auto: {
     vehicle: true,
+    pet: false,
     providerPicker: false,
     providerLabel: "",
     serviceLabel: "Select a service",
     notesLabel: "Describe the issue (optional)",
     notesPlaceholder: "What symptoms, noises, or concerns should we know about?",
   },
+  grooming: {
+    vehicle: false,
+    pet: true, // collect pet name / breed / weight in the booking widget
+    providerPicker: true,
+    providerLabel: "Choose your groomer",
+    serviceLabel: "Select a service",
+    notesLabel: "Anything we should know? (optional)",
+    notesPlaceholder: "Temperament, matting, sensitivities, or special requests…",
+  },
   generic: {
     vehicle: false,
+    pet: false,
     providerPicker: false,
     providerLabel: "",
     serviceLabel: "Select a service",

@@ -55,6 +55,9 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
         const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
         if (active) { subscribed = true; status = active.status; planId = active.metadata?.planId || null; }
       } catch { /* treat as not subscribed */ }
+      // Cache the result on the shop so the public booking widget can gate its
+      // CTAs without a Stripe call on every page load.
+      try { await db.collection("shops").updateOne({ _id: shop._id }, { $set: { subscribed } }); } catch { /* non-fatal */ }
     }
 
     res.json({

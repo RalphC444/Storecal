@@ -54,6 +54,7 @@ router.get("/", async (req, res) => {
         addons: a.addons || [],
         issueDescription: a.issueDescription || "",
         vehicle: a.vehicle || {},
+        pet: a.pet || {},
         status: a.status || "pending",
         durationMin: a.durationMin || null,
         createdAt: a.createdAt,
@@ -69,7 +70,7 @@ router.get("/", async (req, res) => {
 async function buildDoc(db, shopId, body) {
   const {
     dateKey, timeValue, providerId, service,
-    client, issueDescription, vehicle, status, durationMin, addons,
+    client, issueDescription, vehicle, pet, status, durationMin, addons,
   } = body;
 
   let providerName = "";
@@ -103,6 +104,13 @@ async function buildDoc(db, shopId, body) {
   }
   if (dateKey && timeValue) doc.start = new Date(`${dateKey}T${timeValue}:00`);
   if (vehicle && Object.keys(vehicle).length) doc.vehicle = vehicle;
+  if (pet && (pet.name || pet.breed || pet.weight)) {
+    doc.pet = {
+      name: String(pet.name || "").trim(),
+      breed: String(pet.breed || "").trim(),
+      weight: String(pet.weight || "").trim(),
+    };
+  }
   return doc;
 }
 

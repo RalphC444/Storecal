@@ -1020,6 +1020,34 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .action--edit { margin-left: auto; }
 
 /* ── Modal ──────────────────────────────────────── */
+/* Toasts — transient "Saved" confirmations, stacked bottom-center */
+.toast-host {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 18, 28, 0.28);
+  animation: toast-in 0.18s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -1111,6 +1139,18 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .field__money:focus-within { border-color: var(--ink); }
 .field__money-sym { color: var(--ink-3); font-size: 13px; margin-right: 3px; }
 .field__money .field__money-input { border: 0; border-radius: 0; padding: 8px 0; background: transparent; }
+
+/* Password field with show/hide toggle */
+.pwfield { position: relative; display: block; }
+.pwfield input { width: 100%; padding-right: 40px; }
+.pwfield__toggle {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;
+  background: none; border: 0; border-radius: 7px; cursor: pointer; color: var(--ink-3);
+}
+.pwfield__toggle:hover { color: var(--ink); background: var(--wash); }
+.pwfield__toggle .ico { width: 18px; height: 18px; }
 .field__money .field__money-input:focus { border: 0; }
 
 /* Staff availability note in the appointment form */

@@ -128,6 +128,30 @@ const TEAM_LABEL = {
   salon: "Staff", hair: "Staff", barber: "Staff", nail: "Staff", generic: "Staff",
 };
 
+// Pet weight bands — must match the grooming booking widget's dropdown (embed.js).
+const PET_WEIGHTS = ["1–40 lbs", "40–65 lbs", "65–100 lbs", "100+ lbs"];
+
+// Lightweight toast: call toast("Saved") from anywhere; <ToastHost/> renders them.
+let _emitToast = null;
+function toast(message) { if (_emitToast) _emitToast(message); }
+function ToastHost() {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    let seq = 0;
+    _emitToast = (message) => {
+      const id = ++seq;
+      setItems(list => [...list, { id, message }]);
+      setTimeout(() => setItems(list => list.filter(t => t.id !== id)), 2400);
+    };
+    return () => { _emitToast = null; };
+  }, []);
+  return (
+    <div className="toast-host" aria-live="polite">
+      {items.map(t => <div key={t.id} className="toast">✓ {t.message}</div>)}
+    </div>
+  );
+}
+
 // Inline stroke icons (no dependency). 24-grid, inherits currentColor.
 function Icon({ name }) {
   const paths = {
@@ -141,12 +165,29 @@ function Icon({ name }) {
     clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
     tag: <><path d="M20.6 13.4l-7.2 7.2a1.9 1.9 0 0 1-2.7 0l-6.9-6.9A1.9 1.9 0 0 1 3.3 12.4V5a1.7 1.7 0 0 1 1.7-1.7h7.4a1.9 1.9 0 0 1 1.3.6l6.9 6.9a1.9 1.9 0 0 1 0 2.6z" /><circle cx="7.8" cy="7.8" r="1.2" /></>,
     signout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>,
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
+    eyeOff: <><path d="M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.2 6.2A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 4.2-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><path d="M3 3l18 18" /></>,
   };
   return (
     <svg className="ico" viewBox="0 0 24 24" width="20" height="20" fill="none"
       stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {paths[name]}
     </svg>
+  );
+}
+
+// Password field with a show/hide toggle. Forwards all input props (value,
+// onChange, placeholder, autoComplete, required…); just swaps type.
+function PasswordInput(props) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="pwfield">
+      <input {...props} type={show ? "text" : "password"} />
+      <button type="button" className="pwfield__toggle" onClick={() => setShow(s => !s)} tabIndex={-1}
+        aria-label={show ? "Hide password" : "Show password"} title={show ? "Hide password" : "Show password"}>
+        <Icon name={show ? "eyeOff" : "eye"} />
+      </button>
+    </span>
   );
 }
 
@@ -356,9 +397,9 @@ function AdminApp({ user, onSignOut, onUserChange }) {
     { key: "myprofile", label: "My profile", icon: "scissors" },
   ] : [
     { key: "calendar", label: "Calendar", icon: "calendar" },
-    { key: "providers", label: teamLabel, icon: "scissors" },
-    { key: "clients", label: "Clients", icon: "clients" },
     { key: "services", label: "Services", icon: "tag" },
+    { key: "clients", label: "Clients", icon: "clients" },
+    { key: "providers", label: teamLabel, icon: "scissors" },
   ];
   const go = (v) => { setView(v); setMobileOpen(false); };
 
@@ -374,6 +415,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
 
   return (
     <div className="viewport">
+      <ToastHost />
       {hoursNeeded && (
         <div className="hoursbanner">
           <span>⚠️ Add your {hoursLabel} so clients can book — it only takes a minute.</span>
@@ -474,7 +516,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
         ) : view === "settings" ? (
           <SettingsView user={user} onUserChange={onUserChange} onSignOut={onSignOut} />
         ) : (
-          <ClientsView providers={providers} services={services} durationOf={durationOf} onApptSaved={loadAppts} addReq={addReq} />
+          <ClientsView providers={providers} services={services} durationOf={durationOf} onApptSaved={loadAppts} addReq={addReq} businessType={businessType} />
         )}
       </main>
 
@@ -490,6 +532,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
           providers={providers}
           services={services}
           durationOf={durationOf}
+          businessType={businessType}
           onClose={() => setEditing(null)}
           onSave={saveAppt}
           onStatusChange={updateStatus}
@@ -1547,15 +1590,18 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
 
   async function save(s) {
     setErr("");
-    const res = await fetch(s._id ? `/api/services/${s._id}` : "/api/services", {
-      method: s._id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s),
+    const isEdit = !!s._id;
+    const res = await fetch(isEdit ? `/api/services/${s._id}` : "/api/services", {
+      method: isEdit ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s),
     });
     if (!res.ok) { const { error } = await res.json().catch(() => ({})); setErr(error || "Could not save"); return; }
     setEditing(null); load();
+    toast(isEdit ? "Service updated" : "Service added");
   }
   async function remove(s) {
-    await fetch(`/api/services/${s._id}`, { method: "DELETE" });
+    const res = await fetch(`/api/services/${s._id}`, { method: "DELETE" });
     load(); onProvidersChange?.();
+    if (res.ok) toast("Service deleted");
   }
 
   const nameById = Object.fromEntries((services || []).map(s => [s._id, s.name]));
@@ -1662,58 +1708,78 @@ function ConfirmModal({ title, message, confirmLabel, onCancel, onConfirm }) {
 }
 
 // Optional booking add-ons (name + price) — offered during checkout.
+// Auto-saves on any change (no Save button); a toast confirms each save.
 function AddonsSection() {
   const [rows, setRows] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const savedRef = useRef("");   // JSON of the last-persisted payload (skips no-op saves)
+  const timerRef = useRef(null);
 
   useEffect(() => {
     fetch("/api/addons").then(r => r.json())
-      .then(d => setRows(Array.isArray(d) ? d.map(a => ({ name: a.name || "", price: a.price || "" })) : []))
-      .catch(() => setRows([]));
+      // The input edits just the number; the "$" is a fixed prefix in the UI and
+      // is re-added on save (mirrors ServiceForm), so state never holds a "$".
+      .then(d => {
+        const loaded = Array.isArray(d) ? d.map(a => ({ name: a.name || "", price: (a.price || "").replace(/[^0-9.]/g, "") })) : [];
+        savedRef.current = JSON.stringify(cleanAddons(loaded)); // seed so load doesn't trigger a save
+        setRows(loaded);
+      })
+      .catch(() => { savedRef.current = "[]"; setRows([]); });
   }, []);
 
   const set = (i, k, v) => setRows(rs => rs.map((r, j) => j === i ? { ...r, [k]: v } : r));
   const add = () => setRows(rs => [...rs, { name: "", price: "" }]);
   const remove = (i) => setRows(rs => rs.filter((_, j) => j !== i));
+  // Keep only digits and a single decimal point (e.g. "10", "10.5") — no stray "$".
+  const cleanPrice = (v) => {
+    const s = v.replace(/[^0-9.]/g, "");
+    const dot = s.indexOf(".");
+    return dot === -1 ? s : s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "");
+  };
 
-  async function save() {
-    setSaving(true); setMsg("");
-    const addons = rows.map(r => ({ name: r.name.trim(), price: r.price.trim() })).filter(r => r.name);
-    const res = await fetch("/api/addons", {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addons }),
-    });
-    setSaving(false);
-    if (res.ok) { setMsg("Saved"); setTimeout(() => setMsg(""), 2000); }
-  }
+  // Debounced auto-save: persists whenever the cleaned list actually changes.
+  useEffect(() => {
+    if (rows === null) return; // still loading
+    const addons = cleanAddons(rows);
+    const payload = JSON.stringify(addons);
+    if (payload === savedRef.current) return; // nothing meaningful changed
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      const res = await fetch("/api/addons", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addons }),
+      });
+      if (res.ok) { savedRef.current = payload; toast("Add-ons saved"); }
+    }, 700);
+    return () => clearTimeout(timerRef.current);
+  }, [rows]);
 
   return (
     <section className="sp__block">
       <h3 className="sched__label">Add-ons</h3>
-      <p className="sp__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing +$10).</p>
+      <p className="sp__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing $10). Changes save automatically.</p>
       {!rows ? <Loader /> : (
-        <>
-          <div className="addon-rows">
-            {rows.map((r, i) => (
-              <div key={i} className="addon-row">
-                <input className="addon-row__name" type="text" value={r.name} placeholder="Add-on name" onChange={e => set(i, "name", e.target.value)} />
-                <div className="field__money addon-row__price">
-                  <span className="field__money-sym">+$</span>
-                  <input className="field__money-input" type="text" inputMode="decimal" value={r.price.replace(/^\$/, "")} placeholder="10" onChange={e => set(i, "price", "$" + e.target.value.replace(/[^0-9.]/g, ""))} />
-                </div>
-                <button className="linkbtn linkbtn--danger" onClick={() => remove(i)}>Remove</button>
+        <div className="addon-rows">
+          {rows.map((r, i) => (
+            <div key={i} className="addon-row">
+              <input className="addon-row__name" type="text" value={r.name} placeholder="Add-on name" onChange={e => set(i, "name", e.target.value)} />
+              <div className="field__money addon-row__price">
+                <span className="field__money-sym">$</span>
+                <input className="field__money-input" type="text" inputMode="decimal" value={r.price} placeholder="10" onChange={e => set(i, "price", cleanPrice(e.target.value))} />
               </div>
-            ))}
-            <button className="svc-add" onClick={add}><Icon name="plus" /> Add an add-on</button>
-          </div>
-          <div className="sched__save">
-            <button className="btn" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save add-ons"}</button>
-            {msg && <span className="sched__msg">{msg}</span>}
-          </div>
-        </>
+              <button className="linkbtn linkbtn--danger" onClick={() => remove(i)}>Remove</button>
+            </div>
+          ))}
+          <button className="svc-add" onClick={add}><Icon name="plus" /> Add an add-on</button>
+        </div>
       )}
     </section>
   );
+}
+
+// Normalize add-on rows into the persisted shape (drops blank names, re-adds "$").
+function cleanAddons(rows) {
+  return rows
+    .map(r => ({ name: r.name.trim(), price: r.price.trim() ? "$" + r.price.trim() : "" }))
+    .filter(r => r.name);
 }
 
 function ServiceForm({ service, onClose, onSave }) {
@@ -1808,7 +1874,7 @@ function ProviderHoursModal({ provider, onClose }) {
 
 // ── Clients ─────────────────────────────────────────────────────────────────
 
-function ClientsView({ providers, services, durationOf, onApptSaved, addReq }) {
+function ClientsView({ providers, services, durationOf, onApptSaved, addReq, businessType }) {
   const [clients, setClients] = useState([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1853,6 +1919,7 @@ function ClientsView({ providers, services, durationOf, onApptSaved, addReq }) {
         providers={providers}
         services={services}
         durationOf={durationOf}
+        businessType={businessType}
         onApptSaved={onApptSaved}
         onBack={() => setSelectedId(null)}
         onDeleted={() => { setSelectedId(null); load(); }}
@@ -2006,7 +2073,7 @@ function ClientForm({ onClose, onSave }) {
   );
 }
 
-function ClientProfile({ clientId, providers, services, durationOf, onApptSaved, onBack, onDeleted }) {
+function ClientProfile({ clientId, providers, services, durationOf, businessType, onApptSaved, onBack, onDeleted }) {
   const [data, setData] = useState(null);
   const [notes, setNotes] = useState("");
   const [savedNotes, setSavedNotes] = useState("");
@@ -2136,6 +2203,7 @@ function ClientProfile({ clientId, providers, services, durationOf, onApptSaved,
           providers={providers}
           services={services}
           durationOf={durationOf}
+          businessType={businessType}
           onClose={() => setEditing(null)}
           onSave={saveAppt}
           onStatusChange={updateStatus}
@@ -2147,7 +2215,7 @@ function ClientProfile({ clientId, providers, services, durationOf, onApptSaved,
 
 // ── Appointment form (create + edit) ────────────────────────────────────────
 
-function AppointmentModal({ appt, providers, services, durationOf, onClose, onSave, onStatusChange }) {
+function AppointmentModal({ appt, providers, services, durationOf, businessType, onClose, onSave, onStatusChange }) {
   const isExisting = !!appt._id;
   const [mode, setMode] = useState(isExisting ? "view" : "edit");
 
@@ -2156,6 +2224,7 @@ function AppointmentModal({ appt, providers, services, durationOf, onClose, onSa
       <AppointmentDetail
         appt={appt}
         durationOf={durationOf}
+        businessType={businessType}
         onEdit={() => setMode("edit")}
         onStatusChange={onStatusChange}
         onClose={onClose}
@@ -2168,6 +2237,7 @@ function AppointmentModal({ appt, providers, services, durationOf, onClose, onSa
       providers={providers}
       services={services}
       isExisting={isExisting}
+      businessType={businessType}
       onSave={onSave}
       onCancel={isExisting ? () => setMode("view") : onClose}
       onClose={onClose}
@@ -2176,9 +2246,10 @@ function AppointmentModal({ appt, providers, services, durationOf, onClose, onSa
 }
 
 // Read view for an already-scheduled appointment.
-function AppointmentDetail({ appt: a, durationOf, onEdit, onStatusChange, onClose }) {
+function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, onStatusChange, onClose }) {
   const eff = effStatus(a, durationOf);
   const isDone = eff === "completed";
+  const isPet = businessType === "grooming"; // grooming widget collects pet name/breed/weight
   return (
     <div className="modal" onMouseDown={onClose}>
       <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
@@ -2201,6 +2272,13 @@ function AppointmentDetail({ appt: a, durationOf, onEdit, onStatusChange, onClos
               {a.client?.phone && <dd><a href={`tel:${a.client.phone}`}>{a.client.phone}</a></dd>}
               {a.client?.email && <dd><a href={`mailto:${a.client.email}`}>{a.client.email}</a></dd>}
             </div>
+            {isPet && (
+              <>
+                <div><dt>Pet’s name</dt><dd>{a.pet?.name || "—"}</dd></div>
+                <div><dt>Breed</dt><dd>{a.pet?.breed || "—"}</dd></div>
+                <div><dt>Weight</dt><dd>{a.pet?.weight || "—"}</dd></div>
+              </>
+            )}
             <div><dt>Service</dt><dd>{a.service || "—"}</dd></div>
             {a.addons?.length > 0 && <div><dt>Add-ons</dt><dd>{a.addons.map(x => x.name + (x.price ? ` (${x.price})` : "")).join(", ")}</dd></div>}
             <div><dt>Staff</dt><dd>{a.providerName || "—"}</dd></div>
@@ -2237,7 +2315,8 @@ function AppointmentDetail({ appt: a, durationOf, onEdit, onStatusChange, onClos
 
 // Create / edit form with client typeahead + autofill. No status field —
 // status is managed from the read view.
-function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCancel, onClose }) {
+function AppointmentEditor({ appt, providers, services, isExisting, businessType, onSave, onCancel, onClose }) {
+  const isPet = businessType === "grooming"; // collect pet name/breed/weight, matching the widget
   const [form, setForm] = useState({
     dateKey: appt.dateKey || todayKey(),
     timeValue: appt.timeValue || "09:00",
@@ -2246,6 +2325,9 @@ function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCa
     name: appt.client?.name || "",
     phone: appt.client?.phone || "",
     email: appt.client?.email || "",
+    petName: appt.pet?.name || "",
+    petBreed: appt.pet?.breed || "",
+    petWeight: appt.pet?.weight || "",
     issueDescription: appt.issueDescription || "",
   });
   const [saving, setSaving] = useState(false);
@@ -2320,6 +2402,7 @@ function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCa
         providerId: form.providerId || null,
         service: form.service,
         client: { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() },
+        pet: isPet ? { name: form.petName.trim(), breed: form.petBreed.trim(), weight: form.petWeight } : undefined,
         issueDescription: form.issueDescription,
         status: appt.status, // preserve status on edit; undefined on new → server defaults to pending
       });
@@ -2377,6 +2460,26 @@ function AppointmentEditor({ appt, providers, services, isExisting, onSave, onCa
               <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" />
             </label>
           </div>
+
+          {isPet && (
+            <div className="form__row form__row--2">
+              <label className="field">
+                <span className="field__label">Pet’s name</span>
+                <input type="text" value={form.petName} onChange={e => set("petName", e.target.value)} placeholder="e.g. Biscuit" />
+              </label>
+              <label className="field">
+                <span className="field__label">Breed</span>
+                <input type="text" value={form.petBreed} onChange={e => set("petBreed", e.target.value)} placeholder="e.g. Golden Retriever" />
+              </label>
+              <label className="field">
+                <span className="field__label">Weight</span>
+                <select value={form.petWeight} onChange={e => set("petWeight", e.target.value)}>
+                  <option value="">—</option>
+                  {PET_WEIGHTS.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
 
           <div className="form__row form__row--2">
             <label className="field">
@@ -2752,11 +2855,11 @@ function ChangePasswordInline() {
     <form className="set__grid" onSubmit={submit}>
       <label className="field">
         <span className="field__label">Current password</span>
-        <input type="password" value={cur} onChange={e => setCur(e.target.value)} autoComplete="current-password" required />
+        <PasswordInput value={cur} onChange={e => setCur(e.target.value)} autoComplete="current-password" required />
       </label>
       <label className="field">
         <span className="field__label">New password</span>
-        <input type="password" value={next} onChange={e => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required />
+        <PasswordInput value={next} onChange={e => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required />
       </label>
       <div className="sched__save set__span">
         <button className="btn" type="submit">Update password</button>
@@ -2967,7 +3070,13 @@ export default function App() {
     return <ResetPasswordScreen token={resetToken} onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onBack={() => setPhase("login")} />;
 
   if (phase === "changepw")
-    return <ChangePasswordScreen forced onDone={() => { setFresh(true); setPhase("onboard"); }} />;
+    return <ChangePasswordScreen forced onDone={() => {
+      // Owners run first-time shop onboarding (set opening hours); invited staff
+      // skip it and land in the app — they manage their own hours from their
+      // profile, and "shop hours" isn't theirs to set.
+      if (user?.role === "owner") { setFresh(true); setPhase("onboard"); }
+      else setPhase("app");
+    }} />;
 
   if (phase === "onboard")
     return <OnboardingHours user={user} onDone={() => setPhase("app")} />;
@@ -3138,7 +3247,7 @@ function LoginScreen({ onAuthed, onForgot, onBack }) {
         <label className="field"><span className="field__label">Email</span>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" required /></label>
         <label className="field"><span className="field__label">Password</span>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" required /></label>
+          <PasswordInput value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" required /></label>
         {err && <p className="form__error">{err}</p>}
         <button type="submit" className="btn authbtn" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         <button type="button" className="linkbtn authforgot" onClick={onForgot}>Forgot password?</button>
@@ -3194,7 +3303,7 @@ function ResetPasswordScreen({ token, onAuthed, onBack }) {
       footer={<button className="linkbtn" onClick={onBack}>← Back to sign in</button>}>
       <form className="authform" onSubmit={submit}>
         <label className="field"><span className="field__label">New password</span>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required /></label>
+          <PasswordInput value={pw} onChange={e => setPw(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required /></label>
         {err && <p className="form__error">{err}</p>}
         <button type="submit" className="btn authbtn" disabled={busy}>{busy ? "Saving…" : "Set password"}</button>
       </form>
@@ -3229,7 +3338,7 @@ function RegisterScreen({ onAuthed, onBack }) {
         <label className="field"><span className="field__label">Your email</span>
           <input type="email" value={form.email} onChange={e => set("email", e.target.value)} autoComplete="username" required /></label>
         <label className="field"><span className="field__label">Password</span>
-          <input type="password" value={form.password} onChange={e => set("password", e.target.value)} autoComplete="new-password" placeholder="At least 8 characters" required /></label>
+          <PasswordInput value={form.password} onChange={e => set("password", e.target.value)} autoComplete="new-password" placeholder="At least 8 characters" required /></label>
         {err && <p className="form__error">{err}</p>}
         <button type="submit" className="btn authbtn" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
       </form>
@@ -3261,10 +3370,10 @@ function ChangePasswordScreen({ forced, onDone }) {
       <form className="authform" onSubmit={submit}>
         {!forced && (
           <label className="field"><span className="field__label">Current password</span>
-            <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required /></label>
+            <PasswordInput value={current} onChange={e => setCurrent(e.target.value)} required /></label>
         )}
         <label className="field"><span className="field__label">New password</span>
-          <input type="password" value={next} onChange={e => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required /></label>
+          <PasswordInput value={next} onChange={e => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required /></label>
         {err && <p className="form__error">{err}</p>}
         <button type="submit" className="btn authbtn" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
       </form>

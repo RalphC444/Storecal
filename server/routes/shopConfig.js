@@ -7,6 +7,7 @@ const router = Router();
 // Fallback config if a shop predates the businessType migration.
 const DEFAULT_BOOKING = {
   vehicle: false,
+  pet: false,
   providerPicker: false,
   providerLabel: "",
   serviceLabel: "Select a service",
@@ -30,7 +31,24 @@ router.get("/", async (req, res) => {
       db.collection("providers").find({ shopId, active: true }).sort({ sortOrder: 1, name: 1 }).toArray(),
     ]);
 
+    // Whether online booking is turned on for this shop. Gates the widget CTAs:
+    // when false, the site shows a "call us" option instead of the booking app.
+    // Order matters — we only want to gate accounts that are genuinely unpaid,
+    // never break existing/demo shops:
+    //  1. explicit shop.bookingActive (true/false) always wins,
+    //  2. an active subscription (synced onto shop.subscribed) → on,
+    //  3. no billing configured (dev / self-host) → on,
+    //  4. otherwise gate only accounts still flagged to subscribe (promptBilling,
+    //     set on new accounts) — grandfathered/demo shops without it stay on.
+    const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
+    let bookingActive;
+    if (typeof shop.bookingActive === "boolean") bookingActive = shop.bookingActive;
+    else if (shop.subscribed === true) bookingActive = true;
+    else if (!stripeConfigured) bookingActive = true;
+    else bookingActive = shop.promptBilling !== true;
+
     res.json({
+      bookingActive,
       shop: {
         slug: shop.slug,
         name: shop.name,
