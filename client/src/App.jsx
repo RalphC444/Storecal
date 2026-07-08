@@ -3058,6 +3058,15 @@ function AdminConsole({ user, onSignOut }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const fmtRenew = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
 
+  // Single Booking control maps to (bookingActive, demo):
+  //   on/off  → explicit bookingActive; demo  → on until delivered; auto → follows payment.
+  const bookingValue = (s) => s.bookingActive === true ? "on" : s.bookingActive === false ? "off" : s.demo ? "demo" : "auto";
+  const bookingPatch = (v) =>
+    v === "on" ? { bookingActive: true }
+    : v === "off" ? { bookingActive: false }
+    : v === "demo" ? { bookingActive: null, demo: true }
+    : { bookingActive: null, demo: false };
+
   return (
     <div className="viewport">
       <ToastHost />
@@ -3104,19 +3113,13 @@ function AdminConsole({ user, onSignOut }) {
                           </select>
                         </td>
                         <td>
-                          <select className="acon__sel" value={s.bookingActive === null ? "auto" : (s.bookingActive ? "on" : "off")} disabled={savingId === s._id}
-                            onChange={e => { const v = e.target.value; patch(s._id, { bookingActive: v === "auto" ? null : v === "on" }, "Booking access updated"); }}>
-                            <option value="auto">Auto</option>
-                            <option value="on">On</option>
-                            <option value="off">Off — call us</option>
+                          <select className="acon__sel" value={bookingValue(s)} disabled={savingId === s._id}
+                            onChange={e => patch(s._id, bookingPatch(e.target.value), "Booking updated")}>
+                            <option value="demo">Demo — on until delivered</option>
+                            <option value="auto">Auto — follows payment</option>
+                            <option value="on">On — always</option>
+                            <option value="off">Off — “Call us”</option>
                           </select>
-                          {s.bookingActive === null && !s.subscribed && (
-                            <label className="acon__demo" title="On until you mark the site delivered. Uncheck to gate booking behind payment.">
-                              <input type="checkbox" checked={s.demo} disabled={savingId === s._id}
-                                onChange={e => patch(s._id, { demo: e.target.checked }, e.target.checked ? "Demo on — booking enabled" : "Marked delivered — now follows payment")} />
-                              Demo
-                            </label>
-                          )}
                         </td>
                         <td>
                           <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>

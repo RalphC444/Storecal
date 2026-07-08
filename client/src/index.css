@@ -1679,25 +1679,33 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
 /* Clients CRM table */
 .acon__tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-.acon__table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 860px; }
+.acon__table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 900px; }
 .acon__table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3);
-  font-weight: 700; padding: 12px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.acon__table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.acon__table tr:last-child td { border-bottom: 0; }
+  font-weight: 700; padding: 12px 18px; background: var(--wash); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.acon__table td { padding: 16px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.acon__table tbody tr:last-child td { border-bottom: 0; }
+.acon__table tbody tr:hover td { background: #fafbfc; }
 .acon__name { font-weight: 700; }
 .acon__meta { font-size: 12px; color: var(--ink-3); text-transform: capitalize; margin-top: 2px; }
-.acon__contact { display: flex; flex-direction: column; gap: 2px; }
-.acon__contact a { font-size: 13px; }
-.acon__phone { color: var(--ink-2); }
+/* Note: block (not flex) children — a flex child inside a <td> stops the cell
+   stretching to the row height, which breaks the row's bottom border. */
+.acon__contact { line-height: 1.5; }
+.acon__contact > * { display: block; font-size: 13px; }
+.acon__contact a { text-decoration: none; color: var(--ink); }
+.acon__contact a:hover { text-decoration: underline; }
+.acon__phone { color: var(--ink-2) !important; }
 .acon__dim { color: var(--ink-3); font-size: 12px; }
-.acon__sel { padding: 7px 8px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 13px; font-family: inherit; background: var(--paper); }
-.acon__demo { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
-.acon__renew { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
-.acon__links { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-.acon__links a, .acon__links .linklike { font-size: 13px; }
-.acon__creds { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
-.acon__cred-l { display: inline-block; width: 118px; color: var(--ink-3); font-size: 12.5px; }
+.acon__sel { padding: 8px 28px 8px 10px; border: 1px solid var(--line-2); border-radius: 9px; font-size: 13px; font-family: inherit; background: var(--paper); min-width: 150px; }
+.acon__renew { font-size: 12px; color: var(--ink-2); margin-top: 5px; }
+.acon__links > * { display: block; margin-bottom: 6px; }
+.acon__links > *:last-child { margin-bottom: 0; }
+.acon__links a, .acon__links .linklike { font-size: 13px; text-decoration: none; color: var(--accent); }
+.acon__links a:hover, .acon__links .linklike:hover { text-decoration: underline; }
+.acon__table td:last-child { text-align: right; white-space: nowrap; }
+.acon__creds { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.acon__creds > div { display: flex; align-items: baseline; }
+.acon__cred-l { display: inline-block; width: 118px; color: var(--ink-3); font-size: 12.5px; flex: none; }
 
 .authback { display: block; margin-top: 4px; color: var(--ink-3); }
 
