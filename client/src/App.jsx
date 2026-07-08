@@ -3001,6 +3001,90 @@ function BillingSection() {
   );
 }
 
+// ── Platform operator console ────────────────────────────────────────────────
+// A simplified admin view (not a store view) for managing clients: change each
+// shop's plan and booking access. Super-admin only.
+function AdminConsole({ user, onSignOut }) {
+  const [shops, setShops] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+  const [err, setErr] = useState("");
+
+  const load = useCallback(() => {
+    fetch("/api/admin/shops").then(r => r.json())
+      .then(d => Array.isArray(d) ? setShops(d) : setErr(d.error || "Could not load clients"))
+      .catch(() => setErr("Could not load clients"));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function patch(id, body, label) {
+    setSavingId(id); setErr("");
+    setShops(list => list.map(s => s._id === id ? { ...s, ...body } : s)); // optimistic
+    const res = await fetch(`/api/admin/shops/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    setSavingId(null);
+    if (res.ok) toast(label || "Saved");
+    else { setErr("Could not save — refreshing"); load(); }
+  }
+
+  return (
+    <div className="viewport">
+      <ToastHost />
+      <div className="acon">
+        <header className="acon__head">
+          <span className="acon__brand"><span className="saas__mark"><Icon name="calendar" /></span> StoreCal Admin</span>
+          <span className="acon__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
+        </header>
+        <div className="acon__body">
+          <h1 className="acon__title">Clients</h1>
+          <p className="acon__sub">Manage each client’s plan and booking access. Changes save automatically.</p>
+          {err && <p className="form__error">{err}</p>}
+          {!shops ? <Loader />
+            : shops.length === 0 ? <p className="empty">No clients yet.</p>
+            : (
+              <div className="acon__grid">
+                {shops.map(s => (
+                  <div className="acon__card" key={s._id}>
+                    <div className="acon__card-head">
+                      <div>
+                        <h3 className="acon__name">{s.name}</h3>
+                        <span className="acon__meta">{s.businessType} · {s.services} service{s.services !== 1 ? "s" : ""} · {s.staff} staff</span>
+                      </div>
+                      <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+                    </div>
+                    <div className="acon__controls">
+                      <label className="acon__ctl">
+                        <span className="acon__ctl-lbl">Plan</span>
+                        <select value={s.planId} disabled={savingId === s._id}
+                          onChange={e => patch(s._id, { planId: e.target.value }, "Plan updated")}>
+                          <option value="booking">Booking access — $35/mo</option>
+                          <option value="website">Website + Booking — $99/mo</option>
+                        </select>
+                      </label>
+                      <label className="acon__ctl">
+                        <span className="acon__ctl-lbl">Booking access</span>
+                        <select value={s.bookingActive === null ? "auto" : (s.bookingActive ? "on" : "off")} disabled={savingId === s._id}
+                          onChange={e => {
+                            const v = e.target.value;
+                            patch(s._id, { bookingActive: v === "auto" ? null : v === "on" }, "Booking access updated");
+                          }}>
+                          <option value="auto">Auto (follows subscription)</option>
+                          <option value="on">On — booking enabled</option>
+                          <option value="off">Off — show “Call us”</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="acon__key">{s.publicKey}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Auth gate ────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -3095,6 +3179,9 @@ export default function App() {
 
   if (phase === "onboard")
     return <OnboardingHours user={user} onDone={() => setPhase("app")} />;
+
+  // Platform operator gets the client-management console instead of a store view.
+  if (user?.role === "superadmin") return <AdminConsole user={user} onSignOut={signOut} />;
 
   return <AdminApp user={user} onSignOut={signOut} onUserChange={setUser} />;
 }

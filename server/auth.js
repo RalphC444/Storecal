@@ -53,6 +53,12 @@ function requireOwner(req, res, next) {
   next();
 }
 
+// Platform operator — manages every shop's plan/booking access across the app.
+function requireSuperAdmin(req, res, next) {
+  if (req.auth?.role !== "superadmin") return res.status(403).json({ error: "Admin access required" });
+  next();
+}
+
 // Non-blocking: attach req.auth if a valid cookie is present (public routes still
 // work unauthenticated). Lets routes prefer the token's shopId over the env shop.
 function attachAuth(req, _res, next) {
@@ -91,6 +97,6 @@ function generateTempPassword() {
 
 module.exports = {
   COOKIE, hashPassword, comparePassword, signToken,
-  setAuthCookie, clearAuthCookie, requireAuth, requireOwner, attachAuth, generateTempPassword,
+  setAuthCookie, clearAuthCookie, requireAuth, requireOwner, requireSuperAdmin, attachAuth, generateTempPassword,
   signInvite, verifyInvite, signReset, verifyReset,
 };
