@@ -3106,6 +3106,12 @@ function AdminConsole({ user, onSignOut }) {
                 ))}
               </div>
             )}
+
+          <section className="acon__account">
+            <h3 className="sched__label">Your admin password</h3>
+            <p className="acon__sub" style={{ marginBottom: 12 }}>Change the password for this admin account.</p>
+            <ChangePasswordInline />
+          </section>
         </div>
       </div>
       {adding && <AddClientModal origin={origin} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
