@@ -75,6 +75,9 @@
     /* staff row: avatar + stacked name/bio */
     ".sc__opt--staff{justify-content:flex-start;gap:12px;text-align:left}",
     ".sc__opt-text{display:flex;flex-direction:column;gap:3px;min-width:0}",
+    ".sc__opt-shots{display:flex;gap:6px;margin-top:8px}",
+    ".sc__shot{width:46px;height:46px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none}",
+    "@media(max-width:420px){.sc__shot{width:40px;height:40px}}",
     ".sc__slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}",
     /* Date & time: calendar + times, two panes */
     ".sc__panes{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}",
@@ -252,6 +255,36 @@
   var state = { service: null, provider: null, assigned: null, addons: [], date: "", time: "" };
   function findProvider(id) { return (cfg && cfg.providers || []).filter(function (p) { return p._id === id; })[0] || null; }
 
+  // Photo previews for the team-picker step. Staff show their own gallery; the
+  // owner (a bookable provider too) shows the shop gallery. Loaded once, lazily,
+  // and only when the operator has staff galleries enabled.
+  var galleries = null;
+  function loadGalleries(cb) {
+    if (galleries) { cb(galleries); return; }
+    if (!cfg || cfg.showStaffGalleries === false) { galleries = { staff: {}, shop: [] }; cb(galleries); return; }
+    var toJSON = function (r) { return r.json(); }, toEmpty = function () { return []; };
+    Promise.all([
+      fetch(api("/api/gallery?scope=staff")).then(toJSON).catch(toEmpty),
+      fetch(api("/api/gallery")).then(toJSON).catch(toEmpty),
+    ]).then(function (res) {
+      var staff = {};
+      (Array.isArray(res[0]) ? res[0] : []).forEach(function (g) { if (g.providerId) (staff[g.providerId] = staff[g.providerId] || []).push(g); });
+      galleries = { staff: staff, shop: Array.isArray(res[1]) ? res[1] : [] };
+      cb(galleries);
+    }).catch(function () { galleries = { staff: {}, shop: [] }; cb(galleries); });
+  }
+  // A small (up to 3) row of thumbnails, or null when there are no photos.
+  function shotsStrip(photos) {
+    if (!photos || !photos.length) return null;
+    var strip = el('<span class="sc__opt-shots"></span>');
+    photos.slice(0, 3).forEach(function (g) {
+      var t = el('<span class="sc__shot"></span>');
+      t.style.backgroundImage = "url(" + g.url + ")";
+      strip.appendChild(t);
+    });
+    return strip;
+  }
+
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function el(html) { var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
@@ -422,6 +455,7 @@
     list.appendChild(anyB);
 
     if (!staff.length) list.appendChild(el('<div class="sc__msg">No one is available for this service.</div>'));
+    var cards = [];
     staff.forEach(function (p) {
       var b = el('<button class="sc__opt sc__opt--staff"><span class="sc__av"></span>' +
         '<span class="sc__opt-text"><span class="sc__opt-main">' + esc(p.name) + "</span>" +
@@ -431,9 +465,19 @@
       else { av.textContent = initials(p.name); }
       b.onclick = function () { state.provider = p; state.assigned = null; chooseWhen(); };
       list.appendChild(b);
+      cards.push({ p: p, textEl: b.querySelector(".sc__opt-text") });
     });
     body.appendChild(list);
     frame("Team member", body, { onBack: chooseService });
+
+    // Enhance each card with a small photo preview once galleries load — the
+    // owner shows the shop gallery, everyone else shows their own.
+    loadGalleries(function (g) {
+      cards.forEach(function (c) {
+        var strip = shotsStrip(c.p.isOwner ? g.shop : (g.staff[c.p._id] || []));
+        if (strip) c.textEl.appendChild(strip);
+      });
+    });
   }
 
   // Date & time: a month calendar (left) + open timeslots for the chosen day (right).

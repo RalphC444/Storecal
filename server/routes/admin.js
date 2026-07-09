@@ -128,6 +128,7 @@ router.get("/shops", async (_req, res) => {
         demo: s.demo !== false, // on until the operator marks the client delivered
         showStaff: s.showStaff !== false,
         showGallery: s.showGallery !== false,
+        showStaffGalleries: s.showStaffGalleries !== false,
         subscribed: sub ? sub.subscribed : (s.subscribed === true),
         renewsAt: sub ? sub.renewsAt : null,
         promptBilling: s.promptBilling === true,
@@ -163,6 +164,7 @@ router.patch("/shops/:id", async (req, res) => {
     if (req.body.demo !== undefined) set.demo = !!req.body.demo;
     if (req.body.showStaff !== undefined) set.showStaff = !!req.body.showStaff;
     if (req.body.showGallery !== undefined) set.showGallery = !!req.body.showGallery;
+    if (req.body.showStaffGalleries !== undefined) set.showStaffGalleries = !!req.body.showStaffGalleries;
 
     if (!Object.keys(set).length && !Object.keys(unset).length) {
       return res.status(400).json({ error: "Nothing to update" });

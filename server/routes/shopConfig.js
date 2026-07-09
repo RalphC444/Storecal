@@ -53,6 +53,7 @@ router.get("/", async (req, res) => {
       // Website content toggles (operator-controlled). Default on.
       showStaff: shop.showStaff !== false,
       showGallery: shop.showGallery !== false,
+      showStaffGalleries: shop.showStaffGalleries !== false,
       shop: {
         slug: shop.slug,
         name: shop.name,
@@ -75,6 +76,9 @@ router.get("/", async (req, res) => {
         name: p.name,
         bio: p.bio || "",
         photo: p.photo || "",
+        // The owner is a bookable provider too — the widget shows the shop
+        // gallery (not a personal one) as their preview.
+        isOwner: !!p.ownerUserId,
         // Which services this staff member offers — lets the widget show only
         // the staff who can do the chosen service.
         serviceIds: (p.serviceIds || []).map(String),

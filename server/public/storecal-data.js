@@ -6,6 +6,8 @@
  *   <div data-storecal="services"></div>   ← service cards (name, description, price)
  *   <div data-storecal="staff"></div>      ← staff (name, bio) for an About section
  *   <div data-storecal="gallery"></div>    ← photo gallery (grooming / salon work)
+ *   <div data-storecal="staff-gallery"></div>            ← every staff member's photos, grouped by name
+ *   <div data-storecal="staff-gallery" data-provider="<id>"></div>  ← one staff member's photos
  *   <img data-storecal="cover">            ← the cover photo (for a hero image)
  *   ...or [data-storecal-cover-bg] to set the cover as a background image
  *   <span data-storecal-text="shop.name"></span>     (also shop.phone, shop.address)
@@ -30,7 +32,12 @@
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function fmtDur(m) { if (!m) return ""; var h = Math.floor(m / 60), mm = m % 60; return h ? (h + "h" + (mm ? " " + mm + "m" : "")) : (mm + " min"); }
 
-  var StoreCal = { data: null, _cbs: [], ready: function (cb) { if (this.data) cb(this.data); else this._cbs.push(cb); } };
+  var StoreCal = {
+    data: null, _cbs: [],
+    ready: function (cb) { if (this.data) cb(this.data); else this._cbs.push(cb); },
+    // Photos for one staff member (empty array until content loads or if disabled).
+    staffGallery: function (providerId) { return (this.data && this.data.staffGallery && this.data.staffGallery[providerId]) || []; },
+  };
   window.StoreCal = StoreCal;
 
   function bindText(data) {
@@ -66,6 +73,31 @@
         return '<div class="scd-person">' + av +
           '<div><div class="scd-person__name">' + esc(p.name) + "</div>" +
           (p.bio ? '<div class="scd-person__bio">' + esc(p.bio) + "</div>" : "") + "</div></div>";
+      }).join("");
+    });
+  }
+
+  // Per-staff galleries. Render into any [data-storecal="staff-gallery"] element:
+  //   - with data-provider="<id>" → just that staff member's photos
+  //   - without → every staff member's photos, grouped under their name
+  // Respects the operator's "Allow per-staff galleries" toggle.
+  function renderStaffGallery(data) {
+    document.querySelectorAll('[data-storecal="staff-gallery"]').forEach(function (host) {
+      var byId = data.staffGallery || {};
+      if (data.showStaffGalleries === false) { host.style.display = "none"; return; }
+      var want = host.getAttribute("data-provider");
+      host.style.display = "";
+      var groups = want
+        ? [{ id: want, shots: byId[want] || [] }]
+        : (data.providers || []).map(function (p) { return { id: p._id || p.id, name: p.name, shots: byId[p._id || p.id] || [] }; });
+      groups = groups.filter(function (g) { return g.shots && g.shots.length; });
+      if (!groups.length) { host.style.display = "none"; return; }
+      host.innerHTML = groups.map(function (g) {
+        var shots = '<div class="scd-gallery">' + g.shots.map(function (s) {
+          return '<figure class="scd-shot"><img src="' + s.url + '" loading="lazy" alt="' + esc(s.caption || "") + '">' +
+            (s.caption ? '<figcaption>' + esc(s.caption) + "</figcaption>" : "") + "</figure>";
+        }).join("") + "</div>";
+        return want ? shots : '<div class="scd-staffgal"><h3 class="scd-staffgal__name">' + esc(g.name || "") + "</h3>" + shots + "</div>";
       }).join("");
     });
   }
@@ -114,24 +146,38 @@
     ".scd-shot{margin:0;border-radius:12px;overflow:hidden;background:#f1f3f6}",
     ".scd-shot img{width:100%;height:100%;aspect-ratio:1;object-fit:cover;display:block}",
     ".scd-shot figcaption{padding:8px 10px;font-size:13px;color:#5a6069}",
+    ".scd-staffgal{margin-bottom:28px}",
+    ".scd-staffgal__name{margin:0 0 12px;font-size:18px}",
   ].join("");
   document.head.appendChild(style);
 
   // Fetch the shop config and (only when a gallery/cover is on the page) its photos.
   var wantsGallery = !!document.querySelector('[data-storecal="gallery"], [data-storecal="cover"], [data-storecal-gallery], [data-storecal-cover-bg]');
+  var wantsStaffGallery = !!document.querySelector('[data-storecal="staff-gallery"], [data-storecal-staff-gallery]');
+  var q = "?key=" + encodeURIComponent(KEY);
+  var getJSON = function (path) { return fetch(API + path).then(function (r) { return r.json(); }).catch(function () { return null; }); };
   Promise.all([
-    fetch(API + "/api/shop-config?key=" + encodeURIComponent(KEY)).then(function (r) { return r.json(); }),
-    wantsGallery ? fetch(API + "/api/gallery?key=" + encodeURIComponent(KEY)).then(function (r) { return r.json(); }).catch(function () { return []; }) : Promise.resolve(null),
+    getJSON("/api/shop-config" + q),
+    wantsGallery ? getJSON("/api/gallery" + q) : Promise.resolve(null),
+    wantsStaffGallery ? getJSON("/api/gallery" + q + "&scope=staff") : Promise.resolve(null),
   ]).then(function (res) {
     var data = res[0];
-    if (data.error) throw new Error(data.error);
+    if (!data || data.error) throw new Error((data && data.error) || "no data");
     if (Array.isArray(res[1])) {
       // The cover shows in the hero and is kept out of the gallery grid.
       data.cover = res[1].filter(function (g) { return g.cover; })[0] || null;
       data.gallery = res[1].filter(function (g) { return !g.cover; });
     }
+    // Group staff photos by providerId for renderStaffGallery / StoreCal.staffGallery().
+    data.staffGallery = {};
+    if (Array.isArray(res[2]) && data.showStaffGalleries !== false) {
+      res[2].forEach(function (g) {
+        if (!g.providerId) return;
+        (data.staffGallery[g.providerId] = data.staffGallery[g.providerId] || []).push(g);
+      });
+    }
     StoreCal.data = data;
-    bindText(data); renderServices(data); renderStaff(data); renderGallery(data); renderCover(data);
+    bindText(data); renderServices(data); renderStaff(data); renderGallery(data); renderCover(data); renderStaffGallery(data);
     StoreCal._cbs.forEach(function (cb) { try { cb(data); } catch (e) { /* ignore */ } });
     document.dispatchEvent(new CustomEvent("storecal:loaded", { detail: data }));
   }).catch(function (e) { console.error("[StoreCal] couldn't load content:", e.message); });
