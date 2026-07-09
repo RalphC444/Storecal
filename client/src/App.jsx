@@ -1754,31 +1754,6 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
         </section>
 
         <AddonsSection />
-
-        <section className="sp__block">
-          <h3 className="sched__label">{teamLabel} &amp; services</h3>
-          <p className="sp__hint">Which services each {singular} offers. Everyone offers all services by default — each {singular} can narrow this in their profile.</p>
-          {providers.length === 0 ? <p className="empty empty--sm">No {teamLabel?.toLowerCase()} yet.</p>
-            : (
-              <div className="svcprov-grid">
-                {providers.map(p => {
-                  const offered = (p.serviceIds || []).map(id => nameById[id]).filter(Boolean);
-                  return (
-                    <div key={p._id} className="svcprov">
-                      <div className="svcprov__head">
-                        <span className="svcprov__name"><Avatar name={p.name} photo={p.photo} className="pav--sm" />{p.name}</span>
-                      </div>
-                      <div className="svcprov__chips">
-                        {offered.length > 0
-                          ? offered.map(n => <span key={n} className="chip chip--on chip--static">{n}</span>)
-                          : <span className="ct__dim">No services set yet.</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-        </section>
       </div>
 
       {editing && <ServiceForm service={editing} onClose={() => setEditing(null)} onSave={save} />}
