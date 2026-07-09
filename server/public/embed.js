@@ -217,15 +217,16 @@
   // Once the shop's status is known, hide/relabel booking CTAs when inactive.
   function applyGate() {
     if (booking.active) return;
-    if (booking.phone) trigger.textContent = "📞 Call " + booking.phone;
+    if (booking.phone) trigger.textContent = "📞 Call us";
     else trigger.style.display = "none";
     // Relabel simple (text-only) "Book" CTAs on the host page. CTAs with child
     // nodes (e.g. rendered service cards) are left to their own renderer.
+    // Shows "Call us" (number hidden) but still dials on click.
     var tel = telHref(booking.phone);
     Array.prototype.forEach.call(document.querySelectorAll("[data-storecal-book]"), function (el) {
       if (el === trigger || el.children.length) return;
       if (booking.phone) {
-        el.textContent = "📞 Call " + booking.phone;
+        el.textContent = "📞 Call us";
         if (el.tagName === "A") el.setAttribute("href", "tel:" + tel);
       } else {
         el.style.display = "none";
@@ -314,7 +315,7 @@
       '<div class="sc-unavail-s">' +
       (booking.phone ? "Give us a call and we’ll get you booked in." : "Please contact us to book your appointment.") +
       "</div></div>");
-    if (booking.phone) body.appendChild(el('<a class="sc-callbtn" href="tel:' + telHref(booking.phone) + '">📞 Call ' + esc(booking.phone) + "</a>"));
+    if (booking.phone) body.appendChild(el('<a class="sc-callbtn" href="tel:' + telHref(booking.phone) + '">📞 Call us</a>'));
     frame("Booking unavailable", body);
   }
 
