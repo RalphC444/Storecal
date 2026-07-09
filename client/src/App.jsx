@@ -3087,7 +3087,6 @@ function BookingLinksSection() {
   }, []);
 
   const origin = window.location.origin;
-  const snippet = publicKey ? `<script src="${origin}/embed.js" data-store="${publicKey}"></script>` : "";
   const bioUrl = publicKey ? `${origin}/book?key=${publicKey}` : "";
 
   function copy(text, which) {
@@ -3098,29 +3097,20 @@ function BookingLinksSection() {
   return (
     <section className="sp__block">
       <h3 className="sched__label">Booking links</h3>
-      <p className="sp__hint">Let clients book you online — add the widget to your website, or share a link anywhere.</p>
+      <p className="sp__hint">Share your booking page anywhere — no website needed.</p>
 
       {!loaded ? <Loader />
         : !publicKey ? <p className="sp__hint">No booking key yet for this store.</p>
         : (
-          <>
-            <div className="bl">
-              <div className="bl__title">On your website</div>
-              <p className="bl__sub">Paste this where you want the booking button. It adds a “Book Appointment” button that opens the scheduler in a pop-up.</p>
-              <textarea className="bl__code" readOnly rows={2} value={snippet} onFocus={e => e.target.select()} />
-              <button className="btn" onClick={() => copy(snippet, "web")}>{copied === "web" ? "Copied!" : "Copy code"}</button>
+          <div className="bl">
+            <div className="bl__title">Link in bio</div>
+            <p className="bl__sub">Share this anywhere — Instagram, Google, a text message. It opens your booking page directly (no website needed).</p>
+            <div className="bl__row">
+              <input className="bl__link" readOnly value={bioUrl} onFocus={e => e.target.select()} />
+              <a className="btn" href={bioUrl} target="_blank" rel="noreferrer">Open</a>
             </div>
-
-            <div className="bl">
-              <div className="bl__title">Link in bio</div>
-              <p className="bl__sub">Share this anywhere — Instagram, Google, a text message. It opens your booking page directly (no website needed).</p>
-              <div className="bl__row">
-                <input className="bl__link" readOnly value={bioUrl} onFocus={e => e.target.select()} />
-                <a className="btn" href={bioUrl} target="_blank" rel="noreferrer">Open</a>
-              </div>
-              <button className="btn" onClick={() => copy(bioUrl, "bio")}>{copied === "bio" ? "Copied!" : "Copy link"}</button>
-            </div>
-          </>
+            <button className="btn" onClick={() => copy(bioUrl, "bio")}>{copied === "bio" ? "Copied!" : "Copy link"}</button>
+          </div>
         )}
     </section>
   );
