@@ -133,6 +133,9 @@ const TEAM_LABEL = {
 // Pet weight bands — must match the grooming booking widget's dropdown (embed.js).
 const PET_WEIGHTS = ["1–40 lbs", "40–65 lbs", "65–100 lbs", "100+ lbs"];
 
+// Business types that get a photo Gallery tab (visual work worth showing off).
+const GALLERY_TYPES = ["salon", "grooming", "hair", "barber", "nail"];
+
 // Lightweight toast: call toast("Saved") from anywhere; <ToastHost/> renders them.
 let _emitToast = null;
 function toast(message) { if (_emitToast) _emitToast(message); }
@@ -169,6 +172,7 @@ function Icon({ name }) {
     signout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>,
     eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
     eyeOff: <><path d="M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.2 6.2A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 4.2-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><path d="M3 3l18 18" /></>,
+    image: <><rect x="3" y="4.5" width="18" height="15" rx="2" /><circle cx="8.5" cy="9.5" r="1.6" /><path d="M4 17l5-5 4 4 3-3 4 4" /></>,
   };
   return (
     <svg className="ico" viewBox="0 0 24 24" width="20" height="20" fill="none"
@@ -403,6 +407,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
   ] : [
     { key: "calendar", label: "Calendar", icon: "calendar" },
     { key: "services", label: "Services", icon: "tag" },
+    ...(GALLERY_TYPES.includes(businessType) ? [{ key: "gallery", label: "Gallery", icon: "image" }] : []),
     { key: "clients", label: "Clients", icon: "clients" },
     { key: "providers", label: teamLabel, icon: "scissors" },
   ];
@@ -414,6 +419,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
     : view === "myprofile" ? { label: "My hours", onClick: openHours }
     : view === "providers" ? { label: `Add ${teamLabel.replace(/s$/, "").toLowerCase()}`, onClick: () => setAddReq(n => n + 1) }
     : view === "services" ? { label: "Add service", onClick: () => setAddReq(n => n + 1) }
+    : view === "gallery" ? { label: "Add photos", onClick: () => setAddReq(n => n + 1) }
     : { label: "Add client", onClick: () => setAddReq(n => n + 1) };
 
   const hoursLabel = user.role === "owner" ? "store hours" : "work hours";
@@ -518,6 +524,8 @@ function AdminApp({ user, onSignOut, onUserChange }) {
           <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} onHoursSaved={refreshHours} />
         ) : view === "services" ? (
           <ServicesView providers={providers} teamLabel={teamLabel} onProvidersChange={loadProviders} addReq={addReq} />
+        ) : view === "gallery" ? (
+          <GalleryView addReq={addReq} />
         ) : view === "settings" ? (
           <SettingsView user={user} onUserChange={onUserChange} onSignOut={onSignOut} />
         ) : (
@@ -1270,6 +1278,95 @@ function resizeToDataUrl(file, size = 256) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+// Aspect-preserving resize for gallery photos — caps the long edge and returns
+// a compact JPEG data-URL (no external file hosting needed).
+function resizeImageDataUrl(file, maxDim = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Owner-only photo gallery — add/remove images shown on the website gallery.
+function GalleryView({ addReq }) {
+  const [images, setImages] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const fileRef = useRef(null);
+
+  const load = useCallback(() => {
+    fetch("/api/gallery").then(r => r.json()).then(d => Array.isArray(d) && setImages(d)).catch(() => setImages([]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  // Top-nav "Add photos" action opens the file picker.
+  const addSeen = useRef(addReq);
+  useEffect(() => { if (addReq !== addSeen.current) { addSeen.current = addReq; fileRef.current?.click(); } }, [addReq]);
+
+  async function onFiles(e) {
+    const files = [...(e.target.files || [])];
+    e.target.value = "";
+    if (!files.length) return;
+    setBusy(true); setErr("");
+    for (const f of files) {
+      try {
+        const url = await resizeImageDataUrl(f);
+        const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok) setImages(list => [...(list || []), d]);
+        else setErr(d.error || "Couldn’t add that image");
+      } catch { setErr("Couldn’t process an image"); }
+    }
+    setBusy(false); toast("Gallery updated");
+  }
+
+  async function remove(img) {
+    setImages(list => list.filter(i => i._id !== img._id));
+    const res = await fetch(`/api/gallery/${img._id}`, { method: "DELETE" });
+    if (res.ok) toast("Photo removed"); else { setErr("Couldn’t remove photo"); load(); }
+  }
+
+  return (
+    <div className="pageview">
+      <div className="pv__head">
+        <h1 className="pv__title">Gallery</h1>
+        <button className="btn btn--new" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : "+ Add photos"}</button>
+      </div>
+      <div className="pv__body">
+        <p className="sp__hint">Photos shown in your website’s gallery. JPG or PNG, up to 40 images — they’re resized automatically.</p>
+        {err && <p className="form__error">{err}</p>}
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
+        {!images ? <Loader />
+          : images.length === 0 ? <p className="empty">No photos yet. Add some to show them on your site.</p>
+          : (
+            <div className="gal-grid">
+              {images.map(img => (
+                <div key={img._id} className="gal-item">
+                  <img src={img.url} alt={img.caption || ""} loading="lazy" />
+                  <button className="gal-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+    </div>
+  );
 }
 
 function StylistProfile({ provider: p, err, onBack, onDelete }) {
@@ -3446,7 +3543,7 @@ const MK_PLANS = [
   {
     name: "Website + Booking", price: "$99", per: "/month", featured: true,
     blurb: "A custom website for your business with booking built in.",
-    points: ["Everything in Booking access", "Custom-designed website", "Live services & staff synced from StoreCal", "Hosting & ongoing updates"],
+    points: ["Everything in Booking access", "Custom-designed website", "Live services & staff synced from StoreCal", "Ongoing updates & support"],
   },
 ];
 

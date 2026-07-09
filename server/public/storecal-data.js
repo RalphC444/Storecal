@@ -5,9 +5,11 @@
  * Then mark up where you want the content:
  *   <div data-storecal="services"></div>   ← service cards (name, description, price)
  *   <div data-storecal="staff"></div>      ← staff (name, bio) for an About section
+ *   <div data-storecal="gallery"></div>    ← photo gallery (grooming / salon work)
  *   <span data-storecal-text="shop.name"></span>     (also shop.phone, shop.address)
  *
- * Or render it yourself:  StoreCal.ready(function (data) { ... data.services, data.providers ... });
+ * Or render it yourself:  StoreCal.ready(function (data) { ... data.services, data.providers, data.gallery ... });
+ * (For a custom gallery, add data-storecal-gallery to any element so the photos load.)
  *
  * Data comes from the public, CORS-open GET /api/shop-config?key=<store> endpoint,
  * so your site always reflects what's in StoreCal.
@@ -64,6 +66,16 @@
     });
   }
 
+  function renderGallery(data) {
+    document.querySelectorAll('[data-storecal="gallery"]').forEach(function (host) {
+      host.classList.add("scd-gallery");
+      host.innerHTML = (data.gallery || []).map(function (g) {
+        return '<figure class="scd-shot"><img src="' + g.url + '" loading="lazy" alt="' + esc(g.caption || "") + '">' +
+          (g.caption ? '<figcaption>' + esc(g.caption) + "</figcaption>" : "") + "</figure>";
+      }).join("");
+    });
+  }
+
   // Light default styling — override freely from your own CSS.
   var style = document.createElement("style");
   style.textContent = [
@@ -78,17 +90,25 @@
     ".scd-person__av{width:44px;height:44px;border-radius:50%;background:#e8eefc;color:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}",
     ".scd-person__name{font-weight:700}",
     ".scd-person__bio{color:#5a6069;font-size:14px}",
+    ".scd-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}",
+    ".scd-shot{margin:0;border-radius:12px;overflow:hidden;background:#f1f3f6}",
+    ".scd-shot img{width:100%;height:100%;aspect-ratio:1;object-fit:cover;display:block}",
+    ".scd-shot figcaption{padding:8px 10px;font-size:13px;color:#5a6069}",
   ].join("");
   document.head.appendChild(style);
 
-  fetch(API + "/api/shop-config?key=" + encodeURIComponent(KEY))
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      StoreCal.data = data;
-      bindText(data); renderServices(data); renderStaff(data);
-      StoreCal._cbs.forEach(function (cb) { try { cb(data); } catch (e) { /* ignore */ } });
-      document.dispatchEvent(new CustomEvent("storecal:loaded", { detail: data }));
-    })
-    .catch(function (e) { console.error("[StoreCal] couldn't load content:", e.message); });
+  // Fetch the shop config and (only when a gallery is on the page) its photos.
+  var wantsGallery = !!document.querySelector('[data-storecal="gallery"], [data-storecal-gallery]');
+  Promise.all([
+    fetch(API + "/api/shop-config?key=" + encodeURIComponent(KEY)).then(function (r) { return r.json(); }),
+    wantsGallery ? fetch(API + "/api/gallery?key=" + encodeURIComponent(KEY)).then(function (r) { return r.json(); }).catch(function () { return []; }) : Promise.resolve(null),
+  ]).then(function (res) {
+    var data = res[0];
+    if (data.error) throw new Error(data.error);
+    if (Array.isArray(res[1])) data.gallery = res[1];
+    StoreCal.data = data;
+    bindText(data); renderServices(data); renderStaff(data); renderGallery(data);
+    StoreCal._cbs.forEach(function (cb) { try { cb(data); } catch (e) { /* ignore */ } });
+    document.dispatchEvent(new CustomEvent("storecal:loaded", { detail: data }));
+  }).catch(function (e) { console.error("[StoreCal] couldn't load content:", e.message); });
 })();

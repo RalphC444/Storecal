@@ -198,6 +198,7 @@ router.delete("/shops/:id", async (req, res) => {
       db.collection("workingHours").deleteMany({ shopId }),
       db.collection("scheduleMeta").deleteMany({ shopId }),
       db.collection("scheduleOverrides").deleteMany({ shopId }),
+      db.collection("gallery").deleteMany({ shopId }),
       provIds.length ? db.collection("timeOff").deleteMany({ providerId: { $in: provIds } }) : Promise.resolve(),
     ]);
     await db.collection("shops").deleteOne({ _id });
