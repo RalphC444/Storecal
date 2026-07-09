@@ -6,6 +6,8 @@
  *   <div data-storecal="services"></div>   ← service cards (name, description, price)
  *   <div data-storecal="staff"></div>      ← staff (name, bio) for an About section
  *   <div data-storecal="gallery"></div>    ← photo gallery (grooming / salon work)
+ *   <img data-storecal="cover">            ← the cover photo (for a hero image)
+ *   ...or [data-storecal-cover-bg] to set the cover as a background image
  *   <span data-storecal-text="shop.name"></span>     (also shop.phone, shop.address)
  *
  * Or render it yourself:  StoreCal.ready(function (data) { ... data.services, data.providers, data.gallery ... });
@@ -80,6 +82,20 @@
     });
   }
 
+  // The cover photo goes in the hero, not the gallery grid. An <img data-storecal="cover">
+  // gets its src set; any [data-storecal-cover-bg] element gets it as a background.
+  function renderCover(data) {
+    document.querySelectorAll('[data-storecal="cover"]').forEach(function (host) {
+      if (!data.cover) { host.style.display = "none"; return; }
+      host.style.display = "";
+      if (host.tagName === "IMG") host.src = data.cover.url;
+      else host.innerHTML = '<img src="' + data.cover.url + '" alt="' + esc(data.cover.caption || "") + '" style="width:100%;height:100%;object-fit:cover;display:block">';
+    });
+    if (data.cover) document.querySelectorAll("[data-storecal-cover-bg]").forEach(function (host) {
+      host.style.backgroundImage = "url('" + data.cover.url + "')";
+    });
+  }
+
   // Light default styling — override freely from your own CSS.
   var style = document.createElement("style");
   style.textContent = [
@@ -101,17 +117,21 @@
   ].join("");
   document.head.appendChild(style);
 
-  // Fetch the shop config and (only when a gallery is on the page) its photos.
-  var wantsGallery = !!document.querySelector('[data-storecal="gallery"], [data-storecal-gallery]');
+  // Fetch the shop config and (only when a gallery/cover is on the page) its photos.
+  var wantsGallery = !!document.querySelector('[data-storecal="gallery"], [data-storecal="cover"], [data-storecal-gallery], [data-storecal-cover-bg]');
   Promise.all([
     fetch(API + "/api/shop-config?key=" + encodeURIComponent(KEY)).then(function (r) { return r.json(); }),
     wantsGallery ? fetch(API + "/api/gallery?key=" + encodeURIComponent(KEY)).then(function (r) { return r.json(); }).catch(function () { return []; }) : Promise.resolve(null),
   ]).then(function (res) {
     var data = res[0];
     if (data.error) throw new Error(data.error);
-    if (Array.isArray(res[1])) data.gallery = res[1];
+    if (Array.isArray(res[1])) {
+      // The cover shows in the hero and is kept out of the gallery grid.
+      data.cover = res[1].filter(function (g) { return g.cover; })[0] || null;
+      data.gallery = res[1].filter(function (g) { return !g.cover; });
+    }
     StoreCal.data = data;
-    bindText(data); renderServices(data); renderStaff(data); renderGallery(data);
+    bindText(data); renderServices(data); renderStaff(data); renderGallery(data); renderCover(data);
     StoreCal._cbs.forEach(function (cb) { try { cb(data); } catch (e) { /* ignore */ } });
     document.dispatchEvent(new CustomEvent("storecal:loaded", { detail: data }));
   }).catch(function (e) { console.error("[StoreCal] couldn't load content:", e.message); });

@@ -1342,6 +1342,12 @@ function GalleryView({ addReq }) {
     if (res.ok) toast("Photo removed"); else { setErr("Couldn’t remove photo"); load(); }
   }
 
+  async function setCover(img) {
+    setImages(list => list.map(i => ({ ...i, cover: i._id === img._id })));
+    const res = await fetch(`/api/gallery/${img._id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cover: true }) });
+    if (res.ok) toast("Cover photo set"); else { setErr("Couldn’t set cover"); load(); }
+  }
+
   return (
     <div className="pageview">
       <div className="pv__head">
@@ -1349,21 +1355,26 @@ function GalleryView({ addReq }) {
         <button className="btn btn--new" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : "+ Add photos"}</button>
       </div>
       <div className="pv__body">
-        <p className="sp__hint">Photos shown in your website’s gallery. JPG or PNG, up to 40 images — they’re resized automatically.</p>
+        <p className="sp__hint">Photos shown in your website’s gallery. Mark one as the <b>cover</b> to feature it in the site hero (it won’t appear in the gallery grid). JPG or PNG, up to 40 images.</p>
         {err && <p className="form__error">{err}</p>}
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
-        {!images ? <Loader />
-          : images.length === 0 ? <p className="empty">No photos yet. Add some to show them on your site.</p>
-          : (
-            <div className="gal-grid">
-              {images.map(img => (
-                <div key={img._id} className="gal-item">
-                  <img src={img.url} alt={img.caption || ""} loading="lazy" />
-                  <button className="gal-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
-                </div>
-              ))}
-            </div>
-          )}
+        {!images ? <Loader /> : (
+          <div className="gal-grid">
+            <button type="button" className="gal-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
+              <span className="gal-add__plus">+</span>
+              <span className="gal-add__t">{busy ? "Uploading…" : "Add photo"}</span>
+            </button>
+            {images.map(img => (
+              <div key={img._id} className={"gal-item" + (img.cover ? " gal-item--cover" : "")}>
+                <img src={img.url} alt={img.caption || ""} loading="lazy" />
+                {img.cover
+                  ? <span className="gal-badge">★ Cover</span>
+                  : <button className="gal-cover-btn" onClick={() => setCover(img)}>Set as cover</button>}
+                <button className="gal-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
     const shopId = await resolveShopId(req, db);
     if (!shopId) return res.status(404).json({ error: "Shop not found" });
     const imgs = await db.collection("gallery").find({ shopId }).sort({ sortOrder: 1, _id: 1 }).toArray();
-    res.json(imgs.map((i) => ({ _id: i._id.toString(), url: i.url, caption: i.caption || "" })));
+    res.json(imgs.map((i) => ({ _id: i._id.toString(), url: i.url, caption: i.caption || "", cover: i.cover === true })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -38,6 +38,30 @@ router.post("/", requireAuth, requireOwner, async (req, res) => {
     const doc = { shopId, url, caption: String(req.body.caption || "").trim(), sortOrder: count, createdAt: new Date() };
     const r = await db.collection("gallery").insertOne(doc);
     res.status(201).json({ _id: r.insertedId.toString(), url: doc.url, caption: doc.caption });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/gallery/:id — set an image as the cover (owner). The cover shows
+// in the website hero and is excluded from the gallery grid. Body: { cover }.
+router.patch("/:id", requireAuth, requireOwner, async (req, res) => {
+  try {
+    const db = await getDb();
+    const shopId = req.auth.shopId;
+    let _id;
+    try { _id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: "Bad id" }); }
+    const set = {};
+    if (req.body.cover !== undefined) {
+      set.cover = !!req.body.cover;
+      // Only one cover per shop — clear it on the others first.
+      if (set.cover) await db.collection("gallery").updateMany({ shopId, _id: { $ne: _id } }, { $set: { cover: false } });
+    }
+    if (req.body.caption !== undefined) set.caption = String(req.body.caption).trim();
+    if (!Object.keys(set).length) return res.status(400).json({ error: "Nothing to update" });
+    const r = await db.collection("gallery").updateOne({ _id, shopId }, { $set: set });
+    if (!r.matchedCount) return res.status(404).json({ error: "Image not found" });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
