@@ -182,6 +182,17 @@ function Icon({ name }) {
   );
 }
 
+// The StoreCal logomark (storefront). Two-tone, self-colored — scales to fill
+// its container, so callers size it via the wrapping element.
+function BrandMark() {
+  return (
+    <svg className="brandmark" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M1.4 17.2495C1.17909 17.2495 1 17.0704 1 16.8495V11.6495C1 11.4286 0.820914 11.2495 0.6 11.2495H0.4C0.179086 11.2495 0 11.0704 0 10.8495V9.28912C0 9.26278 0.00260188 9.2365 0.00776773 9.21067L0.935689 4.57107C0.973083 4.3841 1.13725 4.24951 1.32792 4.24951H16.6721C16.8628 4.24951 17.0269 4.3841 17.0643 4.57107L17.9922 9.21067C17.9974 9.2365 18 9.26278 18 9.28912V10.8495C18 11.0704 17.8209 11.2495 17.6 11.2495H17.4C17.1791 11.2495 17 11.4286 17 11.6495V16.8495C17 17.0704 16.8209 17.2495 16.6 17.2495H15.4C15.1791 17.2495 15 17.0704 15 16.8495V11.6495C15 11.4286 14.8209 11.2495 14.6 11.2495H11.4C11.1791 11.2495 11 11.4286 11 11.6495V16.8495C11 17.0704 10.8209 17.2495 10.6 17.2495H1.4ZM3 14.8495C3 15.0704 3.17909 15.2495 3.4 15.2495H8.6C8.82091 15.2495 9 15.0704 9 14.8495V11.6495C9 11.4286 8.82091 11.2495 8.6 11.2495H3.4C3.17909 11.2495 3 11.4286 3 11.6495V14.8495ZM2.14569 8.77107C2.09619 9.01858 2.2855 9.24951 2.53792 9.24951H15.4621C15.7145 9.24951 15.9038 9.01858 15.8543 8.77107L15.4143 6.57107C15.3769 6.3841 15.2128 6.24951 15.0221 6.24951H2.97792C2.78725 6.24951 2.62308 6.3841 2.58569 6.57107L2.14569 8.77107Z" fill="#000D6E" />
+      <path d="M5.55615 0C5.77705 1.97655e-05 5.95654 0.179489 5.95654 0.400391V1.25098H11.9731V0.400391C11.9731 0.179477 12.1526 0 12.3735 0H13.5737C13.7945 0.000184484 13.9731 0.179591 13.9731 0.400391V1.25098H16.5649C16.7858 1.25098 16.9653 1.42952 16.9653 1.65039V2.85059C16.9653 3.07145 16.7858 3.25098 16.5649 3.25098H1.36475C1.14408 3.25073 0.965385 3.0713 0.965332 2.85059V1.65039C0.965385 1.42968 1.14408 1.25123 1.36475 1.25098H3.95654V0.400391C3.95654 0.17953 4.13512 8.56908e-05 4.35596 0H5.55615Z" fill="#7B79FF" />
+    </svg>
+  );
+}
+
 // Password field with a show/hide toggle. Forwards all input props (value,
 // onChange, placeholder, autoComplete, required…); just swaps type.
 function PasswordInput(props) {
@@ -446,7 +457,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
       <aside className="sidebar">
         <div className="sidebar__top">
           <div className="saas">
-            <span className="saas__mark"><Icon name="calendar" /></span>
+            <span className="saas__mark"><BrandMark /></span>
             <span className="saas__name">StoreCal</span>
           </div>
           <div className="ws">{shopName}</div>
@@ -3246,7 +3257,7 @@ function AdminConsole({ user, onSignOut }) {
       <ToastHost />
       <div className="acon">
         <header className="acon__head">
-          <span className="acon__brand"><span className="saas__mark"><Icon name="calendar" /></span> StoreCal Admin</span>
+          <span className="acon__brand"><span className="saas__mark"><BrandMark /></span> StoreCal Admin</span>
           <span className="acon__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
         </header>
         <div className="acon__body">
@@ -3662,7 +3673,7 @@ function Landing({ onSignIn, onDemo, onLegal }) {
       <header className="mk__nav">
         <div className="mk__navwrap">
           <a className="mk__brand" href="#top">
-            <span className="saas__mark"><Icon name="calendar" /></span>
+            <span className="saas__mark"><BrandMark /></span>
             <span className="saas__name">StoreCal</span>
           </a>
           <nav className="mk__links">
@@ -3770,7 +3781,7 @@ function Landing({ onSignIn, onDemo, onLegal }) {
 
       <footer className="mk__foot">
         <a className="mk__brand" href="#top">
-          <span className="saas__mark"><Icon name="calendar" /></span>
+          <span className="saas__mark"><BrandMark /></span>
           <span className="saas__name">StoreCal</span>
         </a>
         <span className="mk__foot-links">
@@ -3919,7 +3930,7 @@ function AuthShell({ title, subtitle, children, footer }) {
     <div className="authwrap">
       <div className="authcard">
         <div className="authcard__brand">
-          <span className="saas__mark"><Icon name="calendar" /></span>
+          <span className="saas__mark"><BrandMark /></span>
           <span className="saas__name">StoreCal</span>
         </div>
         <h1 className="authcard__title">{title}</h1>
@@ -4103,7 +4114,7 @@ function OnboardingHours({ user, onDone }) {
     <div className="authwrap authwrap--wide">
       <div className="authcard authcard--wide">
         <div className="authcard__brand">
-          <span className="saas__mark"><Icon name="calendar" /></span>
+          <span className="saas__mark"><BrandMark /></span>
           <span className="saas__name">StoreCal</span>
         </div>
         <h1 className="authcard__title">Add your {isOwner ? "store" : "work"} hours</h1>
