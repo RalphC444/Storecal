@@ -1731,6 +1731,8 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .acd__card .sched__label { margin-bottom: 14px; }
 .acd__card .field { margin-bottom: 12px; }
 .acd__card .field:last-of-type { margin-bottom: 0; }
+.acd__toggle { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 14px; cursor: pointer; }
+.acd__toggle input { width: 16px; height: 16px; flex: none; }
 .acd__danger { background: var(--paper); border: 1px solid #f1d9d9; border-radius: 14px; padding: 16px 20px;
   display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; }
 .acd__danger .sched__label { margin: 0 0 2px; }

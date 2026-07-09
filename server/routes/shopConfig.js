@@ -50,6 +50,9 @@ router.get("/", async (req, res) => {
 
     res.json({
       bookingActive,
+      // Website content toggles (operator-controlled). Default on.
+      showStaff: shop.showStaff !== false,
+      showGallery: shop.showGallery !== false,
       shop: {
         slug: shop.slug,
         name: shop.name,

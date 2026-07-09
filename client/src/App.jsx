@@ -3252,7 +3252,13 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
   const bookingUrl = `${origin}/book?key=${s.publicKey}`;
   const embedCode =
     `<!-- StoreCal booking widget -->\n<script src="${origin}/embed.js" data-store="${s.publicKey}"></script>\n` +
-    `<!-- Optional: live services & staff on the site -->\n<script src="${origin}/storecal-data.js" data-store="${s.publicKey}"></script>`;
+    `<!-- Live content (services, staff, gallery) -->\n<script src="${origin}/storecal-data.js" data-store="${s.publicKey}"></script>`;
+  // Content-block containers to drop on the site — only the enabled sections.
+  const contentBlocks = [
+    '<div data-storecal="services"></div>',
+    s.showStaff !== false ? '<div data-storecal="staff"></div>' : null,
+    s.showGallery !== false ? '<div data-storecal="gallery"></div>' : null,
+  ].filter(Boolean).join("\n");
   const copy = (t, id) => navigator.clipboard?.writeText(t).then(() => { setCopied(id); setTimeout(() => setCopied(""), 1500); }).catch(() => {});
   const saveContact = (field, val) => { if ((s[field] || "") !== val.trim()) onPatch({ [field]: val.trim() }, "Contact updated"); };
 
@@ -3301,6 +3307,21 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
       </div>
 
       <section className="acd__card">
+        <h3 className="sched__label">Website content</h3>
+        <p className="sp__hint" style={{ marginTop: -4, marginBottom: 12 }}>Choose which sections appear on their website.</p>
+        <label className="acd__toggle">
+          <input type="checkbox" checked={s.showStaff !== false} disabled={saving}
+            onChange={e => onPatch({ showStaff: e.target.checked }, e.target.checked ? "Staff shown on site" : "Staff hidden")} />
+          <span>Show staff / team section</span>
+        </label>
+        <label className="acd__toggle">
+          <input type="checkbox" checked={s.showGallery !== false} disabled={saving}
+            onChange={e => onPatch({ showGallery: e.target.checked }, e.target.checked ? "Gallery shown on site" : "Gallery hidden")} />
+          <span>Show photo gallery</span>
+        </label>
+      </section>
+
+      <section className="acd__card">
         <h3 className="sched__label">Links &amp; embed</h3>
         <p className="sp__hint">Hosted booking page:</p>
         <div className="invite__row">
@@ -3308,9 +3329,12 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
           <a className="action" href={bookingUrl} target="_blank" rel="noreferrer">Open</a>
           <button className="btn" onClick={() => copy(bookingUrl, "book")}>{copied === "book" ? "Copied!" : "Copy"}</button>
         </div>
-        <p className="sp__hint" style={{ marginTop: 14 }}>Embed code for their website:</p>
+        <p className="sp__hint" style={{ marginTop: 14 }}>1. Embed code (add once, before &lt;/body&gt;):</p>
         <pre className="acon__code">{embedCode}</pre>
         <button className="btn" onClick={() => copy(embedCode, "emb")}>{copied === "emb" ? "Copied!" : "Copy code"}</button>
+        <p className="sp__hint" style={{ marginTop: 16 }}>2. Content blocks (place where each section should appear):</p>
+        <pre className="acon__code">{contentBlocks}</pre>
+        <button className="btn" onClick={() => copy(contentBlocks, "blocks")}>{copied === "blocks" ? "Copied!" : "Copy blocks"}</button>
       </section>
 
       <section className="acd__danger">

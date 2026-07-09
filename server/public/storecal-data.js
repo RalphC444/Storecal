@@ -54,6 +54,8 @@
   }
   function renderStaff(data) {
     document.querySelectorAll('[data-storecal="staff"]').forEach(function (host) {
+      if (data.showStaff === false) { host.style.display = "none"; return; }
+      host.style.display = "";
       host.classList.add("scd-grid");
       host.innerHTML = (data.providers || []).map(function (p) {
         var av = p.photo
@@ -68,6 +70,8 @@
 
   function renderGallery(data) {
     document.querySelectorAll('[data-storecal="gallery"]').forEach(function (host) {
+      if (data.showGallery === false) { host.style.display = "none"; return; }
+      host.style.display = "";
       host.classList.add("scd-gallery");
       host.innerHTML = (data.gallery || []).map(function (g) {
         return '<figure class="scd-shot"><img src="' + g.url + '" loading="lazy" alt="' + esc(g.caption || "") + '">' +
