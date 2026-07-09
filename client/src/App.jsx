@@ -1329,7 +1329,7 @@ function GalleryView({ addReq }) {
         const url = await resizeImageDataUrl(f);
         const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
         const d = await res.json().catch(() => ({}));
-        if (res.ok) setImages(list => [...(list || []), d]);
+        if (res.ok) setImages(list => [d, ...(list || [])]); // newest first
         else setErr(d.error || "Couldn’t add that image");
       } catch { setErr("Couldn’t process an image"); }
     }
@@ -1337,7 +1337,12 @@ function GalleryView({ addReq }) {
   }
 
   async function remove(img) {
-    setImages(list => list.filter(i => i._id !== img._id));
+    setImages(list => {
+      const next = list.filter(i => i._id !== img._id);
+      // If the cover was removed, the newest remaining photo becomes cover (list is newest-first).
+      if (img.cover && next.length) next[0] = { ...next[0], cover: true };
+      return next;
+    });
     const res = await fetch(`/api/gallery/${img._id}`, { method: "DELETE" });
     if (res.ok) toast("Photo removed"); else { setErr("Couldn’t remove photo"); load(); }
   }

@@ -17,7 +17,8 @@ router.get("/", async (req, res) => {
     const db = await getDb();
     const shopId = await resolveShopId(req, db);
     if (!shopId) return res.status(404).json({ error: "Shop not found" });
-    const imgs = await db.collection("gallery").find({ shopId }).sort({ sortOrder: 1, _id: 1 }).toArray();
+    // Newest first — recent photos lead the gallery (and the admin grid).
+    const imgs = await db.collection("gallery").find({ shopId }).sort({ createdAt: -1, _id: -1 }).toArray();
     res.json(imgs.map((i) => ({ _id: i._id.toString(), url: i.url, caption: i.caption || "", cover: i.cover === true })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -73,8 +74,15 @@ router.delete("/:id", requireAuth, requireOwner, async (req, res) => {
     const db = await getDb();
     let _id;
     try { _id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: "Bad id" }); }
-    const r = await db.collection("gallery").deleteOne({ _id, shopId: req.auth.shopId });
+    const shopId = req.auth.shopId;
+    const img = await db.collection("gallery").findOne({ _id, shopId });
+    const r = await db.collection("gallery").deleteOne({ _id, shopId });
     if (!r.deletedCount) return res.status(404).json({ error: "Image not found" });
+    // If the cover was removed, promote the most recent remaining photo to cover.
+    if (img && img.cover) {
+      const newest = await db.collection("gallery").find({ shopId }).sort({ createdAt: -1, _id: -1 }).limit(1).next();
+      if (newest) await db.collection("gallery").updateOne({ _id: newest._id }, { $set: { cover: true } });
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
