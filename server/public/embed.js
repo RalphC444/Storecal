@@ -75,9 +75,11 @@
     /* staff row: avatar + stacked name/bio */
     ".sc__opt--staff{justify-content:flex-start;gap:12px;text-align:left}",
     ".sc__opt-text{display:flex;flex-direction:column;gap:3px;min-width:0}",
-    ".sc__opt-shots{display:flex;gap:6px;margin-top:8px}",
-    ".sc__shot{width:46px;height:46px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none}",
-    "@media(max-width:420px){.sc__shot{width:40px;height:40px}}",
+    /* photo preview: floats to the right of the card on desktop, wraps below on mobile */
+    ".sc__opt--staff{flex-wrap:wrap}",
+    ".sc__opt-shots{display:flex;gap:8px;margin-left:auto;flex:none}",
+    ".sc__shot{width:76px;height:76px;border-radius:12px;background:#f1f3f6 center/cover no-repeat;flex:none}",
+    "@media(max-width:560px){.sc__opt-shots{margin-left:50px;flex-basis:100%;margin-top:4px}.sc__shot{width:72px;height:72px}}",
     ".sc__slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}",
     /* Date & time: calendar + times, two panes */
     ".sc__panes{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}",
@@ -465,17 +467,18 @@
       else { av.textContent = initials(p.name); }
       b.onclick = function () { state.provider = p; state.assigned = null; chooseWhen(); };
       list.appendChild(b);
-      cards.push({ p: p, textEl: b.querySelector(".sc__opt-text") });
+      cards.push({ p: p, card: b });
     });
     body.appendChild(list);
     frame("Team member", body, { onBack: chooseService });
 
-    // Enhance each card with a small photo preview once galleries load — the
-    // owner shows the shop gallery, everyone else shows their own.
+    // Enhance each card with a photo preview once galleries load — the owner
+    // shows the shop gallery, everyone else shows their own. The strip is a
+    // direct child of the card so it can float right on desktop.
     loadGalleries(function (g) {
       cards.forEach(function (c) {
         var strip = shotsStrip(c.p.isOwner ? g.shop : (g.staff[c.p._id] || []));
-        if (strip) c.textEl.appendChild(strip);
+        if (strip) c.card.appendChild(strip);
       });
     });
   }
