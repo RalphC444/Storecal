@@ -169,7 +169,7 @@
   // shop-config load below tells us otherwise, so CTAs never flash-disable.
   var booking = { active: true, phone: "" };
   function telHref(p) { return String(p || "").replace(/[^0-9+]/g, ""); }
-  function callStore() { if (booking.phone) window.location.href = "tel:" + telHref(booking.phone); }
+  function callStore() { if (booking.phone) window.location.href = "tel:" + telHref(booking.phone); else openModal(); }
 
   // ── Trigger button + modal overlay ──────────────────────────────────────────
   var trigger = document.createElement("button");
@@ -217,20 +217,16 @@
   // Once the shop's status is known, hide/relabel booking CTAs when inactive.
   function applyGate() {
     if (booking.active) return;
-    if (booking.phone) trigger.textContent = "📞 Call us";
-    else trigger.style.display = "none";
+    // Always render a "Call us" CTA (number hidden). Dials when a phone is set;
+    // otherwise a click opens the "contact us to book" modal.
+    trigger.textContent = "📞 Call us";
+    var tel = telHref(booking.phone);
     // Relabel simple (text-only) "Book" CTAs on the host page. CTAs with child
     // nodes (e.g. rendered service cards) are left to their own renderer.
-    // Shows "Call us" (number hidden) but still dials on click.
-    var tel = telHref(booking.phone);
     Array.prototype.forEach.call(document.querySelectorAll("[data-storecal-book]"), function (el) {
       if (el === trigger || el.children.length) return;
-      if (booking.phone) {
-        el.textContent = "📞 Call us";
-        if (el.tagName === "A") el.setAttribute("href", "tel:" + tel);
-      } else {
-        el.style.display = "none";
-      }
+      el.textContent = "📞 Call us";
+      if (el.tagName === "A") el.setAttribute("href", booking.phone ? "tel:" + tel : "#");
     });
   }
 
