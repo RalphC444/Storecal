@@ -236,9 +236,24 @@ router.get("/:providerId/slots", async (req, res) => {
     const step = Number(req.query.stepMin) || 15;
 
     if (providerId === "any") {
-      let staff = await db.collection("providers").find({ shopId, active: true }).toArray();
+      const active = await db.collection("providers").find({ shopId, active: true }).toArray();
       const serviceId = req.query.serviceId;
-      if (serviceId) staff = staff.filter((p) => (p.serviceIds || []).map(String).includes(serviceId));
+      let staff = serviceId ? active.filter((p) => (p.serviceIds || []).map(String).includes(serviceId)) : active;
+      if (staff.length === 0) staff = active; // nobody tagged for this service → offer all active staff
+
+      if (staff.length === 0) {
+        // No bookable staff at all (e.g. an auto shop with staff disabled). Book
+        // the shop itself: timeslots come from the store's own hours, assigned to
+        // the shop's owner-provider so the appointment still lands on the calendar.
+        const rep =
+          (await db.collection("providers").findOne({ shopId, ownerUserId: { $exists: true, $ne: null } })) ||
+          (await db.collection("providers").findOne({ shopId }));
+        const repId = rep ? rep._id.toString() : "shop";
+        const slots = await computeSlots(db, shopId, repId, date, dur, step);
+        const providersByTime = {};
+        slots.forEach((t) => { providersByTime[t] = [repId]; });
+        return res.json({ date, providerId: "any", durationMin: dur, slots, providersByTime });
+      }
 
       const providersByTime = {};
       for (const p of staff) {

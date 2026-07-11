@@ -20,6 +20,8 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const [services, setServices] = useState([]);
   const [shopName, setShopName] = useState("Salon Booking");
   const [businessType, setBusinessType] = useState("salon");
+  const [showStaff, setShowStaff] = useState(true);
+  const [showGallery, setShowGallery] = useState(true);
   const isProvider = user.role === "provider";
   const [view, setView] = useState("calendar"); // "calendar" | "clients" | "providers"
   // Providers only ever see their own calendar — lock the filter to themselves.
@@ -52,6 +54,8 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         if (Array.isArray(cfg.services)) setServices(cfg.services);
         if (cfg.shop?.name) setShopName(cfg.shop.name);
         if (cfg.shop?.businessType) setBusinessType(cfg.shop.businessType);
+        setShowStaff(cfg.showStaff !== false);
+        setShowGallery(cfg.showGallery !== false);
       })
       .catch(() => {});
   }, [loadProviders]);
@@ -196,17 +200,19 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
 
   // Owner manages the whole shop; a provider gets a scoped set of tabs and a
   // "My profile" tab to self-manage their bio, services and hours.
+  const galleryTab = GALLERY_TYPES.includes(businessType) && showGallery;
   const NAV = isProvider ? [
     { key: "calendar", label: "My calendar", icon: "calendar" },
     { key: "clients", label: "Clients", icon: "clients" },
     { key: "myprofile", label: "My profile", icon: "scissors" },
-    ...(GALLERY_TYPES.includes(businessType) ? [{ key: "mygallery", label: "My gallery", icon: "image" }] : []),
+    ...(galleryTab ? [{ key: "mygallery", label: "My gallery", icon: "image" }] : []),
   ] : [
     { key: "calendar", label: "Calendar", icon: "calendar" },
     { key: "services", label: "Services", icon: "tag" },
-    ...(GALLERY_TYPES.includes(businessType) ? [{ key: "gallery", label: "Gallery", icon: "image" }] : []),
+    ...(galleryTab ? [{ key: "gallery", label: "Gallery", icon: "image" }] : []),
     { key: "clients", label: "Clients", icon: "clients" },
-    { key: "providers", label: teamLabel, icon: "scissors" },
+    // Staff/team tab hidden when the operator has turned staff off (e.g. auto shops).
+    ...(showStaff ? [{ key: "providers", label: teamLabel, icon: "scissors" }] : []),
   ];
   const go = (v) => { setView(v); setMobileOpen(false); };
 
@@ -320,7 +326,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         ) : view === "providers" ? (
           <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} onHoursSaved={refreshHours} />
         ) : view === "services" ? (
-          <ServicesView providers={providers} teamLabel={teamLabel} onProvidersChange={loadProviders} addReq={addReq} />
+          <ServicesView providers={providers} teamLabel={teamLabel} onProvidersChange={loadProviders} addReq={addReq} businessType={businessType} />
         ) : view === "gallery" ? (
           <GalleryView addReq={addReq} />
         ) : view === "mygallery" ? (

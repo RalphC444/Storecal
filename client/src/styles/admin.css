@@ -61,6 +61,7 @@
 .clientdetail__card .schedule__label { margin-bottom: 14px; }
 .clientdetail__card .field { margin-bottom: 12px; }
 .clientdetail__card .field:last-of-type { margin-bottom: 0; }
+.clientdetail__toggles { display: flex; flex-direction: column; gap: 14px; }
 .clientdetail__toggle { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 14px; cursor: pointer; }
 .clientdetail__toggle input { width: 16px; height: 16px; flex: none; }
 .clientdetail__danger { background: var(--paper); border: 1px solid #f1d9d9; border-radius: 14px; padding: 16px 20px;

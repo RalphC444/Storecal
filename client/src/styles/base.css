@@ -1175,6 +1175,21 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .pwfield__toggle .ico { width: 18px; height: 18px; }
 .field__money .field__money-input:focus { border: 0; }
 
+/* Inline checkbox under a field (e.g. auto "Request a Quote") */
+.field__check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.field__check input { width: auto; margin: 0; }
+
+/* Switch-style toggle */
+.toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.toggle--disabled { opacity: .55; cursor: default; }
+.toggle__input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle__track { position: relative; width: 40px; height: 23px; border-radius: 999px; background: #cdd2da; transition: background .18s; flex: none; }
+.toggle__thumb { position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.22); transition: transform .18s; }
+.toggle__input:checked + .toggle__track { background: var(--accent); }
+.toggle__input:checked + .toggle__track .toggle__thumb { transform: translateX(17px); }
+.toggle__input:focus-visible + .toggle__track { box-shadow: 0 0 0 3px var(--accent-soft, rgba(37,99,235,.25)); }
+.toggle__label { font-size: 14px; color: var(--ink); }
+
 /* Staff availability note in the appointment form */
 .appt-avail { font-size: 12.5px; line-height: 1.4; margin: -4px 0 2px; padding: 8px 11px; border-radius: 8px; }
 .appt-avail--ok { color: #1e6b3a; background: #e9f7ee; }

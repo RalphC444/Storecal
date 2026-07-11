@@ -4,18 +4,26 @@ import { Icon } from "../../components/Icon";
 import { BrandLogo } from "../../components/BrandLogo";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Toggle } from "../../components/Toggle";
 
 // ── Platform operator console ────────────────────────────────────────────────
 // A simplified admin view (not a store view) for managing clients: change each
 // shop's plan and booking access. Super-admin only.
 // Booking control maps to (bookingActive, demo). Shared by the table + detail.
-const bookingValueOf = (s) => s.bookingActive === true ? "on" : s.bookingActive === false ? "off" : s.demo ? "demo" : "auto";
+const bookingValueOf = (s) =>
+  s.freeForLife ? "free"
+  : s.bookingActive === true ? "on"
+  : s.bookingActive === false ? "off"
+  : s.demo ? "demo" : "auto";
+// Each mode clears the others so they never conflict. "free" = comped for life:
+// booking always on and all payment UI hidden in the client's owner app.
 const bookingPatchFor = (v) =>
-  v === "on" ? { bookingActive: true }
-  : v === "off" ? { bookingActive: false }
-  : v === "demo" ? { bookingActive: null, demo: true }
-  : { bookingActive: null, demo: false };
-const BOOKING_LABEL = { demo: "Demo", auto: "Auto", on: "On", off: "Off — call us" };
+  v === "free" ? { freeForLife: true, bookingActive: null, demo: false }
+  : v === "on" ? { freeForLife: false, bookingActive: true }
+  : v === "off" ? { freeForLife: false, bookingActive: false }
+  : v === "demo" ? { freeForLife: false, bookingActive: null, demo: true }
+  : { freeForLife: false, bookingActive: null, demo: false };
+const BOOKING_LABEL = { demo: "Demo", auto: "Auto", on: "On", off: "Off — call us", free: "Free for life" };
 const planLabelOf = (s) => s.planId === "website" ? "$99 · Website + Booking" : "$35 · Booking";
 const fmtRenewDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
 
@@ -102,7 +110,7 @@ export function AdminConsole({ user, onSignOut }) {
                             <td>{planLabelOf(s)}</td>
                             <td>{BOOKING_LABEL[bookingValueOf(s)]}</td>
                             <td>
-                              <span className={"adminconsole__badge" + (s.subscribed ? " adminconsole__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+                              <span className={"adminconsole__badge" + (s.subscribed || s.freeForLife ? " adminconsole__badge--on" : "")}>{s.freeForLife ? "Free for life" : s.subscribed ? "Subscribed" : "Not subscribed"}</span>
                               {s.subscribed && fmtRenewDate(s.renewsAt) && <div className="adminconsole__renew">Renews {fmtRenewDate(s.renewsAt)}</div>}
                             </td>
                             <td className="adminconsole__chevron"><Icon name="chevronRight" /></td>
@@ -156,7 +164,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
           <h1 className="clientdetail__name">{s.name}</h1>
           <span className="clientdetail__meta">{s.businessType} · {s.services} services · {s.staff} staff · <code>{s.publicKey}</code></span>
         </div>
-        <span className={"adminconsole__badge" + (s.subscribed ? " adminconsole__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+        <span className={"adminconsole__badge" + (s.subscribed || s.freeForLife ? " adminconsole__badge--on" : "")}>{s.freeForLife ? "Free for life" : s.subscribed ? "Subscribed" : "Not subscribed"}</span>
       </div>
 
       <div className="clientdetail__grid">
@@ -174,9 +182,12 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
               <option value="auto">Auto — follows payment</option>
               <option value="on">On — always</option>
               <option value="off">Off — “Call us”</option>
+              <option value="free">Free for life — comped (no billing)</option>
             </select>
           </label>
-          <p className="panel__hint">{s.subscribed
+          <p className="panel__hint">{s.freeForLife
+            ? "Comped for life — booking always on, and no payment or billing shows in their account."
+            : s.subscribed
             ? (fmtRenewDate(s.renewsAt) ? `Subscription renews ${fmtRenewDate(s.renewsAt)}.` : "Subscription active.")
             : "No active subscription."}</p>
         </section>
@@ -193,23 +204,16 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
       </div>
 
       <section className="clientdetail__card">
-        <h3 className="schedule__label">Website content</h3>
-        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 12 }}>Choose which sections appear on their website.</p>
-        <label className="clientdetail__toggle">
-          <input type="checkbox" checked={s.showStaff !== false} disabled={saving}
-            onChange={e => onPatch({ showStaff: e.target.checked }, e.target.checked ? "Staff shown on site" : "Staff hidden")} />
-          <span>Show staff / team section</span>
-        </label>
-        <label className="clientdetail__toggle">
-          <input type="checkbox" checked={s.showGallery !== false} disabled={saving}
-            onChange={e => onPatch({ showGallery: e.target.checked }, e.target.checked ? "Gallery shown on site" : "Gallery hidden")} />
-          <span>Show photo gallery</span>
-        </label>
-        <label className="clientdetail__toggle">
-          <input type="checkbox" checked={s.showStaffGalleries !== false} disabled={saving}
-            onChange={e => onPatch({ showStaffGalleries: e.target.checked }, e.target.checked ? "Staff galleries on" : "Staff galleries off")} />
-          <span>Allow per-staff galleries</span>
-        </label>
+        <h3 className="schedule__label">Staff &amp; content</h3>
+        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 14 }}>Turn sections on or off for this client (e.g. auto shops usually have no staff or gallery). Off hides them in their dashboard and on their website.</p>
+        <div className="clientdetail__toggles">
+          <Toggle checked={s.showStaff !== false} disabled={saving} label="Staff / team"
+            onChange={v => onPatch({ showStaff: v }, v ? "Staff enabled" : "Staff disabled")} />
+          <Toggle checked={s.showGallery !== false} disabled={saving} label="Photo gallery"
+            onChange={v => onPatch({ showGallery: v }, v ? "Gallery enabled" : "Gallery disabled")} />
+          <Toggle checked={s.showStaffGalleries !== false} disabled={saving} label="Per-staff galleries"
+            onChange={v => onPatch({ showStaffGalleries: v }, v ? "Staff galleries on" : "Staff galleries off")} />
+        </div>
       </section>
 
       <section className="clientdetail__card">

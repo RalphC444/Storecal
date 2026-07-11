@@ -70,7 +70,8 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       status,
       assignedPlanId: assignedPlan.id,
       assignedPlan,
-      promptBilling: shop?.promptBilling === true, // only new accounts prompt
+      freeForLife: shop?.freeForLife === true, // comped account → hide all billing UI
+      promptBilling: shop?.promptBilling === true && shop?.freeForLife !== true,
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
       mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live") ? "live" : "test",
       plans: PLANS,

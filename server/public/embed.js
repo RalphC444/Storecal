@@ -166,6 +166,8 @@
     ".sc__foot .sc__btn{margin-top:0}",
     ".sc__foot-inner{width:100%;max-width:680px;margin:0 auto}",
     ".sc__pow{text-align:center;font-size:11px;color:#b3b8c0;padding:10px}",
+    ".sc__pow a{color:inherit;text-decoration:underline}",
+    ".sc__pow a:hover{color:#8a9099}",
     /* shown in the modal if booking is opened while membership is inactive */
     ".sc-unavail{text-align:center;padding:20px 6px}",
     ".sc-unavail-t{font-size:16px;font-weight:700;margin-bottom:6px}",
@@ -364,7 +366,7 @@
       foot.querySelector(".sc__foot-inner").appendChild(opts.footer);
       wrap.appendChild(foot);
     }
-    wrap.appendChild(el('<div class="sc__pow">Powered by StoreCal</div>'));
+    wrap.appendChild(el('<div class="sc__pow">Powered by <a href="https://www.storecal.com" target="_blank" rel="noopener">StoreCal</a>.com</div>'));
   }
 
   function loading(msg) {
@@ -403,7 +405,7 @@
         // Deep-link straight to staff when there's nothing to add on the first
         // step; otherwise show the combined step with the service preselected.
         if ((cfg.addons || []).length) chooseService();
-        else chooseProvider();
+        else goAfterService();
       } else {
         chooseService();
       }
@@ -462,14 +464,29 @@
       cont.onclick = function () {
         if (!state.service) return;
         state.addons = Object.keys(selected).map(function (k) { return selected[k]; });
-        chooseProvider();
+        goAfterService();
       };
     } else {
-      cont.onclick = function () { if (state.service) chooseProvider(); };
+      cont.onclick = function () { if (state.service) goAfterService(); };
     }
 
     refresh();
     frame("Service", body, { footer: cont });
+  }
+
+  // Whether to show the "choose a team member" step. Hidden when staff aren't
+  // enabled for the website, the vertical doesn't use a picker (auto/generic),
+  // or there's no real choice (0–1 bookable providers). When hidden, booking
+  // auto-assigns an available provider ("any").
+  function showsTeamStep() {
+    var staff = cfg.providers || [];
+    var preset = (cfg.shop && cfg.shop.booking) || {};
+    return cfg.showStaff !== false && preset.providerPicker !== false && staff.length > 1;
+  }
+  function goAfterService() {
+    if (showsTeamStep()) { chooseProvider(); return; }
+    state.provider = { _id: "any", name: "Any available" }; state.assigned = null;
+    chooseWhen();
   }
 
   function chooseProvider() {
@@ -538,7 +555,7 @@
     panes.appendChild(calPane); panes.appendChild(timePane);
     body.appendChild(panes);
     body.appendChild(el('<div class="sc__tz">Times are the shop’s local time.</div>'));
-    frame("Date & time", body, { onBack: chooseProvider });
+    frame("Date & time", body, { onBack: showsTeamStep() ? chooseProvider : chooseService });
     wrap.classList.add("sc--wide");
 
     // Which A/B week a date falls in for a biweekly schedule (mirrors the admin's

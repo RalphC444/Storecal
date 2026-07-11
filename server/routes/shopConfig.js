@@ -46,7 +46,8 @@ router.get("/", async (req, res) => {
     //  5. otherwise (delivered + unpaid) → off ("call us").
     const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
     let bookingActive;
-    if (typeof shop.bookingActive === "boolean") bookingActive = shop.bookingActive;
+    if (shop.freeForLife === true) bookingActive = true; // comped account — always on
+    else if (typeof shop.bookingActive === "boolean") bookingActive = shop.bookingActive;
     else if (shop.subscribed === true) bookingActive = true;
     else if (!stripeConfigured) bookingActive = true;
     else if (shop.demo !== false) bookingActive = true;

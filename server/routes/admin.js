@@ -125,6 +125,7 @@ router.get("/shops", async (_req, res) => {
         businessType: s.businessType || "generic",
         planId: PLAN_IDS.includes(s.planId) ? s.planId : "booking",
         bookingActive: typeof s.bookingActive === "boolean" ? s.bookingActive : null,
+        freeForLife: s.freeForLife === true, // comped account: always on, billing hidden
         demo: s.demo !== false, // on until the operator marks the client delivered
         showStaff: s.showStaff !== false,
         showGallery: s.showGallery !== false,
@@ -162,6 +163,7 @@ router.patch("/shops/:id", async (req, res) => {
     if (req.body.phone !== undefined) set.phone = String(req.body.phone).trim();
     if (req.body.website !== undefined) set.website = String(req.body.website).trim();
     if (req.body.demo !== undefined) set.demo = !!req.body.demo;
+    if (req.body.freeForLife !== undefined) set.freeForLife = !!req.body.freeForLife;
     if (req.body.showStaff !== undefined) set.showStaff = !!req.body.showStaff;
     if (req.body.showGallery !== undefined) set.showGallery = !!req.body.showGallery;
     if (req.body.showStaffGalleries !== undefined) set.showStaffGalleries = !!req.body.showStaffGalleries;

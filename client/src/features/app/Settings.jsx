@@ -181,6 +181,10 @@ export function BillingSection() {
     else setErr(d.error || "Something went wrong");
   }
 
+  // Comped ("free for life") accounts see no billing at all — no payment
+  // references anywhere. Also render nothing until we know, so it never flashes.
+  if (!data || data.freeForLife) return null;
+
   return (
     <section className="panel__block">
       <h3 className="schedule__label">Subscription &amp; billing</h3>

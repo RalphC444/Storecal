@@ -5,7 +5,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { toast } from "../../components/Toast";
 import { DURATIONS } from "../../lib/datetime";
 
-export function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
+export function ServicesView({ providers, teamLabel, onProvidersChange, addReq, businessType }) {
   const [services, setServices] = useState(null);
   const [editing, setEditing] = useState(null);   // service form
   const [confirmDel, setConfirmDel] = useState(null); // service pending deletion
@@ -75,7 +75,7 @@ export function ServicesView({ providers, teamLabel, onProvidersChange, addReq }
         <AddonsSection />
       </div>
 
-      {editing && <ServiceForm service={editing} onClose={() => setEditing(null)} onSave={save} />}
+      {editing && <ServiceForm service={editing} onClose={() => setEditing(null)} onSave={save} businessType={businessType} />}
       {confirmDel && (
         <ConfirmDialog
           title={`Delete “${confirmDel.name}”?`}
@@ -138,7 +138,7 @@ export function AddonsSection() {
   return (
     <section className="panel__block">
       <h3 className="schedule__label">Add-ons</h3>
-      <p className="panel__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing $10). Changes save automatically.</p>
+      <p className="panel__hint">Optional extras clients can add at checkout. Changes save automatically.</p>
       {!rows ? <LoadingSpinner /> : (
         <div className="addon-rows">
           {rows.map((r, i) => (
@@ -165,13 +165,18 @@ export function cleanAddons(rows) {
     .filter(r => r.name);
 }
 
-export function ServiceForm({ service, onClose, onSave }) {
+const QUOTE_PRICE = "Request a Quote";
+
+export function ServiceForm({ service, onClose, onSave, businessType }) {
   const isEdit = !!service._id;
+  const isAuto = businessType === "auto"; // auto shops often quote instead of listing a price
   const [form, setForm] = useState({
     name: service.name || "", description: service.description || "", durationMin: service.durationMin || "",
     // The input edits just the number; the "$" is a fixed prefix in the UI.
     price: (service.price || "").replace(/[^0-9.]/g, ""),
   });
+  // Auto shops can mark a service "Request a Quote" instead of a dollar amount.
+  const [quote, setQuote] = useState(service.price === QUOTE_PRICE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (f, v) => setForm(s => ({ ...s, [f]: v }));
@@ -180,8 +185,8 @@ export function ServiceForm({ service, onClose, onSave }) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Service name is required."); return; }
     setSaving(true);
-    // Store the price with the "$" so it displays consistently everywhere.
-    const price = form.price ? `$${form.price}` : "";
+    // "Request a Quote" (auto) or a "$"-prefixed amount, so it displays consistently.
+    const price = (isAuto && quote) ? QUOTE_PRICE : (form.price ? `$${form.price}` : "");
     try { await onSave({ ...service, ...form, price }); } catch (err) { setError(err.message); setSaving(false); }
   }
 
@@ -214,17 +219,27 @@ export function ServiceForm({ service, onClose, onSave }) {
             </label>
             <label className="field">
               <span className="field__label">Price</span>
-              <div className="field__money">
-                <span className="field__money-sym">$</span>
-                <input
-                  className="field__money-input"
-                  type="text"
-                  inputMode="decimal"
-                  value={form.price}
-                  onChange={e => set("price", e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="65"
-                />
-              </div>
+              {isAuto && quote ? (
+                <input type="text" value={QUOTE_PRICE} readOnly disabled />
+              ) : (
+                <div className="field__money">
+                  <span className="field__money-sym">$</span>
+                  <input
+                    className="field__money-input"
+                    type="text"
+                    inputMode="decimal"
+                    value={form.price}
+                    onChange={e => set("price", e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="65"
+                  />
+                </div>
+              )}
+              {isAuto && (
+                <label className="field__check">
+                  <input type="checkbox" checked={quote} onChange={e => setQuote(e.target.checked)} />
+                  <span>Request a Quote (hide the price)</span>
+                </label>
+              )}
             </label>
           </div>
           {error && <p className="form__error">{error}</p>}
