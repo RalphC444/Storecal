@@ -5,25 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Demo Beauty Studio — book online</title>
   <style>
-    :root { --ink:#14133a; --muted:#5c5a7c; --line:#e7e7f2; }
+    :root { --ink:#14133a; --muted:#5c5a7c; --navy:#000D6E; --peri:#4d4bd9; --line:#e7e7f2; }
     * { box-sizing: border-box; }
-    body { font-family: "Manrope", -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f7f7fd; color: var(--ink); }
-    .demo-hero { padding: 40px 20px 28px; text-align: center; background: #fff; border-bottom: 1px solid var(--line); }
-    .demo-hero .tag { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#4d4bd9; margin-bottom:10px; }
-    .demo-hero h1 { margin: 0 0 6px; font-size: 26px; letter-spacing:-.01em; }
-    .demo-hero p { margin: 0 auto; color: var(--muted); max-width: 40ch; font-size:14px; line-height:1.5; }
-    .demo-mount { max-width: 460px; margin: 28px auto 48px; padding: 0 16px; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: "Manrope", -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink);
+      background:
+        radial-gradient(90% 70% at 80% -10%, #e6e6ff 0%, transparent 55%),
+        radial-gradient(80% 60% at 0% 110%, #eeedfb 0%, transparent 55%),
+        #f7f7fd;
+      display: grid; place-items: center; padding: 24px 18px;
+    }
+    .hero { text-align: center; max-width: 420px; width: 100%; }
+    .hero__tag {
+      display: inline-block; font-size: 11.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--peri); background: #fff; border: 1px solid var(--line); border-radius: 100px; padding: 6px 13px; margin-bottom: 16px;
+    }
+    .hero__name { margin: 0 0 8px; font-size: 27px; font-weight: 800; letter-spacing: -.02em; color: var(--navy); }
+    .hero__sub { margin: 0 auto 26px; color: var(--muted); font-size: 14.5px; line-height: 1.5; max-width: 30ch; }
+    .hero__mount { display: flex; justify-content: center; }
+    .hero__hint { margin: 18px 0 0; font-size: 12px; color: #9998ad; }
+    /* Promote the widget's own trigger button (styled via injected shadow CSS below). */
   </style>
 </head>
 <body>
-  <div class="demo-hero">
-    <span class="tag">Sample customer site</span>
-    <h1>Demo Beauty Studio</h1>
-    <p>This is a demo of a shop's website — the booking widget below is exactly what StoreCal drops onto any site. Go ahead and try it.</p>
-  </div>
-  <div class="demo-mount">
-    <!-- This is exactly the snippet you paste on a real site (data-store = the shop's public key). -->
-    <script src="/embed.js" data-store="sc_0b6433e70264a3b163" data-accent="#4d4bd9"></script>
-  </div>
+  <main class="hero">
+    <span class="hero__tag">Sample customer site</span>
+    <h1 class="hero__name">Demo Beauty Studio</h1>
+    <p class="hero__sub">Cuts, color &amp; styling in Mount Vernon. Book your next visit in a few taps.</p>
+    <div class="hero__mount">
+      <!-- The exact one-line snippet a shop pastes on their site. -->
+      <script src="/embed.js" data-store="sc_0b6433e70264a3b163" data-accent="#4d4bd9" data-button-text="Book an appointment"></script>
+    </div>
+    <p class="hero__hint">↑ A live StoreCal booking widget</p>
+  </main>
+
+  <script>
+    (function () {
+      // Locate the embed's (open) shadow host so we can promote its trigger and
+      // open the modal on demand.
+      function findShadow() {
+        var all = document.querySelectorAll("body *");
+        for (var i = 0; i < all.length; i++) {
+          var sr = all[i].shadowRoot;
+          if (sr && sr.querySelector(".sc-trigger")) return sr;
+        }
+        return null;
+      }
+      // Enlarge the book button into a prominent hero CTA once the embed mounts.
+      var tries = 0;
+      var poll = setInterval(function () {
+        var sr = findShadow();
+        if (sr) {
+          clearInterval(poll);
+          var s = document.createElement("style");
+          s.textContent =
+            ".sc-trigger{font-size:16px!important;font-weight:700!important;padding:15px 30px!important;" +
+            "border-radius:14px!important;box-shadow:0 16px 34px -12px rgba(77,75,217,.55)!important;width:auto!important}";
+          sr.appendChild(s);
+        } else if (++tries > 30) {
+          clearInterval(poll); // give up after ~4.5s
+        }
+      }, 150);
+
+      // Parent (the marketing site) asks us to open the modal ~2s after this
+      // iframe scrolls into view.
+      function openWidget() {
+        var sr = findShadow();
+        var t = sr && sr.querySelector(".sc-trigger");
+        if (t) { t.click(); return true; }
+        return false;
+      }
+      window.addEventListener("message", function (e) {
+        if (e.data === "storecal:autoopen") {
+          if (!openWidget()) setTimeout(openWidget, 600); // retry once if not ready
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

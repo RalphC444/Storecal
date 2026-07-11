@@ -15,6 +15,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const rootRef = useRef(null);
+  const demoFrameRef = useRef(null);
 
   const openApply = (plan) => {
     setApplyPlan(plan || "");
@@ -45,9 +46,39 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
     );
     els.forEach((el) => io.observe(el));
 
+    // Auto-open the demo booking modal ~2s after the demo iframe scrolls into
+    // view, so visitors see the actual flow without having to click. Fires once.
+    let demoTimer = null;
+    let demoFired = false;
+    const demoFrame = demoFrameRef.current;
+    const demoIo = demoFrame
+      ? new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting && !demoFired) {
+                demoTimer = setTimeout(() => {
+                  demoFired = true;
+                  try {
+                    demoFrame.contentWindow.postMessage("storecal:autoopen", window.location.origin);
+                  } catch { /* cross-origin / not ready — ignore */ }
+                  demoIo.disconnect();
+                }, 2000);
+              } else if (!e.isIntersecting && demoTimer) {
+                clearTimeout(demoTimer);
+                demoTimer = null;
+              }
+            });
+          },
+          { threshold: 0.55 }
+        )
+      : null;
+    if (demoIo && demoFrame) demoIo.observe(demoFrame);
+
     return () => {
       window.removeEventListener("scroll", onScroll);
       io.disconnect();
+      if (demoTimer) clearTimeout(demoTimer);
+      if (demoIo) demoIo.disconnect();
     };
   }, []);
 
@@ -68,7 +99,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
             <a className="marketing__link" href="#features" onClick={closeNav}>Features</a>
             <a className="marketing__link" href="#how" onClick={closeNav}>How it works</a>
             <a className="marketing__link" href="#pricing" onClick={closeNav}>Pricing</a>
-            <a className="marketing__link" href="#website" onClick={closeNav}>Get a website</a>
+            <button className="linklike marketing__link" onClick={() => { closeNav(); openApply(""); }}>Get a website</button>
             <button className="mbtn mbtn--nav" onClick={() => { closeNav(); onSignIn(); }}>Sign in</button>
           </nav>
           <button
@@ -91,25 +122,24 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
         <div className="marketing__heroin">
           <div className="marketing__herocopy">
             <p className="marketing__eyebrow" data-reveal>
-              <span className="marketing__pill">✦ Booking &amp; scheduling for local shops</span>
+              <span className="marketing__pill"><i className="marketing__pill-dot" aria-hidden="true" /> Booking &amp; scheduling for local shops</span>
             </p>
             <h1 className="marketing__h1" data-reveal>
               Let clients book you online, <em>no busywork.</em>
             </h1>
             <p className="marketing__lead" data-reveal>
-              StoreCal gives your salon, barbershop, or studio a clean booking calendar, staff
-              scheduling, store hours, and a client list — plus a booking widget you can drop onto
-              <em> any website</em> in one line.
+              A clean calendar, staff scheduling, and store hours — plus a booking widget you drop
+              onto <em>any website</em> in one line.
             </p>
             <div className="marketing__cta" data-reveal>
-              <button className="mbtn mbtn--primary" onClick={onDemo}>Try the live demo →</button>
-              <button className="mbtn mbtn--ghost" onClick={onSignIn}>Sign in</button>
+              <button className="mbtn mbtn--primary" onClick={onSignIn}>Sign in →</button>
+              <button className="mbtn mbtn--ghost" onClick={onDemo }>Try the live demo →</button>
             </div>
-            <p className="marketing__demonote" data-reveal>
-              The demo signs you into a sample store as the owner — explore the calendar, team, and
-              hours. It resets periodically.{" "}
-              <a href="/demo.html" target="_blank" rel="noreferrer">Or see the customer booking widget →</a>
-            </p>
+            <ul className="marketing__chips" data-reveal>
+              <li className="marketing__chip"><span className="marketing__chip-ic">⚡</span> Set up in minutes</li>
+              <li className="marketing__chip"><span className="marketing__chip-ic">🔗</span> One-line embed</li>
+              <li className="marketing__chip"><span className="marketing__chip-ic">✓</span> No app to download</li>
+            </ul>
           </div>
 
           {/* Hero visual — the live-calendar mock, framed and floating. */}
@@ -141,9 +171,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
                 </div>
               </div>
             </div>
-            <div className="marketing__badge">✦<span>Live calendar</span></div>
-            <span className="marketing__floatie marketing__floatie--h1" aria-hidden="true">📅</span>
-            <span className="marketing__floatie marketing__floatie--h2" aria-hidden="true">✦</span>
+            <div className="marketing__badge"><i className="marketing__badge-dot" aria-hidden="true" /><span>Live calendar</span></div>
           </div>
         </div>
       </section>
@@ -158,7 +186,6 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
 
       {/* ── Features ────────────────────────────────────────────────────── */}
       <section className="marketing__section" id="features">
-        <span className="marketing__floatie marketing__floatie--s1" aria-hidden="true">✦</span>
         <div className="marketing__sechead">
           <p className="marketing__section-eyebrow" data-reveal>What you get</p>
           <h2 className="marketing__h2" data-reveal>Everything to run the <em>front-desk.</em></h2>
@@ -215,6 +242,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
             <span className="marketing__browser-url">demobeautystudio.com</span>
           </div>
           <iframe
+            ref={demoFrameRef}
             className="marketing__demo-frame"
             src="/demo.html"
             title="Live StoreCal booking widget demo"
@@ -228,7 +256,6 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
 
       {/* ── What the customer sees ──────────────────────────────────────── */}
       <section className="marketing__section marketing__section--tint" id="experience">
-        <span className="marketing__floatie marketing__floatie--e1" aria-hidden="true">✦</span>
         <div className="marketing__sechead">
           <p className="marketing__section-eyebrow" data-reveal>The customer's side</p>
           <h2 className="marketing__h2" data-reveal>Your clients get <em>looked after.</em></h2>
@@ -243,7 +270,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
               <img src="/booking-confirmed.png" alt="Booking confirmation email a customer receives, showing the service, time, and staff member" loading="lazy" />
             </div>
             <figcaption>
-              <span className="marketing__shot-tag">✦ When they book</span>
+              <span className="marketing__shot-tag">When they book</span>
               A confirmation with the service, time, and who they're seeing.
             </figcaption>
           </figure>
@@ -252,7 +279,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
               <img src="/booking-cancelled.png" alt="Cancellation email a customer receives, including a personal note from the shop" loading="lazy" />
             </div>
             <figcaption>
-              <span className="marketing__shot-tag">✦ If plans change</span>
+              <span className="marketing__shot-tag">If plans change</span>
               A cancellation notice — with a personal note from you.
             </figcaption>
           </figure>
@@ -261,7 +288,6 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
 
       {/* ── Pricing ─────────────────────────────────────────────────────── */}
       <section className="marketing__section" id="pricing">
-        <span className="marketing__floatie marketing__floatie--p1" aria-hidden="true">✦</span>
         <div className="marketing__sechead">
           <p className="marketing__section-eyebrow" data-reveal>Pricing</p>
           <h2 className="marketing__h2" data-reveal>Simple <em>monthly</em> pricing.</h2>
@@ -294,7 +320,6 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
       {/* ── Get-a-website CTA band ──────────────────────────────────────── */}
       <section className="marketing__band" id="website">
         <div className="marketing__blob marketing__blob--band" aria-hidden="true" />
-        <span className="marketing__floatie marketing__floatie--b1" aria-hidden="true">✦</span>
         <div className="marketing__band-in">
           <p className="marketing__section-eyebrow marketing__section-eyebrow--on-dark" data-reveal>Done for you</p>
           <h2 className="marketing__h2 marketing__h2--on-dark" data-reveal>Need a <em>website</em> to go with it?</h2>
@@ -303,7 +328,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
             right in, and your services and staff synced live.
           </p>
           <div className="marketing__band-cta" data-reveal>
-            <button className="mbtn mbtn--primary mbtn--lg" onClick={() => openApply("")}>✦ Apply for a website</button>
+            <button className="mbtn mbtn--primary mbtn--lg" onClick={() => openApply("")}>Apply for a website →</button>
             <a className="mbtn mbtn--ghost mbtn--on-dark" href={CONTACT_HREF}>Email us</a>
           </div>
           <p className="marketing__band-sub" data-reveal>
@@ -342,7 +367,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
         </div>
         <div className="marketing__foot-bar">
           <span>© {new Date().getFullYear()} StoreCal · Booking for local business</span>
-          <span>Made with ✦ for small shops</span>
+          <span>Built for local business</span>
         </div>
       </footer>
 
