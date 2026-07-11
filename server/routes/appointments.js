@@ -4,6 +4,37 @@ const { upsertClient } = require("../lib/clients");
 const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
 const { notifyAppointmentChange } = require("../lib/realtime");
+const { sendBookingConfirmation } = require("../lib/mailer");
+const { ObjectId } = require("mongodb");
+
+// Fire-and-forget branded confirmation to the customer after they book. Never
+// blocks or fails the booking — email is best-effort.
+function emailBookingConfirmation(db, shopId, doc) {
+  const to = doc.client?.email;
+  if (!to) return;
+  (async () => {
+    try {
+      const shop = await db.collection("shops").findOne({ _id: new ObjectId(shopId) }, { projection: { name: 1 } });
+      const [h, m] = String(doc.timeValue || "").split(":").map(Number);
+      const timeLabel = Number.isFinite(h) ? `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
+      const dateLabel = doc.dateKey
+        ? new Date(`${doc.dateKey}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+        : "";
+      await sendBookingConfirmation({
+        to,
+        clientName: doc.client?.name || "",
+        shopName: shop?.name || "the shop",
+        service: doc.service || "your appointment",
+        dateLabel,
+        timeLabel,
+        providerName: doc.providerName || "",
+        addons: doc.addons || [],
+      });
+    } catch (e) {
+      console.error("Booking confirmation email failed:", e.message);
+    }
+  })();
+}
 
 const router = Router();
 
@@ -158,6 +189,7 @@ router.post("/", async (req, res) => {
     try {
       const result = await db.collection("appointments").insertOne(doc);
       notifyAppointmentChange(shopId, { action: "created", _id: result.insertedId.toString(), dateKey: doc.dateKey, providerId: doc.providerId });
+      emailBookingConfirmation(db, shopId, doc); // branded confirmation to the customer (best-effort)
       res.status(201).json({ success: true, _id: result.insertedId.toString() });
     } catch (e) {
       if (e && e.code === 11000) return res.status(409).json({ error: "Sorry, that time was just booked. Please pick another." });

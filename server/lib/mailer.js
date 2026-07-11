@@ -72,4 +72,43 @@ async function sendReset(to, url) {
   return true;
 }
 
-module.exports = { sendInvite, sendReset, emailEnabled: () => !!process.env.RESEND_API_KEY };
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// Branded confirmation sent to the customer right after they book from the widget.
+// `d` = { to, clientName, shopName, service, dateLabel, timeLabel, providerName, addons }
+async function sendBookingConfirmation(d) {
+  const resend = client();
+  if (!resend || !d.to) return false;
+  const first = (d.clientName || "").trim().split(/\s+/)[0];
+  const rows = [
+    ["Service", d.service],
+    ["When", `${d.dateLabel} at ${d.timeLabel}`],
+    d.providerName ? ["With", d.providerName] : null,
+    d.addons && d.addons.length ? ["Add-ons", d.addons.map((a) => a.name).join(", ")] : null,
+  ].filter(Boolean);
+  const table = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:88px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
+    )
+    .join("");
+  await resend.emails.send({
+    from: FROM,
+    to: d.to,
+    subject: `Your booking at ${d.shopName} is confirmed`,
+    html: shell(`You're booked${first ? `, ${esc(first)}` : ""}!`,
+      `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">Thanks for booking with <b>${esc(d.shopName)}</b>. Here are your details:</p>
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
+       <p style="color:#9aa0a8;font-size:13px;line-height:1.6;margin:0">Need to change or cancel? Just call the shop and they'll take care of it.</p>`),
+  });
+  return true;
+}
+
+module.exports = {
+  sendInvite,
+  sendReset,
+  sendBookingConfirmation,
+  emailEnabled: () => !!process.env.RESEND_API_KEY,
+};
