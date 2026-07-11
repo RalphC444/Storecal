@@ -366,7 +366,7 @@
       foot.querySelector(".sc__foot-inner").appendChild(opts.footer);
       wrap.appendChild(foot);
     }
-    wrap.appendChild(el('<div class="sc__pow">Powered by <a href="https://www.storecal.com" target="_blank" rel="noopener">StoreCal</a>.com</div>'));
+    wrap.appendChild(el('<div class="sc__pow">Powered by <a href="https://www.storecal.com" target="_blank" rel="noopener">StoreCal</a></div>'));
   }
 
   function loading(msg) {
