@@ -70,9 +70,10 @@
     var lum = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255;
     return lum > 0.6 ? "#111111" : "#ffffff";
   }
-  // Push any fixed/sticky header pinned to the very top down by the banner's
-  // height, so the banner shows as a block ABOVE the nav instead of under it.
-  // (The banner itself is in normal flow, so static content is already offset.)
+  // The banner sits as a block at the very top of the page. At scroll-top it
+  // pushes any fixed/sticky header (the site's nav) down by its own height so it
+  // never overlaps. As soon as the visitor scrolls, the banner hides and the nav
+  // snaps back to top:0 — so scrolling gives a normal sticky-nav experience.
   function offsetFixedHeaders(bar) {
     var pinned = [];
     document.querySelectorAll("body *").forEach(function (el) {
@@ -80,9 +81,20 @@
       var cs = getComputedStyle(el);
       if ((cs.position === "fixed" || cs.position === "sticky") && cs.top === "0px") pinned.push(el);
     });
-    function apply() { var h = bar.offsetHeight; pinned.forEach(function (el) { el.style.top = h + "px"; }); }
-    apply();
-    window.addEventListener("resize", apply);
+    function setTop(px) { pinned.forEach(function (el) { el.style.top = px + "px"; }); }
+    var hidden = false;
+    function sync() {
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      if (y > 0) {
+        if (!hidden) { hidden = true; bar.style.display = "none"; setTop(0); }
+      } else {
+        if (hidden) { hidden = false; bar.style.display = ""; }
+        setTop(bar.offsetHeight);
+      }
+    }
+    sync();
+    window.addEventListener("scroll", sync, { passive: true });
+    window.addEventListener("resize", sync);
   }
 
   var StoreCal = {
