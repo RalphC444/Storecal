@@ -31,6 +31,7 @@ export function LoginScreen({ onAuthed, onForgot, onBack }) {
     <AuthShell
       title="Sign in"
       subtitle="Manage your bookings, team, and hours."
+      onBack={onBack}
       footer={
         <p className="authnote">
           <b>Are you staff?</b> You don’t sign up here — ask your store owner for your invite link.
@@ -65,11 +66,6 @@ export function LoginScreen({ onAuthed, onForgot, onBack }) {
         <button type="button" className="linkbtn authforgot" onClick={onForgot}>
           Forgot password?
         </button>
-        {onBack && (
-          <button type="button" className="linkbtn authback" onClick={onBack}>
-            ← Back to home
-          </button>
-        )}
       </form>
     </AuthShell>
   );
