@@ -109,6 +109,12 @@
     ".sc__slot--row{width:100%;text-align:center;padding:12px;font-size:14px;font-weight:600}",
     ".sc__times-empty{font-size:13px;color:#8a9099;padding:14px 0}",
     ".sc__tz{font-size:11.5px;color:#9aa0a8;margin-top:14px}",
+    /* skeletons — shown while schedules/timeslots load so nothing jumps in */
+    ".sc__skel{background:linear-gradient(90deg,#edeff2 25%,#f6f7f9 50%,#edeff2 75%);background-size:200% 100%;animation:sc-shim 1.3s ease-in-out infinite;color:transparent!important;pointer-events:none}",
+    "@keyframes sc-shim{0%{background-position:200% 0}100%{background-position:-200% 0}}",
+    ".sc__cal-day--skel{cursor:default}",
+    ".sc__cal-day--skel .sc__cal-n{border-radius:50%}",
+    ".sc__slot--skel{height:44px;border:0;border-radius:11px}",
     /* collapsible calendar (mobile): a summary bar replaces the grid once a day is picked */
     ".sc__cal-toggle{display:none;width:100%;align-items:center;justify-content:space-between;gap:10px;",
     "background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:13px 15px;font-family:inherit;",
@@ -515,6 +521,7 @@
   function chooseWhen() {
     var today = todayStr();
     var provAv = null, shopAv = null, provTimeoff = []; // schedules + time off for graying closed days
+    var scheduleLoaded = false; // false until hours load → show skeletons, not a wrong all-open grid
     var startFrom = state.date && state.date >= today ? state.date : today;
     var view = new Date(startFrom + "T00:00:00"); // month being shown
     state.date = null;                     // require an explicit pick
@@ -609,6 +616,12 @@
       for (var i = 0; i < startDow; i++) grid.appendChild(el('<span class="sc__cal-empty"></span>'));
       for (var day = 1; day <= count; day++) {
         var ds = y + "-" + pad(m + 1) + "-" + pad(day);
+        // Until the schedule loads, render each day as a skeleton so days don't
+        // flash open-then-grayed once the real hours arrive.
+        if (!scheduleLoaded) {
+          grid.appendChild(el('<span class="sc__cal-day sc__cal-day--skel"><span class="sc__cal-n sc__skel">' + day + "</span></span>"));
+          continue;
+        }
         var open = isOpenDay(ds);
         var cls = "sc__cal-day" + (open ? "" : " sc__cal-day--off") +
           (ds === today ? " sc__cal-day--today" : "") + (ds === state.date ? " sc__cal-day--sel" : "");
@@ -624,15 +637,31 @@
       calPane.appendChild(calBody);
     }
 
+    // Fill a list container with placeholder rows while real times load.
+    function fillSkelTimes(wrap, n) {
+      for (var i = 0; i < (n || 7); i++) wrap.appendChild(el('<span class="sc__slot--skel sc__skel"></span>'));
+    }
+
     function loadTimes(opts) {
       opts = opts || {};
       timePane.innerHTML = "";
+      var listWrap;
+      // Before the schedule loads a day is auto-selected momentarily — show a
+      // skeleton so the pane doesn't flash "pick a day" then jump to times.
+      if (!scheduleLoaded) {
+        timePane.appendChild(el('<div class="sc__times-head"><div class="sc__times-day sc__skel" style="width:150px;height:18px">&nbsp;</div>' +
+          '<div class="sc__times-sub sc__skel" style="width:96px;height:12px;margin-top:7px">&nbsp;</div></div>'));
+        listWrap = el('<div class="sc__times-list"></div>');
+        fillSkelTimes(listWrap, 7);
+        timePane.appendChild(listWrap);
+        return;
+      }
       if (!state.date) { timePane.appendChild(el('<div class="sc__times-empty">Pick a day to see open times.</div>')); return; }
       var hd = el('<div class="sc__times-head"><div class="sc__times-day">' + esc(fmtDate(state.date)) +
         '</div><div class="sc__times-sub">pick a start time</div></div>');
       timePane.appendChild(hd);
-      var listWrap = el('<div class="sc__times-list"></div>');
-      listWrap.appendChild(loading("Finding open times…"));
+      listWrap = el('<div class="sc__times-list"></div>');
+      fillSkelTimes(listWrap, 7); // skeleton rows while the slot fetch is in flight
       timePane.appendChild(listWrap);
       var dur = state.service.durationMin || 45;
       var isAny = state.provider._id === "any";
@@ -697,6 +726,7 @@
         fetch(api("/api/timeoff/" + state.provider._id)).then(jsonOr([])).catch(function () { return []; }),
       ]).then(function (res) {
         provAv = res[0]; shopAv = res[1]; provTimeoff = Array.isArray(res[2]) ? res[2] : [];
+        scheduleLoaded = true; // real hours are in → swap skeletons for the live grid/times
         // Keep the selection valid: if the chosen day is now closed (or none is
         // chosen), jump to the first open day within ~60 days so times show.
         if (!state.date || !isOpenDay(state.date)) {
