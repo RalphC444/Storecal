@@ -95,10 +95,22 @@ function notifyAppointmentChange(shopId, payload) {
   const id = String(shopId);
   io.to(adminRoom(id)).emit("appointment:changed", payload);
   io.to(pubRoom(id)).emit("availability:changed", {
+    kind: "appointment",
     action: payload.action,
     dateKey: payload.dateKey || null,
     providerId: payload.providerId || null,
   });
 }
 
-module.exports = { init, notifyAppointmentChange };
+// Fan out a schedule change (weekly hours / a day override) so open booking
+// widgets refetch the whole schedule and re-gray days live — no PII involved.
+function notifyAvailabilityChange(shopId, payload = {}) {
+  if (!io || !shopId) return;
+  io.to(pubRoom(String(shopId))).emit("availability:changed", {
+    kind: "schedule",
+    providerId: payload.providerId || null,
+    dateKey: payload.dateKey || null,
+  });
+}
+
+module.exports = { init, notifyAppointmentChange, notifyAvailabilityChange };

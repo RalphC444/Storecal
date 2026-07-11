@@ -3,6 +3,7 @@ const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
 const { resolveShopId } = require("../lib/shopScope");
 const { effectiveRanges } = require("../lib/availabilityCheck");
+const { notifyAvailabilityChange } = require("../lib/realtime");
 
 const router = Router();
 
@@ -135,6 +136,9 @@ router.put("/:providerId", async (req, res) => {
       { upsert: true }
     );
 
+    // Push to open booking widgets so they re-gray days without a refresh.
+    notifyAvailabilityChange(shopId, { providerId });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -168,6 +172,8 @@ router.post("/:providerId/overrides", async (req, res) => {
       { upsert: true }
     );
 
+    notifyAvailabilityChange(shopId, { providerId, dateKey: date });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -184,6 +190,7 @@ router.delete("/:providerId/overrides/:id", async (req, res) => {
       providerId: req.params.providerId,
       shopId,
     });
+    notifyAvailabilityChange(shopId, { providerId: req.params.providerId });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -9,8 +9,12 @@ export function fmtMin(min) {
 
 // Which week (A/B) a given date falls in, relative to the anchor Sunday.
 export function weekKeyFor(anchorDate, date) {
+  // Parse the date locally (T00:00:00), not as `new Date("YYYY-MM-DD")` which is
+  // UTC — in behind-UTC timezones that shifted a Sunday back into the previous
+  // week and mis-computed A/B for Sundays. This now matches the server's
+  // authoritative weekKeyFor (lib/availabilityCheck.js) exactly.
   const anchor = new Date(`${anchorDate}T00:00:00`);
-  const d = new Date(date); d.setHours(0,0,0,0);
+  const d = new Date(`${date}T00:00:00`);
   d.setDate(d.getDate() - d.getDay()); // Sunday of that week
   const weeks = Math.round((d - anchor) / (7 * 86400000));
   return weeks % 2 === 0 ? "A" : "B";

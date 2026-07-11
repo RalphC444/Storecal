@@ -514,7 +514,7 @@
   // Date & time: a month calendar (left) + open timeslots for the chosen day (right).
   function chooseWhen() {
     var today = todayStr();
-    var provAv = null, shopAv = null;      // weekly schedules for graying closed days
+    var provAv = null, shopAv = null, provTimeoff = []; // schedules + time off for graying closed days
     var startFrom = state.date && state.date >= today ? state.date : today;
     var view = new Date(startFrom + "T00:00:00"); // month being shown
     state.date = null;                     // require an explicit pick
@@ -534,18 +534,46 @@
     frame("Date & time", body, { onBack: chooseProvider });
     wrap.classList.add("sc--wide");
 
+    // Which A/B week a date falls in for a biweekly schedule (mirrors the admin's
+    // weekKeyFor: even weeks from the anchor Sunday = A, odd = B).
+    function weekKeyFor(anchorDate, ds) {
+      var anchor = new Date(anchorDate + "T00:00:00");
+      var d = new Date(ds + "T00:00:00");
+      d.setDate(d.getDate() - d.getDay()); // Sunday of that week
+      var weeks = Math.round((d - anchor) / (7 * 86400000));
+      return weeks % 2 === 0 ? "A" : "B";
+    }
+    // Remove break blocks from open ranges (so a day that's all break reads closed).
+    function subtractBreaks(rgs, blocks) {
+      var result = (rgs || []).map(function (r) { return { startMin: r.startMin, endMin: r.endMin }; });
+      (blocks || []).forEach(function (b) {
+        var next = [];
+        result.forEach(function (r) {
+          if (b.endMin <= r.startMin || b.startMin >= r.endMin) { next.push(r); return; }
+          if (b.startMin > r.startMin) next.push({ startMin: r.startMin, endMin: b.startMin });
+          if (b.endMin < r.endMin) next.push({ startMin: b.endMin, endMin: r.endMin });
+        });
+        result = next;
+      });
+      return result;
+    }
     // Open ranges a schedule allows on a date (null = schedule not set → no limit).
-    function ranges(av, ds) {
+    // Matches the admin calendar's openRangesFor exactly: day overrides, time off,
+    // biweekly week A/B selection, and break removal.
+    function ranges(av, ds, timeoff) {
       if (!av || !av.configured) return null;
       var ov = (av.overrides || []).filter(function (o) { return o.date === ds; })[0];
-      if (ov) return ov.closed ? [] : (ov.ranges || []);
+      if (ov) return ov.closed ? [] : subtractBreaks(ov.ranges, ov.breaks);
+      if (timeoff && timeoff.some(function (t) { return ds >= t.startDate && ds <= t.endDate; })) return [];
+      var weekKey = (av.meta && av.meta.biweekly) ? weekKeyFor(av.meta.anchorDate, ds) : "A";
+      var week = weekKey === "A" ? av.weekA : av.weekB;
       var wd = new Date(ds + "T00:00:00").getDay();
-      var day = (av.weekA || []).filter(function (d) { return d.weekday === wd; })[0];
-      return day && day.enabled ? day.ranges : [];
+      var day = (week || []).filter(function (d) { return d.weekday === wd; })[0];
+      return day && day.enabled ? subtractBreaks(day.ranges, day.breaks) : [];
     }
     function isOpenDay(ds) {
       if (ds < today) return false;
-      var p = ranges(provAv, ds), s = ranges(shopAv, ds);
+      var p = ranges(provAv, ds, provTimeoff), s = ranges(shopAv, ds, null);
       return (p === null || p.length > 0) && (s === null || s.length > 0);
     }
 
@@ -658,29 +686,43 @@
 
     renderCal(); loadTimes(); // initial (skeleton) render before schedules load
 
-    // Live refresh: when a booking elsewhere changes availability, silently
-    // reload the open day's times so a just-taken slot disappears (or a freed
-    // one returns). Guarded on the panes still being on-screen, so once the user
-    // leaves this step (or closes the modal) the stale handler no-ops itself.
+    // Fetch the provider + shop weekly schedules and the provider's time off, then
+    // re-gray the calendar and refresh times. Reused on load AND whenever a live
+    // schedule change comes in, so the widget mirrors the StoreCal calendar exactly.
+    var jsonOr = function (fallback) { return function (r) { return r.ok ? r.json() : fallback; }; };
+    function loadSchedule() {
+      return Promise.all([
+        fetch(api("/api/availability/" + state.provider._id)).then(jsonOr(null)).catch(function () { return null; }),
+        fetch(api("/api/availability/shop")).then(jsonOr(null)).catch(function () { return null; }),
+        fetch(api("/api/timeoff/" + state.provider._id)).then(jsonOr([])).catch(function () { return []; }),
+      ]).then(function (res) {
+        provAv = res[0]; shopAv = res[1]; provTimeoff = Array.isArray(res[2]) ? res[2] : [];
+        // Keep the selection valid: if the chosen day is now closed (or none is
+        // chosen), jump to the first open day within ~60 days so times show.
+        if (!state.date || !isOpenDay(state.date)) {
+          state.date = null;
+          var probe = startFrom;
+          for (var i = 0; i < 60; i++) {
+            if (isOpenDay(probe)) { state.date = probe; view = new Date(probe + "T00:00:00"); calCollapsed = true; break; }
+            probe = addDays(probe, 1);
+          }
+        }
+        renderCal(); loadTimes({ auto: true });
+      });
+    }
+
+    // Live refresh: a schedule change re-pulls hours and re-grays the calendar; a
+    // booking change just reloads the open day's times (a taken slot disappears /
+    // a freed one returns). Guarded on the panes still being on-screen, so once
+    // the user leaves this step the stale handler no-ops itself.
     onAvailabilityChange = function (payload) {
       if (!document.body.contains(timePane)) { onAvailabilityChange = null; return; }
+      if (payload.kind === "schedule") { loadSchedule(); return; }
       if (payload.dateKey && state.date && payload.dateKey !== state.date) return;
       if (state.date) loadTimes();
     };
 
-    Promise.all([
-      fetch(api("/api/availability/" + state.provider._id)).then(function (r) { return r.json(); }).catch(function () { return null; }),
-      fetch(api("/api/availability/shop")).then(function (r) { return r.json(); }).catch(function () { return null; }),
-    ]).then(function (res) {
-      provAv = res[0]; shopAv = res[1];
-      // Auto-select the first open day (within ~60 days) so times show immediately.
-      var probe = startFrom;
-      for (var i = 0; i < 60; i++) {
-        if (isOpenDay(probe)) { state.date = probe; view = new Date(probe + "T00:00:00"); calCollapsed = true; break; }
-        probe = addDays(probe, 1);
-      }
-      renderCal(); loadTimes({ auto: true });
-    });
+    loadSchedule();
   }
 
   function contact() {
