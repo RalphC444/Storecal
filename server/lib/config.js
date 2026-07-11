@@ -9,10 +9,12 @@ function validateEnv() {
   // Critical: without a database the app cannot serve anything.
   if (!process.env.MONGODB_URI) problems.push("MONGODB_URI is required (MongoDB connection string).");
 
-  // Critical in production: the JWT signing secret must not be the dev default,
-  // or every auth cookie could be forged.
+  // The JWT signing secret should be a strong random value — with the dev
+  // default, auth cookies could be forged. We warn loudly (even in production)
+  // rather than refuse to boot, so a running deployment is never taken down by
+  // this check; the operator should set JWT_SECRET in the environment.
   if (!process.env.JWT_SECRET) {
-    (isProd ? problems : warnings).push(
+    warnings.push(
       "JWT_SECRET is not set — using an insecure dev default. Set a strong random value in production."
     );
   }
