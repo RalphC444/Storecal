@@ -71,15 +71,3 @@
 @media (max-width: 720px) { .clientdetail__grid { grid-template-columns: 1fr; } .clientdetail__danger { flex-direction: column; align-items: flex-start; } }
 
 .authback { display: block; margin-top: 4px; color: var(--ink-3); }
-
-@media (max-width: 780px) {
-  .marketing__hero { grid-template-columns: 1fr; padding: 40px 20px 24px; gap: 28px; }
-  .marketing__art { order: -1; }
-  .marketing__h1 { font-size: 34px; }
-  .marketing__links { gap: 14px; }
-  .marketing__links .marketing__link { display: none; }   /* keep only Sign in on small screens */
-  .marketing__links .marketing__signin { display: inline-flex; }
-  /* Footer: stack + wrap so links don't run off-screen */
-  .marketing__foot { flex-direction: column; gap: 16px; text-align: center; padding: 24px 20px 40px; }
-  .marketing__foot-links { flex-wrap: wrap; justify-content: center; gap: 10px 18px; }
-}

@@ -119,9 +119,18 @@ router.post("/", async (req, res) => {
     const { name, bio, email, active, sortOrder } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
 
+    // Email is mandatory for new staff — it's how they receive their sign-up
+    // invite. Validate the shape and make sure it isn't already taken.
+    const em = (email || "").trim().toLowerCase();
+    if (!em) return res.status(400).json({ error: "Email is required — we email the staff member their sign-up link." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return res.status(400).json({ error: "Enter a valid email address." });
+
     const db = await getDb();
     const shopId = await resolveShopId(req, db);
     if (!shopId) return res.status(404).json({ error: "Shop not found" });
+
+    if (await db.collection("users").findOne({ email: em }))
+      return res.status(409).json({ error: "That email is already in use by another account." });
 
     // New staff offer every service by default (they can narrow it in their profile).
     const allServices = await db.collection("services").find({ shopId }).toArray();
@@ -129,7 +138,7 @@ router.post("/", async (req, res) => {
       shopId,
       name: name.trim(),
       bio: bio?.trim() || "",
-      email: email?.trim() || "",
+      email: em,
       active: active !== false,
       sortOrder: Number(sortOrder) || 0,
       serviceIds: Array.isArray(req.body.serviceIds) ? req.body.serviceIds.map(String) : allServices.map((s) => s._id.toString()),
@@ -142,17 +151,13 @@ router.post("/", async (req, res) => {
     // If an email was given, auto-provision a provider login bound to this shop
     // + provider, and mint a one-time invite link the owner shares. The provider
     // clicks it → sets their password → connected. No password to hand off.
-    let inviteToken = null;
-    const em = (email || "").trim().toLowerCase();
-    if (em && !(await db.collection("users").findOne({ email: em }))) {
-      const placeholder = generateTempPassword() + generateTempPassword(); // unusable until they set one
-      const userRes = await db.collection("users").insertOne({
-        email: em, passwordHash: await hashPassword(placeholder), name: doc.name,
-        role: "provider", shopId, providerId, mustChangePassword: true, createdAt: new Date(),
-      });
-      inviteToken = signInvite(userRes.insertedId.toString());
-      await db.collection("users").updateOne({ _id: userRes.insertedId }, { $set: { inviteToken } });
-    }
+    const placeholder = generateTempPassword() + generateTempPassword(); // unusable until they set one
+    const userRes = await db.collection("users").insertOne({
+      email: em, passwordHash: await hashPassword(placeholder), name: doc.name,
+      role: "provider", shopId, providerId, mustChangePassword: true, createdAt: new Date(),
+    });
+    const inviteToken = signInvite(userRes.insertedId.toString());
+    await db.collection("users").updateOne({ _id: userRes.insertedId }, { $set: { inviteToken } });
     // Auto-email the invite when email is configured; otherwise the client shows
     // the copy-able link (origin + /invite?token=...).
     let emailed = false;

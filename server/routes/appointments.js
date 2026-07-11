@@ -157,12 +157,24 @@ async function buildDoc(db, shopId, body) {
   return doc;
 }
 
-function validate(body) {
+function validate(body, isPublic) {
   if (!body.dateKey) return "A date is required";
   if (!body.timeValue) return "A time is required";
   if (!body.client?.name?.trim()) return "Client name is required";
   if (body.status && !["pending", "confirmed", "cancelled", "completed"].includes(body.status)) {
     return "Invalid status value";
+  }
+  // Public (embed / hosted booking page) submissions must carry a usable phone
+  // and email — it's how the customer gets their confirmation, and it mirrors
+  // the embed's client-side checks so a bypassed form can't slip bad data in.
+  // Owner-created walk-ins (authenticated, no store key) stay exempt.
+  if (isPublic) {
+    let phone = String(body.client?.phone || "").replace(/\D/g, "");
+    if (phone.length === 11 && phone.startsWith("1")) phone = phone.slice(1); // US "1" country code
+    if (phone.length !== 10) return "A valid 10-digit phone number is required";
+    const email = String(body.client?.email || "").trim();
+    if (!email) return "An email is required";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "A valid email address is required";
   }
   return null;
 }
@@ -170,7 +182,7 @@ function validate(body) {
 // POST /api/appointments — create an appointment (phone / walk-in booking)
 router.post("/", async (req, res) => {
   try {
-    const err = validate(req.body);
+    const err = validate(req.body, !!req.body.key);
     if (err) return res.status(400).json({ error: err });
 
     const db = await getDb();

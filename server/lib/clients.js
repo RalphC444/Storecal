@@ -7,7 +7,9 @@
 const { ObjectId } = require("mongodb");
 
 function normPhone(phone) {
-  return (phone || "").replace(/\D/g, "");
+  let d = (phone || "").replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("1")) d = d.slice(1); // US "1" country code → same profile
+  return d;
 }
 function normEmail(email) {
   return (email || "").trim().toLowerCase();

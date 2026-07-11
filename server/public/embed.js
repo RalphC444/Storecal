@@ -775,7 +775,9 @@
   // Mask a phone number to "(XXX) XXX XXXX" as the user types, so it's always
   // stored in a consistent format (the server also normalises it for dedupe).
   function formatPhone(v) {
-    var d = (v || "").replace(/\D/g, "").slice(0, 10);
+    var d = (v || "").replace(/\D/g, "");
+    if (d.length === 11 && d.charAt(0) === "1") d = d.slice(1); // strip US "1" country code
+    d = d.slice(0, 10);
     if (!d) return "";
     if (d.length <= 3) return "(" + d;
     if (d.length <= 6) return "(" + d.slice(0, 3) + ") " + d.slice(3);
@@ -824,7 +826,9 @@
       var email = form.querySelector("#sc-email").value.trim();
       if (!name) { err.textContent = "Please enter your name."; err.style.display = "block"; return; }
       if (!phone) { err.textContent = "Please enter your phone number."; err.style.display = "block"; return; }
-      if (phone.replace(/\D/g, "").length !== 10) { err.textContent = "Please enter a 10-digit phone number, e.g. (555) 123 4567."; err.style.display = "block"; return; }
+      var phoneDigits = phone.replace(/\D/g, "");
+      if (phoneDigits.length === 11 && phoneDigits.charAt(0) === "1") phoneDigits = phoneDigits.slice(1);
+      if (phoneDigits.length !== 10) { err.textContent = "Please enter a 10-digit US phone number, e.g. (555) 123 4567."; err.style.display = "block"; return; }
       if (!email) { err.textContent = "Please enter your email."; err.style.display = "block"; return; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = "Please enter a valid email address."; err.style.display = "block"; return; }
       var pet = null;

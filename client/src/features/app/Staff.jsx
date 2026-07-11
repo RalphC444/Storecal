@@ -33,12 +33,14 @@ export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved 
       body: JSON.stringify(p),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { setErr(data.error || "Could not save"); return; }
+    if (!res.ok) { const msg = data.error || "Could not save"; setErr(msg); return msg; }
     setEditing(null); load(); onChange?.();
-    // New stylist with an email → surface the one-time invite link to share.
+    // New stylist → we emailed their sign-up link; also surface the one-time
+    // link so the owner can copy it (in case the email doesn't arrive).
     if (!p._id && data.inviteToken) {
-      setInvite({ name: p.name, url: `${window.location.origin}/invite?token=${data.inviteToken}` });
+      setInvite({ name: p.name, url: `${window.location.origin}/invite?token=${data.inviteToken}`, emailed: data.emailed });
     }
+    return null;
   }
   async function toggleActive(p) {
     await fetch(`/api/providers/${p._id}`, {
@@ -132,7 +134,11 @@ export function InviteModal({ invite, onClose }) {
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="form">
-          <p className="panel__hint">Send {invite.name} this link. When they open it they’ll set a password and be connected to your store. The link works once and expires in 14 days.</p>
+          <p className="panel__hint">
+            {invite.emailed
+              ? <>We emailed {invite.name} their sign-up link. They’ll set a password and be connected to your store. You can also copy the link below to send it yourself.</>
+              : <>Send {invite.name} this link. When they open it they’ll set a password and be connected to your store. The link works once and expires in 14 days.</>}
+          </p>
           <div className="invite__row">
             <input className="invite__link" readOnly value={invite.url} onFocus={e => e.target.select()} />
             <button className="btn" onClick={copy}>{copied ? "Copied!" : "Copy"}</button>
@@ -529,13 +535,16 @@ export function ProviderForm({ provider, onClose, onSave }) {
     active: provider.active !== false,
   });
   const [saving, setSaving] = useState(false);
+  const [formErr, setFormErr] = useState("");
   const set = (f, v) => setForm(s => ({ ...s, [f]: v }));
 
   async function submit(e) {
     e.preventDefault();
+    setFormErr("");
     setSaving(true);
-    await onSave({ ...provider, ...form });
+    const error = await onSave({ ...provider, ...form });
     setSaving(false);
+    if (error) setFormErr(error);
   }
 
   return (
@@ -551,8 +560,8 @@ export function ProviderForm({ provider, onClose, onSave }) {
             <input type="text" value={form.name} onChange={e => set("name", e.target.value)} placeholder="Full name" required />
           </label>
           <label className="field">
-            <span className="field__label">Email <span className="field__hint">— used for their login when accounts are enabled</span></span>
-            <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" />
+            <span className="field__label">Email <span className="field__hint">— we email them a sign-up link to set their password</span></span>
+            <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" required disabled={isEdit} />
           </label>
           <label className="field">
             <span className="field__label">Bio</span>
@@ -562,6 +571,7 @@ export function ProviderForm({ provider, onClose, onSave }) {
             <input type="checkbox" checked={form.active} onChange={e => set("active", e.target.checked)} />
             <span>Bookable (shown to clients &amp; on the calendar)</span>
           </label>
+          {formErr && <p className="form__error">{formErr}</p>}
           <div className="form__actions">
             <button type="button" className="action" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save" : "Add staff"}</button>
