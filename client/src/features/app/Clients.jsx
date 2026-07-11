@@ -84,18 +84,20 @@ export function ClientsView({ providers, services, durationOf, onApptSaved, addR
           Clients
           {!loading && <span className="pageview__count">{clients.length}</span>}
         </h1>
-        <div className="clienttable__tools">
-          <input
-            className="clients-search"
-            type="search"
-            placeholder="Search name, phone, or email"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-          />
-          <button className="btn btn--new" onClick={() => setAdding(true)}>+ Add client</button>
-        </div>
+        <button className="btn btn--new" onClick={() => setAdding(true)}>+ Add client</button>
       </div>
       <div className={`pageview__body${isMobile ? "" : " pageview__body--flush"}`}>
+        {(clients.length > 0 || q) && (
+          <div className="clients-toolbar">
+            <input
+              className="clients-search"
+              type="search"
+              placeholder="Search name, phone, or email"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+            />
+          </div>
+        )}
         {loading && clients.length === 0 ? (
           <LoadingSpinner />
         ) : !loading && clients.length === 0 ? (

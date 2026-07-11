@@ -246,6 +246,43 @@
 }
 .marketing__step .marketing__cd { max-width: 24ch; margin: 0 auto; }
 
+/* ── Live demo (iframed booking widget in a browser frame) ─────────────── */
+.marketing__browser {
+  max-width: 900px; margin: 0 auto; border-radius: 18px; overflow: hidden;
+  background: #fff; border: 1px solid var(--m-line);
+  box-shadow: 0 40px 90px -40px rgba(0, 13, 110, .45); position: relative; z-index: 1;
+}
+.marketing__browser-bar { display: flex; align-items: center; gap: .8rem; padding: .7rem 1rem; background: var(--m-cream); border-bottom: 1px solid var(--m-line); }
+.marketing__browser-dots { display: inline-flex; gap: 6px; flex: none; }
+.marketing__browser-dots i { width: 11px; height: 11px; border-radius: 50%; background: #cdd0e6; }
+.marketing__browser-url { flex: 1; text-align: center; font-size: .8rem; font-weight: 600; color: var(--m-muted); background: #fff; border: 1px solid var(--m-line); border-radius: 100px; padding: .35rem .9rem; max-width: 320px; margin: 0 auto; }
+.marketing__demo-frame { width: 100%; height: 640px; border: 0; display: block; background: #f7f7fd; }
+.marketing__demo-note { text-align: center; margin-top: 1.6rem; color: var(--m-muted); font-size: .95rem; }
+@media (max-width: 720px) { .marketing__demo-frame { height: 560px; } }
+
+/* ── Customer-experience email shots ───────────────────────────────────── */
+.marketing__shots {
+  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.5rem, 4vw, 3rem);
+  max-width: 960px; margin: 0 auto; position: relative; z-index: 1;
+}
+.marketing__shot { margin: 0; }
+.marketing__shot-frame {
+  border-radius: 18px; overflow: hidden; background: #fff; border: 1px solid var(--m-line);
+  box-shadow: 0 34px 70px -34px rgba(0, 13, 110, .45);
+  transition: transform .5s var(--m-ease), box-shadow .5s var(--m-ease);
+}
+.marketing__shot-frame img { width: 100%; height: auto; display: block; }
+.marketing__shot--a .marketing__shot-frame { transform: rotate(-1.4deg); }
+.marketing__shot--b .marketing__shot-frame { transform: rotate(1.4deg); }
+.marketing__shot:hover .marketing__shot-frame { transform: rotate(0deg) translateY(-6px); box-shadow: 0 44px 84px -34px rgba(0, 13, 110, .5); }
+.marketing__shot figcaption { margin-top: 1.3rem; text-align: center; color: var(--m-muted); font-size: .96rem; line-height: 1.5; max-width: 34ch; margin-inline: auto; }
+.marketing__shot-tag { display: block; color: var(--m-peri-2); font-weight: 800; font-size: .82rem; letter-spacing: .02em; margin-bottom: .3rem; }
+.marketing__floatie--e1 { top: 6%; right: 6%; animation-delay: -2.5s; }
+@media (max-width: 720px) {
+  .marketing__shots { grid-template-columns: 1fr; max-width: 460px; }
+  .marketing__shot--a .marketing__shot-frame, .marketing__shot--b .marketing__shot-frame { transform: none; }
+}
+
 /* ── Pricing ────────────────────────────────────────────────────────────── */
 .marketing__plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1.4rem; max-width: 780px; margin: 0 auto; position: relative; z-index: 1; }
 .marketing__plan {

@@ -760,8 +760,12 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .ccard__meta dt { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); margin-bottom: 2px; }
 .ccard__meta dd { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Search field in a pageview head */
-.pageview__head .clients-search { max-width: 280px; margin: 0; }
+/* Client search lives in the page body (not the subnav) so every page's
+   subnav is the same height. On desktop the body is flush, so the toolbar
+   supplies its own padding + a divider; on mobile the body is already padded. */
+.clients-toolbar { padding: 0 0 14px; }
+.clients-toolbar .clients-search { display: block; width: 100%; max-width: 340px; margin: 0; }
+.pageview__body--flush .clients-toolbar { padding: 16px 20px; border-bottom: 1px solid var(--line); }
 
 /* ── Clients CRM table ──────────────────────────── */
 .clienttable__tools { display: flex; align-items: center; gap: 14px; }
@@ -1408,8 +1412,7 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
   /* Clients / providers page header stacks cleanly */
   .pageview__head { flex-direction: column; align-items: stretch; gap: 10px; }
-  .clienttable__tools { flex-wrap: wrap; gap: 10px; }
-  .pageview__head .clients-search { max-width: none; flex: 1; }
+  .clients-toolbar .clients-search { max-width: none; }
   .clienttable__count { order: 3; }
 }
 

@@ -94,8 +94,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
               <span className="marketing__pill">✦ Booking &amp; scheduling for local shops</span>
             </p>
             <h1 className="marketing__h1" data-reveal>
-              Let clients book you online —<br />
-              without the <em>front-desk busywork.</em>
+              Let clients book you online, <em>no busywork.</em>
             </h1>
             <p className="marketing__lead" data-reveal>
               StoreCal gives your salon, barbershop, or studio a clean booking calendar, staff
@@ -149,20 +148,20 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
         </div>
       </section>
 
-      {/* ── Marquee ─────────────────────────────────────────────────────── */}
+      {/* ── Marquee ───────────────────────────────────────────── HIDDEN ON PURPOSE FOR NOW
       <div className="marketing__marquee" aria-hidden="true">
         <div className="marketing__marquee-track">
           <span>Online booking ✦ Staff calendars ✦ Store hours ✦ Client list ✦ One-line embed ✦ Built for local shops ✦&nbsp;</span>
           <span>Online booking ✦ Staff calendars ✦ Store hours ✦ Client list ✦ One-line embed ✦ Built for local shops ✦&nbsp;</span>
         </div>
-      </div>
+      </div>────────── */}
 
       {/* ── Features ────────────────────────────────────────────────────── */}
       <section className="marketing__section" id="features">
         <span className="marketing__floatie marketing__floatie--s1" aria-hidden="true">✦</span>
         <div className="marketing__sechead">
           <p className="marketing__section-eyebrow" data-reveal>What you get</p>
-          <h2 className="marketing__h2" data-reveal>Everything to run the <em>front desk.</em></h2>
+          <h2 className="marketing__h2" data-reveal>Everything to run the <em>front-desk.</em></h2>
           <p className="marketing__lede" data-reveal>
             One place for bookings, staff, hours, and clients — so the phone stops being your
             calendar.
@@ -180,7 +179,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
       </section>
 
       {/* ── How it works ────────────────────────────────────────────────── */}
-      <section className="marketing__section marketing__section--tint" id="how">
+      <section className="marketing__section" id="how">
         <div className="marketing__sechead">
           <p className="marketing__section-eyebrow" data-reveal>Up and running in minutes</p>
           <h2 className="marketing__h2" data-reveal>Three steps to <em>booked.</em></h2>
@@ -197,6 +196,66 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
               <p className="marketing__cd">{s.d}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Live demo (iframed booking widget) ──────────────────────────── */}
+      <section className="marketing__section" id="demo">
+        <div className="marketing__sechead">
+          <p className="marketing__section-eyebrow" data-reveal>See it live</p>
+          <h2 className="marketing__h2" data-reveal>Try the <em>actual</em> booking widget.</h2>
+          <p className="marketing__lede" data-reveal>
+            This is a real StoreCal widget on a sample shop's site — the same one your customers use.
+            Pick a service and book a slot; it's fully interactive.
+          </p>
+        </div>
+        <div className="marketing__browser" data-reveal>
+          <div className="marketing__browser-bar">
+            <span className="marketing__browser-dots"><i /><i /><i /></span>
+            <span className="marketing__browser-url">demobeautystudio.com</span>
+          </div>
+          <iframe
+            className="marketing__demo-frame"
+            src="/demo.html"
+            title="Live StoreCal booking widget demo"
+            loading="lazy"
+          />
+        </div>
+        <p className="marketing__demo-note" data-reveal>
+          Prefer the owner's view? <button className="linklike marketing__finelink" onClick={onDemo}>Try the live demo dashboard →</button>
+        </p>
+      </section>
+
+      {/* ── What the customer sees ──────────────────────────────────────── */}
+      <section className="marketing__section marketing__section--tint" id="experience">
+        <span className="marketing__floatie marketing__floatie--e1" aria-hidden="true">✦</span>
+        <div className="marketing__sechead">
+          <p className="marketing__section-eyebrow" data-reveal>The customer's side</p>
+          <h2 className="marketing__h2" data-reveal>Your clients get <em>looked after.</em></h2>
+          <p className="marketing__lede" data-reveal>
+            Every booking and cancellation sends a clean, branded email — automatically. Nothing to
+            download, nothing for you to send. This is exactly what lands in their inbox.
+          </p>
+        </div>
+        <div className="marketing__shots">
+          <figure className="marketing__shot marketing__shot--a" data-reveal>
+            <div className="marketing__shot-frame">
+              <img src="/booking-confirmed.png" alt="Booking confirmation email a customer receives, showing the service, time, and staff member" loading="lazy" />
+            </div>
+            <figcaption>
+              <span className="marketing__shot-tag">✦ When they book</span>
+              A confirmation with the service, time, and who they're seeing.
+            </figcaption>
+          </figure>
+          <figure className="marketing__shot marketing__shot--b" data-reveal>
+            <div className="marketing__shot-frame">
+              <img src="/booking-cancelled.png" alt="Cancellation email a customer receives, including a personal note from the shop" loading="lazy" />
+            </div>
+            <figcaption>
+              <span className="marketing__shot-tag">✦ If plans change</span>
+              A cancellation notice — with a personal note from you.
+            </figcaption>
+          </figure>
         </div>
       </section>
 

@@ -3,23 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StoreCal embed demo</title>
+  <title>Demo Beauty Studio — book online</title>
   <style>
-    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f4f5f7; color: #222; }
-    .demo-hero { padding: 48px 20px; text-align: center; background: #fff; border-bottom: 1px solid #e6e8ec; }
-    .demo-hero h1 { margin: 0 0 6px; font-size: 26px; }
-    .demo-hero p { margin: 0; color: #6a7078; }
-    .demo-mount { max-width: 460px; margin: 32px auto; padding: 0 16px; }
+    :root { --ink:#14133a; --muted:#5c5a7c; --line:#e7e7f2; }
+    * { box-sizing: border-box; }
+    body { font-family: "Manrope", -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f7f7fd; color: var(--ink); }
+    .demo-hero { padding: 40px 20px 28px; text-align: center; background: #fff; border-bottom: 1px solid var(--line); }
+    .demo-hero .tag { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#4d4bd9; margin-bottom:10px; }
+    .demo-hero h1 { margin: 0 0 6px; font-size: 26px; letter-spacing:-.01em; }
+    .demo-hero p { margin: 0 auto; color: var(--muted); max-width: 40ch; font-size:14px; line-height:1.5; }
+    .demo-mount { max-width: 460px; margin: 28px auto 48px; padding: 0 16px; }
   </style>
 </head>
 <body>
   <div class="demo-hero">
-    <h1>Glamour Hair &amp; Nails</h1>
-    <p>This is a fake customer website. The booking widget below is the embed.</p>
+    <span class="tag">Sample customer site</span>
+    <h1>Demo Beauty Studio</h1>
+    <p>This is a demo of a shop's website — the booking widget below is exactly what StoreCal drops onto any site. Go ahead and try it.</p>
   </div>
   <div class="demo-mount">
     <!-- This is exactly the snippet you paste on a real site (data-store = the shop's public key). -->
-    <script src="/embed.js" data-store="sc_bdecf02827d97cadda"></script>
+    <script src="/embed.js" data-store="sc_0b6433e70264a3b163" data-accent="#4d4bd9"></script>
   </div>
 </body>
 </html>
