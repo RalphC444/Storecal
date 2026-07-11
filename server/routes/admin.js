@@ -69,10 +69,14 @@ router.post("/shops", async (req, res) => {
       role: "owner", shopId, mustChangePassword: true, createdAt: new Date(),
     });
 
-    // Owner is a bookable provider by default (mirrors self-registration).
+    // Owner is a bookable provider by default (mirrors self-registration) —
+    // EXCEPT auto shops, which don't do per-staff booking. The provider row is
+    // still created (inactive) so the no-staff fallback has a rep to attach the
+    // booking to, but the owner never shows up as bookable staff.
     await db.collection("providers").insertOne({
       shopId, name: businessName.trim(), email: em, bio: "", photo: "",
-      active: true, ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
+      active: businessType !== "auto",
+      ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
     });
 
     const origin = req.headers.origin || "";

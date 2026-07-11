@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { Icon } from "../../components/Icon";
 import { useIsMobile } from "../../lib/hooks";
 import { STATUS_LABEL, effStatus } from "../../lib/appointments";
 import { fmtShort, fmtTime, todayKey } from "../../lib/datetime";
@@ -101,7 +102,27 @@ export function ClientsView({ providers, services, durationOf, onApptSaved, addR
         {loading && clients.length === 0 ? (
           <LoadingSpinner />
         ) : !loading && clients.length === 0 ? (
-          <p className="empty">{q ? "No clients match your search." : "No clients yet."}</p>
+          q ? (
+            <div className="clients-empty">
+              <span className="clients-empty__icon"><Icon name="clients" /></span>
+              <h2 className="clients-empty__title">No matches</h2>
+              <p className="clients-empty__text">Nothing matched “{q}”. Try a different name, phone, or email.</p>
+              <button className="action" onClick={() => setQ("")}>Clear search</button>
+            </div>
+          ) : (
+            <div className="clients-empty">
+              <span className="clients-empty__icon"><Icon name="clients" /></span>
+              <h2 className="clients-empty__title">No clients yet</h2>
+              <p className="clients-empty__text">
+                Every booking adds a client here automatically — with their name, phone, email, and
+                visit history. When someone books online or you add an appointment, they’ll show up here.
+              </p>
+              <div className="clients-empty__actions">
+                <button className="btn" onClick={() => setAdding(true)}>+ Add a client</button>
+              </div>
+              <p className="clients-empty__hint">Share your booking link (Settings → Booking) so clients can book themselves — each one lands here.</p>
+            </div>
+          )
         ) : isMobile ? (
           <div className="ccardlist">
             {sorted.map(c => (

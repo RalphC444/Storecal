@@ -1,9 +1,120 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Icon } from "../../components/Icon";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PasswordInput } from "../../components/PasswordInput";
 import { toast } from "../../components/Toast";
 
+// Settings is a two-pane console: a discoverable category rail on the left and
+// grouped cards on the right. Categories are role- and business-type aware, so
+// a staff member sees only Profile + Security, and an auto shop never sees the
+// "bookable staff" card. Each category holds one or more self-contained cards.
 export function SettingsView({ user, onUserChange, onSignOut }) {
+  const isOwner = user.role === "owner";
+
+  // Load shop + billing meta once so category visibility never flashes.
+  const [meta, setMeta] = useState({ loaded: !isOwner, businessType: null, freeForLife: false });
+  useEffect(() => {
+    if (!isOwner) return;
+    let done = 0;
+    const acc = { businessType: null, freeForLife: false };
+    const finish = () => { if (++done === 2) setMeta({ loaded: true, ...acc }); };
+    fetch("/api/shop-config").then(r => r.json()).then(d => { acc.businessType = d?.shop?.businessType || null; }).catch(() => {}).finally(finish);
+    fetch("/api/billing").then(r => r.json()).then(d => { acc.freeForLife = !!d?.freeForLife; }).catch(() => {}).finally(finish);
+  }, [isOwner]);
+
+  const isAuto = meta.businessType === "auto";
+
+  const categories = useMemo(() => {
+    const list = [
+      { id: "profile", label: "Profile", icon: "user", desc: "Name & login" },
+      { id: "security", label: "Security", icon: "lock", desc: "Password" },
+    ];
+    if (isOwner) {
+      list.push({ id: "website", label: "Website", icon: "globe", desc: "Storefront banner" });
+      list.push({ id: "booking", label: "Booking", icon: "link", desc: "Links & profile" });
+      if (!meta.freeForLife) list.push({ id: "billing", label: "Billing", icon: "card", desc: "Plan & payment" });
+    }
+    return list;
+  }, [isOwner, meta.freeForLife]);
+
+  const [active, setActive] = useState("profile");
+  useEffect(() => {
+    if (!categories.some((c) => c.id === active)) setActive(categories[0].id);
+  }, [categories, active]);
+
+  return (
+    <div className="pageview">
+      <div className="pageview__head"><h1 className="pageview__title">Settings</h1></div>
+      <div className="pageview__body settings">
+        <nav className="settings__rail" aria-label="Settings sections">
+          <div className="settings__railgroup">
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                className={"settings__navitem" + (active === c.id ? " is-active" : "")}
+                onClick={() => setActive(c.id)}
+                aria-current={active === c.id ? "true" : undefined}
+              >
+                <span className="settings__navicon"><Icon name={c.icon} /></span>
+                <span className="settings__navtext">
+                  <span className="settings__navlabel">{c.label}</span>
+                  <span className="settings__navdesc">{c.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <button className="settings__navitem settings__navitem--danger" onClick={onSignOut}>
+            <span className="settings__navicon"><Icon name="signout" /></span>
+            <span className="settings__navtext"><span className="settings__navlabel">Sign out</span></span>
+          </button>
+        </nav>
+
+        <div className="settings__content">
+          {!meta.loaded ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              {active === "profile" && <ProfilePanel user={user} onUserChange={onUserChange} />}
+              {active === "security" && <SecurityPanel />}
+              {isOwner && active === "website" && <WebsitePanel />}
+              {isOwner && active === "booking" && <BookingPanel isAuto={isAuto} />}
+              {isOwner && active === "billing" && <BillingPanel />}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Shared presentation ──────────────────────────────────────────────────────
+
+function CategoryHead({ title, desc }) {
+  return (
+    <header className="settings__cathead">
+      <h2 className="settings__cattitle">{title}</h2>
+      {desc && <p className="settings__catdesc">{desc}</p>}
+    </header>
+  );
+}
+
+function SettingsCard({ title, desc, children }) {
+  return (
+    <section className="settings__card">
+      {(title || desc) && (
+        <div className="settings__cardhead">
+          {title && <h3 className="settings__cardtitle">{title}</h3>}
+          {desc && <p className="settings__carddesc">{desc}</p>}
+        </div>
+      )}
+      <div className="settings__cardbody">{children}</div>
+    </section>
+  );
+}
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+function ProfilePanel({ user, onUserChange }) {
   const [name, setName] = useState(user.name || "");
   const [savedName, setSavedName] = useState(user.name || "");
   const [msg, setMsg] = useState("");
@@ -17,50 +128,36 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
   }
 
   return (
-    <div className="pageview">
-      <div className="pageview__head"><h1 className="pageview__title">Settings</h1></div>
-      <div className="pageview__body">
-        <section className="panel__block">
-          <h3 className="schedule__label">Account</h3>
-          <div className="set__grid">
-            <label className="field">
-              <span className="field__label">Name</span>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} />
-            </label>
-            <label className="field">
-              <span className="field__label">Email</span>
-              <input type="email" value={user.email} readOnly disabled />
-            </label>
-          </div>
-          <div className="schedule__save">
-            <button className="btn" onClick={saveName} disabled={name.trim() === savedName.trim() || !name.trim()}>Save</button>
-            {msg && <span className="schedule__msg">{msg}</span>}
-          </div>
-        </section>
-
-        <section className="panel__block set__pwblock">
-          <h3 className="schedule__label">Password</h3>
-          <ChangePasswordInline />
-        </section>
-
-        {user.role === "owner" && <AnnouncementBannerSection />}
-        {user.role === "owner" && <BookableSelfSection />}
-        {user.role === "owner" && <BookingLinksSection />}
-        {user.role === "owner" && <BillingSection />}
-
-        <section className="panel__block">
-          <button className="action action--danger" onClick={onSignOut}>Sign out</button>
-        </section>
-      </div>
-    </div>
+    <>
+      <CategoryHead title="Profile" desc="Your name and the email you sign in with." />
+      <SettingsCard title="Your details">
+        <div className="set__grid">
+          <label className="field">
+            <span className="field__label">Name</span>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field__label">Email</span>
+            <input type="email" value={user.email} readOnly disabled />
+          </label>
+        </div>
+        <div className="schedule__save">
+          <button className="btn" onClick={saveName} disabled={name.trim() === savedName.trim() || !name.trim()}>Save</button>
+          {msg && <span className="schedule__msg">{msg}</span>}
+        </div>
+      </SettingsCard>
+    </>
   );
 }
 
-export function ChangePasswordInline() {
+// ── Security ─────────────────────────────────────────────────────────────────
+
+function SecurityPanel() {
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+
   async function submit(e) {
     e.preventDefault(); setErr(""); setMsg("");
     const res = await fetch("/api/auth/change-password", {
@@ -71,72 +168,34 @@ export function ChangePasswordInline() {
     if (!res.ok) { setErr(d.error || "Could not update"); return; }
     setCur(""); setNext(""); setMsg("Password updated"); setTimeout(() => setMsg(""), 2500);
   }
-  return (
-    <form className="set__grid" onSubmit={submit}>
-      <label className="field">
-        <span className="field__label">Current password</span>
-        <PasswordInput value={cur} onChange={e => setCur(e.target.value)} autoComplete="current-password" required />
-      </label>
-      <label className="field">
-        <span className="field__label">New password</span>
-        <PasswordInput value={next} onChange={e => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required />
-      </label>
-      <div className="schedule__save set__span">
-        <button className="btn" type="submit">Update password</button>
-        {msg && <span className="schedule__msg">{msg}</span>}
-        {err && <span className="form__error" style={{ margin: 0 }}>{err}</span>}
-      </div>
-    </form>
-  );
-}
-
-// Owner: the two ways to put booking online — embed on their website, or a
-// shareable "link in bio" that opens a hosted booking page.
-export function BookingLinksSection() {
-  const [publicKey, setPublicKey] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-  const [copied, setCopied] = useState("");
-
-  useEffect(() => {
-    fetch("/api/shop-config")
-      .then(r => r.json())
-      .then(d => setPublicKey(d?.shop?.publicKey || null))
-      .catch(() => {})
-      .finally(() => setLoaded(true));
-  }, []);
-
-  const origin = window.location.origin;
-  const bioUrl = publicKey ? `${origin}/book?key=${publicKey}` : "";
-
-  function copy(text, which) {
-    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
-    setCopied(which); setTimeout(() => setCopied(""), 1500);
-  }
 
   return (
-    <section className="panel__block">
-      <h3 className="schedule__label">Booking links</h3>
-      <p className="panel__hint">Share your booking page anywhere — no website needed.</p>
-
-      {!loaded ? <LoadingSpinner />
-        : !publicKey ? <p className="panel__hint">No booking key yet for this store.</p>
-        : (
-          <div className="bl">
-            <div className="bl__title">Link in bio</div>
-            <p className="bl__sub">Share this anywhere — Instagram, Google, a text message. It opens your booking page directly (no website needed).</p>
-            <div className="bl__row">
-              <input className="bl__link" readOnly value={bioUrl} onFocus={e => e.target.select()} />
-              <a className="btn" href={bioUrl} target="_blank" rel="noreferrer">Open</a>
-            </div>
-            <button className="btn" onClick={() => copy(bioUrl, "bio")}>{copied === "bio" ? "Copied!" : "Copy link"}</button>
+    <>
+      <CategoryHead title="Security" desc="Keep your account safe. Choose a strong password you don't use elsewhere." />
+      <SettingsCard title="Password" desc="You'll stay signed in on this device after changing it.">
+        <form className="set__grid" onSubmit={submit}>
+          <label className="field">
+            <span className="field__label">Current password</span>
+            <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" required />
+          </label>
+          <label className="field">
+            <span className="field__label">New password</span>
+            <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required />
+          </label>
+          <div className="schedule__save set__span">
+            <button className="btn" type="submit">Update password</button>
+            {msg && <span className="schedule__msg">{msg}</span>}
+            {err && <span className="form__error" style={{ margin: 0 }}>{err}</span>}
           </div>
-        )}
-    </section>
+        </form>
+      </SettingsCard>
+    </>
   );
 }
 
-// Owner-set announcement banner shown across the top of their website.
-export function AnnouncementBannerSection() {
+// ── Website ──────────────────────────────────────────────────────────────────
+
+function WebsitePanel() {
   const [msg, setMsg] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -152,31 +211,82 @@ export function AnnouncementBannerSection() {
   async function save() {
     setSaving(true); setSaved(false);
     const res = await fetch("/api/shop-config", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ announcement: msg }),
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ announcement: msg }),
     });
     setSaving(false);
     if (res.ok) { setSaved(true); toast(msg.trim() ? "Banner saved" : "Banner cleared"); setTimeout(() => setSaved(false), 2000); }
   }
 
   return (
-    <section className="panel__block">
-      <h3 className="schedule__label">Website banner</h3>
-      <p className="panel__hint">Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.” Leave it empty to hide the banner.</p>
-      <label className="field">
-        <textarea rows={2} maxLength={250} value={msg} onChange={e => { setSaved(false); setMsg(e.target.value); }}
-          placeholder="We’re closed for vacation July 20–28 — book us for after. Thanks!" />
-      </label>
-      <div className="schedule__save">
-        <button className="btn" onClick={save} disabled={saving || !loaded}>{saving ? "Saving…" : "Save banner"}</button>
-        <span className="schedule__msg">{saved ? "✓ Saved" : `${msg.length}/250`}</span>
-      </div>
-    </section>
+    <>
+      <CategoryHead title="Website" desc="Control what visitors see on your storefront." />
+      <SettingsCard
+        title="Announcement banner"
+        desc="Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.” Leave it empty to hide it."
+      >
+        <label className="field">
+          <textarea rows={2} maxLength={250} value={msg} onChange={(e) => { setSaved(false); setMsg(e.target.value); }}
+            placeholder="We’re closed for vacation July 20–28 — book us for after. Thanks!" />
+        </label>
+        <div className="schedule__save">
+          <button className="btn" onClick={save} disabled={saving || !loaded}>{saving ? "Saving…" : "Save banner"}</button>
+          <span className="schedule__msg">{saved ? "✓ Saved" : `${msg.length}/250`}</span>
+        </div>
+      </SettingsCard>
+    </>
   );
 }
 
-// Owner opt-in to being a bookable provider themselves (toggleable).
-export function BookableSelfSection() {
+// ── Booking ──────────────────────────────────────────────────────────────────
+
+function BookingPanel({ isAuto }) {
+  return (
+    <>
+      <CategoryHead title="Booking" desc="How clients reach your booking page and who they can book." />
+      <BookingLinkCard />
+      {/* Auto shops don't do per-staff booking, so there's no "list yourself" card. */}
+      {!isAuto && <BookableSelfCard />}
+    </>
+  );
+}
+
+function BookingLinkCard() {
+  const [publicKey, setPublicKey] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/shop-config").then(r => r.json())
+      .then(d => setPublicKey(d?.shop?.publicKey || null))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const bioUrl = publicKey ? `${window.location.origin}/book?key=${publicKey}` : "";
+
+  function copy() {
+    if (navigator.clipboard) navigator.clipboard.writeText(bioUrl).catch(() => {});
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <SettingsCard title="Link in bio" desc="Share this anywhere — Instagram, Google, a text. It opens your booking page directly, no website needed.">
+      {!loaded ? <LoadingSpinner />
+        : !publicKey ? <p className="panel__hint">No booking key yet for this store.</p>
+        : (
+          <>
+            <div className="bl__row">
+              <input className="bl__link" readOnly value={bioUrl} onFocus={(e) => e.target.select()} />
+              <a className="btn" href={bioUrl} target="_blank" rel="noreferrer">Open</a>
+            </div>
+            <button className="btn" onClick={copy}>{copied ? "Copied!" : "Copy link"}</button>
+          </>
+        )}
+    </SettingsCard>
+  );
+}
+
+function BookableSelfCard() {
   const [listed, setListed] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -193,27 +303,25 @@ export function BookableSelfSection() {
   }
 
   return (
-    <section className="panel__block">
-      <h3 className="schedule__label">My booking profile</h3>
-      <p className="panel__hint">Take appointments yourself? List your own profile so clients can book with you.</p>
+    <SettingsCard title="My booking profile" desc="Take appointments yourself? List your own profile so clients can book with you.">
       <label className="switch switch--field">
         <input type="checkbox" checked={!!listed} onChange={toggle} disabled={listed === null || busy} />
         <span>Show me as bookable staff</span>
       </label>
       {listed && <p className="panel__hint">You now appear in the <b>Staff</b> tab — open your card there to add a photo, choose your services, and set your hours (needed before clients can book you).</p>}
-    </section>
+    </SettingsCard>
   );
 }
 
-export function BillingSection() {
+// ── Billing ──────────────────────────────────────────────────────────────────
+
+function BillingPanel() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { fetch("/api/billing").then(r => r.json()).then(setData).catch(() => {}); }, []);
 
-  // Both actions hand off straight to Stripe (Checkout to subscribe, Portal to
-  // manage) — no in-app plan chooser.
   async function go(path) {
     setErr(""); setBusy(true);
     const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -223,36 +331,29 @@ export function BillingSection() {
     else setErr(d.error || "Something went wrong");
   }
 
-  // Comped ("free for life") accounts see no billing at all — no payment
-  // references anywhere. Also render nothing until we know, so it never flashes.
-  if (!data || data.freeForLife) return null;
-
   return (
-    <section className="panel__block">
-      <h3 className="schedule__label">Subscription &amp; billing</h3>
-      <p className="panel__hint">Only the store owner manages the subscription and payment method.</p>
-
-      <div className="billing__now">
-        <div>
-          <span className="billing__label">Status</span>
-          <span className="billing__plan">{data ? (data.subscribed ? "Active" : "Not subscribed") : "…"}</span>
+    <>
+      <CategoryHead title="Billing" desc="Your subscription and payment method. Only the store owner manages this." />
+      <SettingsCard title="Subscription">
+        <div className="billing__now">
+          <div>
+            <span className="billing__label">Status</span>
+            <span className="billing__plan">{data ? (data.subscribed ? "Active" : "Not subscribed") : "…"}</span>
+          </div>
+          {data && (data.subscribed
+            ? <button className="btn" onClick={() => go("/api/billing/portal")} disabled={busy}>{busy ? "Opening…" : "Manage payment & plan"}</button>
+            : <button className="btn" onClick={() => go("/api/billing/checkout")} disabled={busy || !data.stripeConfigured}>
+                {busy ? "Opening…" : (data.assignedPlan ? `Subscribe — ${data.assignedPlan.name} ${data.assignedPlan.price}` : "Subscribe")}
+              </button>)}
         </div>
-        {data && (data.subscribed
-          ? <button className="btn" onClick={() => go("/api/billing/portal")} disabled={busy}>{busy ? "Opening…" : "Manage payment & plan"}</button>
-          : <button className="btn" onClick={() => go("/api/billing/checkout")} disabled={busy || !data.stripeConfigured}>
-              {busy ? "Opening…" : (data.assignedPlan ? `Subscribe — ${data.assignedPlan.name} ${data.assignedPlan.price}` : "Subscribe")}
-            </button>)}
-      </div>
-      {data && !data.subscribed && data.assignedPlan && (
-        <p className="panel__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}</p>
-      )}
-
-      {err && <p className="form__error">{err}</p>}
-      {data && !data.stripeConfigured && (
-        <p className="panel__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable subscriptions.</p>
-      )}
-    </section>
+        {data && !data.subscribed && data.assignedPlan && (
+          <p className="panel__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}</p>
+        )}
+        {err && <p className="form__error">{err}</p>}
+        {data && !data.stripeConfigured && (
+          <p className="panel__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable subscriptions.</p>
+        )}
+      </SettingsCard>
+    </>
   );
 }
-
-// Final onboarding step — set hours (skippable; a banner nags until done).

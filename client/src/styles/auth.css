@@ -72,6 +72,49 @@
 @media (max-width: 560px) { .set__grid { grid-template-columns: 1fr; } }
 .set__pwblock { max-width: 520px; }
 
+/* ── Settings console (category rail + grouped cards) ─────────────────────── */
+.settings { display: grid; grid-template-columns: 240px 1fr; gap: 30px; align-items: start; max-width: 920px; }
+.settings__rail { position: sticky; top: 0; display: flex; flex-direction: column; gap: 16px; }
+.settings__railgroup { display: flex; flex-direction: column; gap: 2px; }
+.settings__navitem {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: none; border: 0; cursor: pointer; padding: 10px 12px; border-radius: 11px;
+  color: var(--ink-2); transition: background .15s, color .15s;
+}
+.settings__navitem:hover { background: var(--wash); color: var(--ink); }
+.settings__navitem.is-active { background: var(--accent-soft); color: var(--accent); }
+.settings__navicon { display: inline-flex; flex: none; }
+.settings__navicon .ico { width: 19px; height: 19px; }
+.settings__navtext { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.settings__navlabel { font-size: 14px; font-weight: 600; }
+.settings__navdesc { font-size: 11.5px; color: var(--ink-3); }
+.settings__navitem.is-active .settings__navdesc { color: var(--accent); opacity: .75; }
+.settings__navitem--danger { margin-top: 6px; color: var(--ink-3); }
+.settings__navitem--danger:hover { background: #fdeeee; color: #c0392b; }
+
+.settings__content { min-width: 0; max-width: 560px; }
+.settings__cathead { margin-bottom: 18px; }
+.settings__cattitle { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; }
+.settings__catdesc { font-size: 13.5px; color: var(--ink-2); margin-top: 5px; line-height: 1.5; }
+.settings__card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+.settings__cardhead { margin-bottom: 15px; }
+.settings__cardtitle { font-size: 15px; font-weight: 700; }
+.settings__carddesc { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.5; }
+.settings__card .set__grid,
+.settings__card .billing__now { max-width: none; }
+.settings__card .schedule__save { margin-top: 14px; }
+
+@media (max-width: 760px) {
+  .settings { grid-template-columns: 1fr; gap: 18px; }
+  .settings__rail { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .settings__railgroup { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .settings__navitem { flex: none; width: auto; padding: 8px 13px; border: 1px solid var(--line); border-radius: 999px; }
+  .settings__navitem.is-active { border-color: transparent; }
+  .settings__navdesc { display: none; }
+  .settings__navitem--danger { margin-top: 0; }
+  .settings__content { max-width: none; }
+}
+
 .billing__now {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   border: 1px solid var(--line); border-radius: 12px; padding: 16px; max-width: 520px; margin-bottom: 14px;

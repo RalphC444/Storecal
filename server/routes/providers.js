@@ -50,6 +50,11 @@ router.post("/self", requireAuth, requireOwner, async (req, res) => {
     const listed = !!req.body.listed;
     const db = await getDb();
     const shopId = req.auth.shopId;
+
+    // Auto shops don't do per-staff booking — the owner is never bookable staff.
+    const shop = await db.collection("shops").findOne({ _id: new ObjectId(shopId) });
+    if (shop && shop.businessType === "auto") return res.json({ listed: false, providerId: null });
+
     let p = await db.collection("providers").findOne({ shopId, ownerUserId: req.auth.uid });
 
     if (listed && !p) {

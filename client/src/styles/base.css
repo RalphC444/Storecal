@@ -767,6 +767,18 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .clients-toolbar .clients-search { display: block; width: 100%; max-width: 340px; margin: 0; }
 .pageview__body--flush .clients-toolbar { padding: 16px 20px; border-bottom: 1px solid var(--line); }
 
+/* Clients empty state — welcoming, actionable, explains auto-population */
+.clients-empty { max-width: 440px; margin: 52px auto; padding: 0 24px; text-align: center; }
+.clients-empty__icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px;
+  border-radius: 16px; background: var(--accent-soft); color: var(--accent); margin-bottom: 18px;
+}
+.clients-empty__icon .ico { width: 27px; height: 27px; }
+.clients-empty__title { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+.clients-empty__text { font-size: 14px; color: var(--ink-2); line-height: 1.6; margin-bottom: 20px; }
+.clients-empty__actions { display: flex; justify-content: center; gap: 10px; }
+.clients-empty__hint { font-size: 12.5px; color: var(--ink-3); margin-top: 18px; line-height: 1.55; }
+
 /* ── Clients CRM table ──────────────────────────── */
 .clienttable__tools { display: flex; align-items: center; gap: 14px; }
 .clienttable__count { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
