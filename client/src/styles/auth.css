@@ -11,7 +11,7 @@
 }
 .authcard--wide { max-width: 560px; }
 .authcard__brand { display: flex; align-items: center; gap: 9px; margin-bottom: 22px; }
-.authcard__brand .saas__mark { width: 28px; height: 28px; }
+.authcard__brand .brand__mark { width: 28px; height: 28px; }
 .authcard__title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
 .authcard__sub { font-size: 13.5px; color: var(--ink-2); margin-bottom: 20px; }
 .authform { display: flex; flex-direction: column; gap: 14px; }
@@ -35,13 +35,13 @@
 @media (max-width: 560px) { .hoursbanner { flex-direction: column; gap: 8px; text-align: center; } }
 
 /* Sign-out button in the sidebar profile */
-.uprof { position: relative; }
-.uprof__out {
+.userprofile { position: relative; }
+.userprofile__out {
   margin-left: auto; flex: none; background: none; border: none; cursor: pointer;
   color: var(--ink-3); width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px;
 }
-.uprof__out:hover { background: var(--wash); color: var(--ink); }
-.uprof__out .ico { width: 17px; height: 17px; }
+.userprofile__out:hover { background: var(--wash); color: var(--ink); }
+.userprofile__out .ico { width: 17px; height: 17px; }
 
 /* ── Invite modal + login note ──────────────────────────────────────── */
 .invite__row { display: flex; gap: 8px; }
@@ -55,8 +55,8 @@
 .authnote b { color: var(--ink); }
 
 /* ── Settings ───────────────────────────────────────────────────────── */
-.uprof__acct { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; background: none; border: none; text-align: left; cursor: pointer; padding: 0; }
-.uprof__acct:hover .uprof__name { color: var(--accent); }
+.userprofile__acct { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; background: none; border: none; text-align: left; cursor: pointer; padding: 0; }
+.userprofile__acct:hover .userprofile__name { color: var(--accent); }
 .set__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 520px; }
 .set__span { grid-column: 1 / -1; }
 @media (max-width: 560px) { .set__grid { grid-template-columns: 1fr; } }
@@ -69,14 +69,14 @@
 .billing__label { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin-bottom: 4px; }
 .billing__plan { font-size: 16px; font-weight: 700; text-transform: capitalize; }
 .billing__plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; max-width: 520px; }
-.planc { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-.planc--on { border-color: var(--accent); background: var(--accent-soft); }
-.planc__name { font-size: 14px; font-weight: 700; }
-.planc__price { font-size: 18px; font-weight: 700; margin: 4px 0; }
-.planc__blurb { font-size: 12.5px; color: var(--ink-2); }
-.planc__btn { width: 100%; margin-top: 12px; }
-.planc__current { margin-top: 12px; font-size: 12.5px; font-weight: 700; color: var(--accent); }
-.sp__block code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
+.plancard { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.plancard--on { border-color: var(--accent); background: var(--accent-soft); }
+.plancard__name { font-size: 14px; font-weight: 700; }
+.plancard__price { font-size: 18px; font-weight: 700; margin: 4px 0; }
+.plancard__blurb { font-size: 12.5px; color: var(--ink-2); }
+.plancard__btn { width: 100%; margin-top: 12px; }
+.plancard__current { margin-top: 12px; font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.panel__block code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
 
 /* Booking links (Settings) */
 .bl { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
@@ -95,13 +95,13 @@
 .bl__row .btn { flex: none; }
 
 /* Simplified weekly day row (open/close, single range) */
-.sday__times { display: flex; align-items: center; gap: 8px; flex: 1; }
-.sday__times select {
+.scheduleday__times { display: flex; align-items: center; gap: 8px; flex: 1; }
+.scheduleday__times select {
   border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px;
   font-size: 13px; background: var(--paper); color: var(--ink); outline: none;
   font-variant-numeric: tabular-nums;
 }
-.sday__times select:focus { border-color: var(--ink); }
+.scheduleday__times select:focus { border-color: var(--ink); }
 
 .authforgot { display: block; margin: 12px auto 0; }
 

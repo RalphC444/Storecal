@@ -17,10 +17,10 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
 
   return (
     <div className="pageview">
-      <div className="pv__head"><h1 className="pv__title">Settings</h1></div>
-      <div className="pv__body">
-        <section className="sp__block">
-          <h3 className="sched__label">Account</h3>
+      <div className="pageview__head"><h1 className="pageview__title">Settings</h1></div>
+      <div className="pageview__body">
+        <section className="panel__block">
+          <h3 className="schedule__label">Account</h3>
           <div className="set__grid">
             <label className="field">
               <span className="field__label">Name</span>
@@ -31,14 +31,14 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
               <input type="email" value={user.email} readOnly disabled />
             </label>
           </div>
-          <div className="sched__save">
+          <div className="schedule__save">
             <button className="btn" onClick={saveName} disabled={name.trim() === savedName.trim() || !name.trim()}>Save</button>
-            {msg && <span className="sched__msg">{msg}</span>}
+            {msg && <span className="schedule__msg">{msg}</span>}
           </div>
         </section>
 
-        <section className="sp__block set__pwblock">
-          <h3 className="sched__label">Password</h3>
+        <section className="panel__block set__pwblock">
+          <h3 className="schedule__label">Password</h3>
           <ChangePasswordInline />
         </section>
 
@@ -46,7 +46,7 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
         {user.role === "owner" && <BookingLinksSection />}
         {user.role === "owner" && <BillingSection />}
 
-        <section className="sp__block">
+        <section className="panel__block">
           <button className="action action--danger" onClick={onSignOut}>Sign out</button>
         </section>
       </div>
@@ -79,9 +79,9 @@ export function ChangePasswordInline() {
         <span className="field__label">New password</span>
         <PasswordInput value={next} onChange={e => setNext(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" required />
       </label>
-      <div className="sched__save set__span">
+      <div className="schedule__save set__span">
         <button className="btn" type="submit">Update password</button>
-        {msg && <span className="sched__msg">{msg}</span>}
+        {msg && <span className="schedule__msg">{msg}</span>}
         {err && <span className="form__error" style={{ margin: 0 }}>{err}</span>}
       </div>
     </form>
@@ -112,12 +112,12 @@ export function BookingLinksSection() {
   }
 
   return (
-    <section className="sp__block">
-      <h3 className="sched__label">Booking links</h3>
-      <p className="sp__hint">Share your booking page anywhere — no website needed.</p>
+    <section className="panel__block">
+      <h3 className="schedule__label">Booking links</h3>
+      <p className="panel__hint">Share your booking page anywhere — no website needed.</p>
 
       {!loaded ? <LoadingSpinner />
-        : !publicKey ? <p className="sp__hint">No booking key yet for this store.</p>
+        : !publicKey ? <p className="panel__hint">No booking key yet for this store.</p>
         : (
           <div className="bl">
             <div className="bl__title">Link in bio</div>
@@ -151,14 +151,14 @@ export function BookableSelfSection() {
   }
 
   return (
-    <section className="sp__block">
-      <h3 className="sched__label">My booking profile</h3>
-      <p className="sp__hint">Take appointments yourself? List your own profile so clients can book with you.</p>
+    <section className="panel__block">
+      <h3 className="schedule__label">My booking profile</h3>
+      <p className="panel__hint">Take appointments yourself? List your own profile so clients can book with you.</p>
       <label className="switch switch--field">
         <input type="checkbox" checked={!!listed} onChange={toggle} disabled={listed === null || busy} />
         <span>Show me as bookable staff</span>
       </label>
-      {listed && <p className="sp__hint">You now appear in the <b>Staff</b> tab — open your card there to add a photo, choose your services, and set your hours (needed before clients can book you).</p>}
+      {listed && <p className="panel__hint">You now appear in the <b>Staff</b> tab — open your card there to add a photo, choose your services, and set your hours (needed before clients can book you).</p>}
     </section>
   );
 }
@@ -182,9 +182,9 @@ export function BillingSection() {
   }
 
   return (
-    <section className="sp__block">
-      <h3 className="sched__label">Subscription &amp; billing</h3>
-      <p className="sp__hint">Only the store owner manages the subscription and payment method.</p>
+    <section className="panel__block">
+      <h3 className="schedule__label">Subscription &amp; billing</h3>
+      <p className="panel__hint">Only the store owner manages the subscription and payment method.</p>
 
       <div className="billing__now">
         <div>
@@ -198,12 +198,12 @@ export function BillingSection() {
             </button>)}
       </div>
       {data && !data.subscribed && data.assignedPlan && (
-        <p className="sp__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}</p>
+        <p className="panel__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}</p>
       )}
 
       {err && <p className="form__error">{err}</p>}
       {data && !data.stripeConfigured && (
-        <p className="sp__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable subscriptions.</p>
+        <p className="panel__hint">Payments aren’t connected yet — add <code>STRIPE_SECRET_KEY</code> on the server to enable subscriptions.</p>
       )}
     </section>
   );

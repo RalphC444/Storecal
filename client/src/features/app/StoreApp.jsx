@@ -231,9 +231,9 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
 
       <aside className="sidebar">
         <div className="sidebar__top">
-          <div className="saas">
-            <span className="saas__mark"><BrandLogo /></span>
-            <span className="saas__name">StoreCal</span>
+          <div className="brand">
+            <span className="brand__mark"><BrandLogo /></span>
+            <span className="brand__name">StoreCal</span>
           </div>
           <div className="ws">{shopName}</div>
         </div>
@@ -259,15 +259,15 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
           <Icon name="plus" /><span className="navlink__txt">New appointment</span>
         </button>
 
-        <div className="uprof">
-          <button className="uprof__acct" onClick={() => go("settings")} title="Account settings">
-            <span className="uprof__av">{(user.name || user.email).slice(0, 1).toUpperCase()}<span className="uprof__dot" /></span>
-            <span className="uprof__meta">
-              <span className="uprof__name">{user.name || user.email}</span>
-              <span className="uprof__role">{user.role === "owner" ? "Owner" : "Staff"} · Settings</span>
+        <div className="userprofile">
+          <button className="userprofile__acct" onClick={() => go("settings")} title="Account settings">
+            <span className="userprofile__av">{(user.name || user.email).slice(0, 1).toUpperCase()}<span className="userprofile__dot" /></span>
+            <span className="userprofile__meta">
+              <span className="userprofile__name">{user.name || user.email}</span>
+              <span className="userprofile__role">{user.role === "owner" ? "Owner" : "Staff"} · Settings</span>
             </span>
           </button>
-          <button className="uprof__out" onClick={onSignOut} title="Sign out" aria-label="Sign out">
+          <button className="userprofile__out" onClick={onSignOut} title="Sign out" aria-label="Sign out">
             <Icon name="signout" />
           </button>
         </div>
@@ -360,8 +360,8 @@ export function OnboardingHours({ user, onDone }) {
     <div className="authwrap authwrap--wide">
       <div className="authcard authcard--wide">
         <div className="authcard__brand">
-          <span className="saas__mark"><BrandLogo /></span>
-          <span className="saas__name">StoreCal</span>
+          <span className="brand__mark"><BrandLogo /></span>
+          <span className="brand__name">StoreCal</span>
         </div>
         <h1 className="authcard__title">Add your {isOwner ? "store" : "work"} hours</h1>
         <p className="authcard__sub">This is the most important step — clients can only book during these hours. You can change them anytime.</p>

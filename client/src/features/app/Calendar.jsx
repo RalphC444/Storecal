@@ -49,39 +49,39 @@ export function WeekCalendar({
   const colStyle = { gridTemplateColumns: `repeat(${days.length}, 1fr)` };
 
   return (
-    <div className="cal">
-      <div className="cal__top">
-        <div className="cal__nav">
-          <button className={`navbtn${isTodayView ? " navbtn--on" : ""}`} onClick={onToday}>Today</button>
-          <button className="navbtn navbtn--icon" onClick={onPrev} aria-label="Previous"><Icon name="chevronLeft" /></button>
-          <button className="navbtn navbtn--icon" onClick={onNext} aria-label="Next"><Icon name="chevronRight" /></button>
+    <div className="calendar">
+      <div className="calendar__top">
+        <div className="calendar__nav">
+          <button className={`navbutton${isTodayView ? " navbutton--on" : ""}`} onClick={onToday}>Today</button>
+          <button className="navbutton navbutton--icon" onClick={onPrev} aria-label="Previous"><Icon name="chevronLeft" /></button>
+          <button className="navbutton navbutton--icon" onClick={onNext} aria-label="Next"><Icon name="chevronRight" /></button>
         </div>
-        <h1 className="cal__title">{title}</h1>
-        <span className="cal__stat">
-          <span className="cal__stat-l">Total appointments</span>
-          <span className="cal__stat-n">{loading ? "…" : shown.length}</span>
+        <h1 className="calendar__title">{title}</h1>
+        <span className="calendar__stat">
+          <span className="calendar__stat-l">Total appointments</span>
+          <span className="calendar__stat-n">{loading ? "…" : shown.length}</span>
         </span>
         {!lockProvider && (
-          <label className="cal__view">
-            <span className="cal__view-l">View:</span>
-            <select className="cal__filter" value={providerId} onChange={e => onSelectProvider(e.target.value)}>
+          <label className="calendar__view">
+            <span className="calendar__view-l">View:</span>
+            <select className="calendar__filter" value={providerId} onChange={e => onSelectProvider(e.target.value)}>
               <option value="all">All {(teamLabel || "team").toLowerCase()}</option>
               {providers.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
             </select>
           </label>
         )}
-        <button className="navbtn navbtn--cta cal__storehours" onClick={onStoreHours}>
+        <button className="navbutton navbutton--cta calendar__storehours" onClick={onStoreHours}>
           <Icon name="clock" /> {hoursLabel}
         </button>
       </div>
 
-      <div className="cal__grid">
-        {loading && <div className="cal__loading"><LoadingSpinner /></div>}
-        <div className="cal__scroll">
+      <div className="calendar__grid">
+        {loading && <div className="calendar__loading"><LoadingSpinner /></div>}
+        <div className="calendar__scroll">
           {/* Day headers (sticky, share the scroll container so they align with columns) */}
-          <div className="cal__headrow">
-            <div className="cal__corner" />
-            <div className="cal__heads" style={colStyle}>
+          <div className="calendar__headrow">
+            <div className="calendar__corner" />
+            <div className="calendar__heads" style={colStyle}>
               {days.map(d => {
                 const dt = parseYmd(d);
                 const isToday = d === todayStr;
@@ -89,11 +89,11 @@ export function WeekCalendar({
                 return (
                   <button
                     key={d}
-                    className={`cal__head${isSel ? " cal__head--sel" : ""}`}
+                    className={`calendar__head${isSel ? " calendar__head--sel" : ""}`}
                     onClick={() => onSelectDay(d)}
                   >
-                    <span className="cal__hday">{DAYS_SHORT[dt.getDay()]}</span>
-                    <span className={`cal__hnum${isToday ? " cal__hnum--today" : ""}`}>{dt.getDate()}</span>
+                    <span className="calendar__hday">{DAYS_SHORT[dt.getDay()]}</span>
+                    <span className={`calendar__hnum${isToday ? " calendar__hnum--today" : ""}`}>{dt.getDate()}</span>
                   </button>
                 );
               })}
@@ -101,16 +101,16 @@ export function WeekCalendar({
           </div>
 
           {/* Time gutter + day columns */}
-          <div className="cal__body">
-            <div className="cal__gutter" style={{ height: GRID_H }}>
+          <div className="calendar__body">
+            <div className="calendar__gutter" style={{ height: GRID_H }}>
               {hours.map(h => (
-                <div key={h} className="cal__hourlabel" style={{ height: 60 * PX_PER_MIN }}>
+                <div key={h} className="calendar__hourlabel" style={{ height: 60 * PX_PER_MIN }}>
                   {h === 12 ? "12 PM" : h > 12 ? `${h - 12} PM` : `${h} AM`}
                 </div>
               ))}
             </div>
 
-            <div className="cal__cols" style={{ height: GRID_H, ...colStyle }}>
+            <div className="calendar__cols" style={{ height: GRID_H, ...colStyle }}>
           {days.map(d => {
             // The calendar reflects the STORE's schedule only — its open hours,
             // time off, and breaks — regardless of which stylist is being viewed.
@@ -121,19 +121,19 @@ export function WeekCalendar({
             const scoped = open !== null;
             const isToday = d === todayStr;
             const isOpenAt = (min) => !scoped || open.some(r => min >= r.startMin && min < r.endMin);
-            const colCls = scoped ? "cal__col cal__col--scoped" : `cal__col${isToday ? " cal__col--today" : ""}`;
+            const colCls = scoped ? "calendar__col calendar__col--scoped" : `calendar__col${isToday ? " calendar__col--today" : ""}`;
             return (
               <div key={d} className={colCls}>
                 {/* hour lines */}
                 {hours.slice(1).map((h, i) => (
-                  <div key={h} className="cal__line" style={{ top: (i + 1) * 60 * PX_PER_MIN }} />
+                  <div key={h} className="calendar__line" style={{ top: (i + 1) * 60 * PX_PER_MIN }} />
                 ))}
 
                 {/* open-hours shading (white "bookable" bands over the tinted closed base) */}
                 {open && open.map((r, i) => (
                   <div
                     key={i}
-                    className="cal__open"
+                    className="calendar__open"
                     style={{
                       top: (Math.max(r.startMin, DAY_START) - DAY_START) * PX_PER_MIN,
                       height: (Math.min(r.endMin, DAY_END) - Math.max(r.startMin, DAY_START)) * PX_PER_MIN,
@@ -142,13 +142,13 @@ export function WeekCalendar({
                 ))}
 
                 {/* click-to-create slots — blocked outside a provider's working hours */}
-                <div className="cal__slots">
+                <div className="calendar__slots">
                   {SLOTS.map(min => {
                     const blocked = scoped && !isOpenAt(min);
                     return (
                       <button
                         key={min}
-                        className={`cal__slot${blocked ? " cal__slot--blocked" : ""}`}
+                        className={`calendar__slot${blocked ? " calendar__slot--blocked" : ""}`}
                         style={{ height: 30 * PX_PER_MIN }}
                         disabled={blocked}
                         title={blocked ? "Closed — can't book" : `New appointment · ${fmtTime(`${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`)}`}
@@ -170,21 +170,21 @@ export function WeekCalendar({
                   return (
                     <button
                       key={a._id}
-                      className={`evt evt--${effStatus(a, durationOf)}${compact ? " evt--compact" : ""}`}
+                      className={`apptblock apptblock--${effStatus(a, durationOf)}${compact ? " apptblock--compact" : ""}`}
                       style={{ top, height, left, width }}
                       onClick={e => { e.stopPropagation(); onSelectAppt(a); }}
                       title={`${fmtTime(a.timeValue)} · ${a.client?.name || ""}${svcText ? " · " + svcText : ""}`}
                     >
                       {compact ? (
-                        <span className="evt__line">
-                          <span className="evt__time">{fmtTime(a.timeValue)}</span>
-                          <span className="evt__name">{a.client?.name || "—"}</span>
+                        <span className="apptblock__line">
+                          <span className="apptblock__time">{fmtTime(a.timeValue)}</span>
+                          <span className="apptblock__name">{a.client?.name || "—"}</span>
                         </span>
                       ) : (
                         <>
-                          <span className="evt__time">{fmtTime(a.timeValue)}</span>
-                          <span className="evt__name">{a.client?.name || "—"}</span>
-                          {height > 58 && lanes < 3 && svcText.trim() && <span className="evt__svc">{svcText}</span>}
+                          <span className="apptblock__time">{fmtTime(a.timeValue)}</span>
+                          <span className="apptblock__name">{a.client?.name || "—"}</span>
+                          {height > 58 && lanes < 3 && svcText.trim() && <span className="apptblock__svc">{svcText}</span>}
                         </>
                       )}
                     </button>
@@ -193,7 +193,7 @@ export function WeekCalendar({
 
                 {/* now line */}
                 {isToday && nowMin >= DAY_START && nowMin <= DAY_END && (
-                  <div className="cal__now" style={{ top: (nowMin - DAY_START) * PX_PER_MIN }} />
+                  <div className="calendar__now" style={{ top: (nowMin - DAY_START) * PX_PER_MIN }} />
                 )}
               </div>
             );
@@ -329,7 +329,7 @@ export function ScheduleView({ providers, initialProviderId }) {
           {providers.map(p => (
             <button
               key={p._id}
-              className={`ptab${providerId === p._id ? " ptab--on" : ""}`}
+              className={`providertab${providerId === p._id ? " providertab--on" : ""}`}
               onClick={() => setProviderId(p._id)}
             >{p.name}</button>
           ))}

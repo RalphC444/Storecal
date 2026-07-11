@@ -57,12 +57,12 @@ export function AdminConsole({ user, onSignOut }) {
   return (
     <div className="viewport">
       <ToastHost />
-      <div className="acon">
-        <header className="acon__head">
-          <span className="acon__brand"><span className="saas__mark"><BrandLogo /></span> StoreCal Admin</span>
-          <span className="acon__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
+      <div className="adminconsole">
+        <header className="adminconsole__head">
+          <span className="adminconsole__brand"><span className="brand__mark"><BrandLogo /></span> StoreCal Admin</span>
+          <span className="adminconsole__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
         </header>
-        <div className="acon__body">
+        <div className="adminconsole__body">
           {selected ? (
             <AdminClientDetail
               shop={selected} origin={origin} saving={savingId === selected._id}
@@ -72,10 +72,10 @@ export function AdminConsole({ user, onSignOut }) {
             />
           ) : (
             <>
-              <div className="acon__titlerow">
+              <div className="adminconsole__titlerow">
                 <div>
-                  <h1 className="acon__title">Clients</h1>
-                  <p className="acon__sub">Select a client to manage their plan, booking access, contact, and embed.</p>
+                  <h1 className="adminconsole__title">Clients</h1>
+                  <p className="adminconsole__sub">Select a client to manage their plan, booking access, contact, and embed.</p>
                 </div>
                 <button className="btn" onClick={() => setAdding(true)}>+ Add client</button>
               </div>
@@ -83,29 +83,29 @@ export function AdminConsole({ user, onSignOut }) {
               {!shops ? <LoadingSpinner />
                 : shops.length === 0 ? <p className="empty">No clients yet.</p>
                 : (
-                  <div className="acon__tablewrap">
-                    <table className="acon__table acon__table--rows">
+                  <div className="adminconsole__tablewrap">
+                    <table className="adminconsole__table adminconsole__table--rows">
                       <thead>
                         <tr><th>Business</th><th>Contact</th><th>Plan</th><th>Booking</th><th>Subscription</th><th aria-label="Open"></th></tr>
                       </thead>
                       <tbody>
                         {shops.map(s => (
-                          <tr key={s._id} className="acon__row" onClick={() => setSelectedId(s._id)}>
+                          <tr key={s._id} className="adminconsole__row" onClick={() => setSelectedId(s._id)}>
                             <td>
-                              <div className="acon__name">{s.name}</div>
-                              <div className="acon__meta">{s.businessType} · {s.services} svc · {s.staff} staff</div>
+                              <div className="adminconsole__name">{s.name}</div>
+                              <div className="adminconsole__meta">{s.businessType} · {s.services} svc · {s.staff} staff</div>
                             </td>
-                            <td className="acon__contact">
-                              <span>{s.ownerEmail || <span className="acon__dim">no email</span>}</span>
-                              <span className={s.phone ? "acon__phone" : "acon__dim"}>{s.phone || "no phone"}</span>
+                            <td className="adminconsole__contact">
+                              <span>{s.ownerEmail || <span className="adminconsole__dim">no email</span>}</span>
+                              <span className={s.phone ? "adminconsole__phone" : "adminconsole__dim"}>{s.phone || "no phone"}</span>
                             </td>
                             <td>{planLabelOf(s)}</td>
                             <td>{BOOKING_LABEL[bookingValueOf(s)]}</td>
                             <td>
-                              <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
-                              {s.subscribed && fmtRenewDate(s.renewsAt) && <div className="acon__renew">Renews {fmtRenewDate(s.renewsAt)}</div>}
+                              <span className={"adminconsole__badge" + (s.subscribed ? " adminconsole__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+                              {s.subscribed && fmtRenewDate(s.renewsAt) && <div className="adminconsole__renew">Renews {fmtRenewDate(s.renewsAt)}</div>}
                             </td>
-                            <td className="acon__chevron"><Icon name="chevronRight" /></td>
+                            <td className="adminconsole__chevron"><Icon name="chevronRight" /></td>
                           </tr>
                         ))}
                       </tbody>
@@ -150,18 +150,18 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
 
   return (
     <div className="acd">
-      <button className="linklike acd__back" onClick={onBack}>← All clients</button>
-      <div className="acd__head">
+      <button className="linklike clientdetail__back" onClick={onBack}>← All clients</button>
+      <div className="clientdetail__head">
         <div>
-          <h1 className="acd__name">{s.name}</h1>
-          <span className="acd__meta">{s.businessType} · {s.services} services · {s.staff} staff · <code>{s.publicKey}</code></span>
+          <h1 className="clientdetail__name">{s.name}</h1>
+          <span className="clientdetail__meta">{s.businessType} · {s.services} services · {s.staff} staff · <code>{s.publicKey}</code></span>
         </div>
-        <span className={"acon__badge" + (s.subscribed ? " acon__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+        <span className={"adminconsole__badge" + (s.subscribed ? " adminconsole__badge--on" : "")}>{s.subscribed ? "Subscribed" : "Not subscribed"}</span>
       </div>
 
-      <div className="acd__grid">
-        <section className="acd__card">
-          <h3 className="sched__label">Plan &amp; booking</h3>
+      <div className="clientdetail__grid">
+        <section className="clientdetail__card">
+          <h3 className="schedule__label">Plan &amp; booking</h3>
           <label className="field"><span className="field__label">Plan</span>
             <select value={s.planId} disabled={saving} onChange={e => onPatch({ planId: e.target.value }, "Plan updated")}>
               <option value="booking">Booking access — $35/mo</option>
@@ -176,13 +176,13 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
               <option value="off">Off — “Call us”</option>
             </select>
           </label>
-          <p className="sp__hint">{s.subscribed
+          <p className="panel__hint">{s.subscribed
             ? (fmtRenewDate(s.renewsAt) ? `Subscription renews ${fmtRenewDate(s.renewsAt)}.` : "Subscription active.")
             : "No active subscription."}</p>
         </section>
 
-        <section className="acd__card">
-          <h3 className="sched__label">Contact</h3>
+        <section className="clientdetail__card">
+          <h3 className="schedule__label">Contact</h3>
           <label className="field"><span className="field__label">Owner email (login)</span>
             <input type="email" value={s.ownerEmail || ""} readOnly disabled /></label>
           <label className="field"><span className="field__label">Phone</span>
@@ -192,46 +192,46 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
         </section>
       </div>
 
-      <section className="acd__card">
-        <h3 className="sched__label">Website content</h3>
-        <p className="sp__hint" style={{ marginTop: -4, marginBottom: 12 }}>Choose which sections appear on their website.</p>
-        <label className="acd__toggle">
+      <section className="clientdetail__card">
+        <h3 className="schedule__label">Website content</h3>
+        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 12 }}>Choose which sections appear on their website.</p>
+        <label className="clientdetail__toggle">
           <input type="checkbox" checked={s.showStaff !== false} disabled={saving}
             onChange={e => onPatch({ showStaff: e.target.checked }, e.target.checked ? "Staff shown on site" : "Staff hidden")} />
           <span>Show staff / team section</span>
         </label>
-        <label className="acd__toggle">
+        <label className="clientdetail__toggle">
           <input type="checkbox" checked={s.showGallery !== false} disabled={saving}
             onChange={e => onPatch({ showGallery: e.target.checked }, e.target.checked ? "Gallery shown on site" : "Gallery hidden")} />
           <span>Show photo gallery</span>
         </label>
-        <label className="acd__toggle">
+        <label className="clientdetail__toggle">
           <input type="checkbox" checked={s.showStaffGalleries !== false} disabled={saving}
             onChange={e => onPatch({ showStaffGalleries: e.target.checked }, e.target.checked ? "Staff galleries on" : "Staff galleries off")} />
           <span>Allow per-staff galleries</span>
         </label>
       </section>
 
-      <section className="acd__card">
-        <h3 className="sched__label">Links &amp; embed</h3>
-        <p className="sp__hint">Hosted booking page:</p>
+      <section className="clientdetail__card">
+        <h3 className="schedule__label">Links &amp; embed</h3>
+        <p className="panel__hint">Hosted booking page:</p>
         <div className="invite__row">
           <input className="invite__link" readOnly value={bookingUrl} onFocus={e => e.target.select()} />
           <a className="action" href={bookingUrl} target="_blank" rel="noreferrer">Open</a>
           <button className="btn" onClick={() => copy(bookingUrl, "book")}>{copied === "book" ? "Copied!" : "Copy"}</button>
         </div>
-        <p className="sp__hint" style={{ marginTop: 14 }}>1. Embed code (add once, before &lt;/body&gt;):</p>
-        <pre className="acon__code">{embedCode}</pre>
+        <p className="panel__hint" style={{ marginTop: 14 }}>1. Embed code (add once, before &lt;/body&gt;):</p>
+        <pre className="adminconsole__code">{embedCode}</pre>
         <button className="btn" onClick={() => copy(embedCode, "emb")}>{copied === "emb" ? "Copied!" : "Copy code"}</button>
-        <p className="sp__hint" style={{ marginTop: 16 }}>2. Content blocks (place where each section should appear):</p>
-        <pre className="acon__code">{contentBlocks}</pre>
+        <p className="panel__hint" style={{ marginTop: 16 }}>2. Content blocks (place where each section should appear):</p>
+        <pre className="adminconsole__code">{contentBlocks}</pre>
         <button className="btn" onClick={() => copy(contentBlocks, "blocks")}>{copied === "blocks" ? "Copied!" : "Copy blocks"}</button>
       </section>
 
-      <section className="acd__danger">
+      <section className="clientdetail__danger">
         <div>
-          <h3 className="sched__label">Delete client</h3>
-          <p className="sp__hint">Permanently removes this client and all its data.</p>
+          <h3 className="schedule__label">Delete client</h3>
+          <p className="panel__hint">Permanently removes this client and all its data.</p>
         </div>
         <button className="btn btn--danger" onClick={onDelete}>Delete client</button>
       </section>
@@ -274,23 +274,23 @@ function AddClientModal({ origin, onClose, onDone }) {
         </div>
         {result ? (
           <div className="form">
-            <p className="sp__hint">Share these sign-in details with the owner. They’ll be asked to set a new password on first login.</p>
-            <div className="acon__creds">
-              <div><span className="acon__cred-l">Sign in at</span><b>{origin}</b></div>
-              <div><span className="acon__cred-l">Email</span><b>{result.ownerEmail}</b></div>
-              <div><span className="acon__cred-l">Temp password</span><b>{result.tempPassword}</b></div>
+            <p className="panel__hint">Share these sign-in details with the owner. They’ll be asked to set a new password on first login.</p>
+            <div className="adminconsole__creds">
+              <div><span className="adminconsole__cred-l">Sign in at</span><b>{origin}</b></div>
+              <div><span className="adminconsole__cred-l">Email</span><b>{result.ownerEmail}</b></div>
+              <div><span className="adminconsole__cred-l">Temp password</span><b>{result.tempPassword}</b></div>
             </div>
             <button className="btn" style={{ marginTop: 6 }} onClick={() => copy(`Sign in at ${origin}\nEmail: ${result.ownerEmail}\nTemporary password: ${result.tempPassword}`, "creds")}>
               {copied === "creds" ? "Copied!" : "Copy sign-in details"}
             </button>
             {result.bookingUrl && (<>
-              <p className="sp__hint" style={{ marginTop: 16 }}>Hosted booking page:</p>
+              <p className="panel__hint" style={{ marginTop: 16 }}>Hosted booking page:</p>
               <div className="invite__row">
                 <input className="invite__link" readOnly value={result.bookingUrl} onFocus={e => e.target.select()} />
                 <button className="btn" onClick={() => copy(result.bookingUrl, "book")}>{copied === "book" ? "Copied!" : "Copy"}</button>
               </div>
             </>)}
-            <p className="sp__hint" style={{ marginTop: 16 }}>Embed code for their website:</p>
+            <p className="panel__hint" style={{ marginTop: 16 }}>Embed code for their website:</p>
             <div className="invite__row">
               <input className="invite__link" readOnly value={embedCode(result.publicKey)} onFocus={e => e.target.select()} />
               <button className="btn" onClick={() => copy(embedCode(result.publicKey), "emb")}>{copied === "emb" ? "Copied!" : "Copy"}</button>

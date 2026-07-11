@@ -670,9 +670,9 @@
         "</select></label>" : "";
     var form = el(
       "<div>" + petFields +
-      '<label class="sc__field"><span class="sc__label">Your name</span><input class="sc__input" id="sc-name" autocomplete="name"></label>' +
-      '<label class="sc__field"><span class="sc__label">Phone</span><input class="sc__input" id="sc-phone" type="tel" autocomplete="tel"></label>' +
-      '<label class="sc__field"><span class="sc__label">Email</span><input class="sc__input" id="sc-email" type="email" autocomplete="email"></label>' +
+      '<label class="sc__field"><span class="sc__label">Your name</span><input class="sc__input" id="sc-name" autocomplete="name" required aria-required="true"></label>' +
+      '<label class="sc__field"><span class="sc__label">Phone</span><input class="sc__input" id="sc-phone" type="tel" autocomplete="tel" required aria-required="true"></label>' +
+      '<label class="sc__field"><span class="sc__label">Email</span><input class="sc__input" id="sc-email" type="email" autocomplete="email" required aria-required="true"></label>' +
       "</div>"
     );
     var btn = el('<button class="sc__btn">Confirm booking</button>');
@@ -682,6 +682,10 @@
       var phone = form.querySelector("#sc-phone").value.trim();
       var email = form.querySelector("#sc-email").value.trim();
       if (!name) { err.textContent = "Please enter your name."; err.style.display = "block"; return; }
+      if (!phone) { err.textContent = "Please enter your phone number."; err.style.display = "block"; return; }
+      if (phone.replace(/\D/g, "").length < 7) { err.textContent = "Please enter a valid phone number."; err.style.display = "block"; return; }
+      if (!email) { err.textContent = "Please enter your email."; err.style.display = "block"; return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = "Please enter a valid email address."; err.style.display = "block"; return; }
       var pet = null;
       if (isPet) {
         pet = {

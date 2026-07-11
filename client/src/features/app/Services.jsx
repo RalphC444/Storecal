@@ -40,32 +40,32 @@ export function ServicesView({ providers, teamLabel, onProvidersChange, addReq }
 
   return (
     <div className="pageview">
-      <div className="pv__head">
-        <h1 className="pv__title">Services</h1>
+      <div className="pageview__head">
+        <h1 className="pageview__title">Services</h1>
         <button className="btn btn--new" onClick={() => setEditing({})}>+ Add service</button>
       </div>
-      <div className="pv__body">
+      <div className="pageview__body">
         {err && <p className="form__error">{err}</p>}
 
-        <section className="sp__block">
-          <h3 className="sched__label">Service menu</h3>
-          <p className="sp__hint">The services clients can book online — name, length, and price.</p>
+        <section className="panel__block">
+          <h3 className="schedule__label">Service menu</h3>
+          <p className="panel__hint">The services clients can book online — name, length, and price.</p>
           {!services ? <LoadingSpinner />
             : (
-              <div className="svc-list">
+              <div className="service-list">
                 {services.map(s => (
-                  <div key={s._id} className="svc-row">
-                    <span className="svc-row__name">{s.name}</span>
-                    <span className="svc-row__meta">
+                  <div key={s._id} className="service-row">
+                    <span className="service-row__name">{s.name}</span>
+                    <span className="service-row__meta">
                       {s.durationMin ? `${s.durationMin} min` : "—"}{s.price ? ` · ${s.price}` : ""}
                     </span>
-                    <span className="svc-row__acts">
+                    <span className="service-row__acts">
                       <button className="linkbtn" onClick={() => setEditing(s)}>Edit</button>
                       <button className="linkbtn linkbtn--danger" onClick={() => setConfirmDel(s)}>Delete</button>
                     </span>
                   </div>
                 ))}
-                <button className="svc-add" onClick={() => setEditing({})}>
+                <button className="service-add" onClick={() => setEditing({})}>
                   <Icon name="plus" /> Add service
                 </button>
               </div>
@@ -136,9 +136,9 @@ export function AddonsSection() {
   }, [rows]);
 
   return (
-    <section className="sp__block">
-      <h3 className="sched__label">Add-ons</h3>
-      <p className="sp__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing $10). Changes save automatically.</p>
+    <section className="panel__block">
+      <h3 className="schedule__label">Add-ons</h3>
+      <p className="panel__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing $10). Changes save automatically.</p>
       {!rows ? <LoadingSpinner /> : (
         <div className="addon-rows">
           {rows.map((r, i) => (
@@ -151,7 +151,7 @@ export function AddonsSection() {
               <button className="linkbtn linkbtn--danger" onClick={() => remove(i)}>Remove</button>
             </div>
           ))}
-          <button className="svc-add" onClick={add}><Icon name="plus" /> Add an add-on</button>
+          <button className="service-add" onClick={add}><Icon name="plus" /> Add an add-on</button>
         </div>
       )}
     </section>

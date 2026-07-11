@@ -25,22 +25,22 @@ export function fmtOverrideDate(str) {
 export function DayRow({ day, onToggle, onStart, onEnd }) {
   const r = day.ranges?.[0] || { startMin: 540, endMin: 1080 };
   return (
-    <div className={`sday${!day.enabled ? " sday--off" : ""}`}>
-      <label className="sday__toggle">
+    <div className={`scheduleday${!day.enabled ? " scheduleday--off" : ""}`}>
+      <label className="scheduleday__toggle">
         <input type="checkbox" checked={day.enabled} onChange={onToggle} />
         <span>{DAYS_FULL[day.weekday]}</span>
       </label>
       {day.enabled ? (
-        <div className="sday__times">
+        <div className="scheduleday__times">
           <select value={r.startMin} onChange={e => onStart(parseInt(e.target.value))}>
             {TIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <span className="trange__to">to</span>
+          <span className="timerange__to">to</span>
           <select value={r.endMin} onChange={e => onEnd(parseInt(e.target.value))}>
             {TIME_OPTIONS.filter(o => o.value > r.startMin).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
-      ) : <span className="sday__closed">Closed</span>}
+      ) : <span className="scheduleday__closed">Closed</span>}
     </div>
   );
 }
@@ -126,10 +126,10 @@ export function ScheduleEditor({ provider, mode, docked, onSaved }) {
   if (!week) return <LoadingSpinner />;
 
   return (
-    <div className="sched sched--stacked">
-      <div className="sched__block">
-        <h3 className="sched__label">Weekly hours</h3>
-        <p className="sched__hint">Toggle a day open or closed, then set the open and close times. Repeats every week.</p>
+    <div className="schedule schedule--stacked">
+      <div className="schedule__block">
+        <h3 className="schedule__label">Weekly hours</h3>
+        <p className="schedule__hint">Toggle a day open or closed, then set the open and close times. Repeats every week.</p>
         {week.map(day => (
           <DayRow
             key={day.weekday}
@@ -140,45 +140,45 @@ export function ScheduleEditor({ provider, mode, docked, onSaved }) {
           />
         ))}
         {!docked && (
-          <div className="sched__save">
+          <div className="schedule__save">
             <button className="btn" onClick={saveSchedule} disabled={saving}>
               {saving ? "Saving…" : "Save hours"}
             </button>
-            {saveMsg && <span className="sched__msg">{saveMsg}</span>}
+            {saveMsg && <span className="schedule__msg">{saveMsg}</span>}
           </div>
         )}
       </div>
 
-      <div className="sched__block">
+      <div className="schedule__block">
         {(() => {
           const upcoming = overrides.filter(o => o.date >= todayKey());
           const count = upcoming.length + timeOff.length;
           return (
             <>
-              <button type="button" className="sched__disc" onClick={() => setShowExtras(s => !s)} aria-expanded={showExtras}>
-                <span className="sched__disc-main">
-                  <span className="sched__disc-title">Closures &amp; time off</span>
-                  <span className="sched__disc-sub">Close early, block a day, or add a vacation</span>
+              <button type="button" className="schedule__disc" onClick={() => setShowExtras(s => !s)} aria-expanded={showExtras}>
+                <span className="schedule__disc-main">
+                  <span className="schedule__disc-title">Closures &amp; time off</span>
+                  <span className="schedule__disc-sub">Close early, block a day, or add a vacation</span>
                 </span>
-                <span className="sched__disc-right">
-                  {count > 0 && <span className="sched__disc-badge">{count}</span>}
-                  <span className={`sched__chev${showExtras ? " sched__chev--open" : ""}`}>›</span>
+                <span className="schedule__disc-right">
+                  {count > 0 && <span className="schedule__disc-badge">{count}</span>}
+                  <span className={`schedule__chev${showExtras ? " schedule__chev--open" : ""}`}>›</span>
                 </span>
               </button>
 
               {showExtras && (
-                <div className="sched__extras">
-                  <div className="sched__sub">
-                    <h4 className="sched__subhead">Change a specific day</h4>
-                    <p className="sched__hint">Override the recurring hours for one date — close early, block the day, or open a normally-closed day. Doesn’t change your weekly hours.</p>
-                    <div className="ov-add">
+                <div className="schedule__extras">
+                  <div className="schedule__sub">
+                    <h4 className="schedule__subhead">Change a specific day</h4>
+                    <p className="schedule__hint">Override the recurring hours for one date — close early, block the day, or open a normally-closed day. Doesn’t change your weekly hours.</p>
+                    <div className="override-add">
                       <input type="date" value={ovDate} min={todayKey()} onChange={e => setOvDate(e.target.value)} />
                       <select value={ovMode} onChange={e => setOvMode(e.target.value)}>
                         <option value="closed">Closed</option>
                         <option value="hours">Custom hours</option>
                       </select>
                       {ovMode === "hours" && (
-                        <span className="ov-add__hours">
+                        <span className="override-add__hours">
                           <select value={ovStart} onChange={e => setOvStart(parseInt(e.target.value))}>
                             {TIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
@@ -203,9 +203,9 @@ export function ScheduleEditor({ provider, mode, docked, onSaved }) {
                       ))}
                   </div>
 
-                  <div className="sched__sub">
-                    <h4 className="sched__subhead">Time off</h4>
-                    <p className="sched__hint">Block a multi-day stretch — vacation, training, etc.</p>
+                  <div className="schedule__sub">
+                    <h4 className="schedule__subhead">Time off</h4>
+                    <p className="schedule__hint">Block a multi-day stretch — vacation, training, etc.</p>
                     <div className="block-add">
                       <input type="date" value={newStart} onChange={e => setNewStart(e.target.value)} />
                       <span>–</span>
@@ -231,10 +231,10 @@ export function ScheduleEditor({ provider, mode, docked, onSaved }) {
       </div>
 
       {docked && (
-        <div className="sched__dock">
-          <span className="sched__dock-hint">Single-day changes &amp; time off save instantly.</span>
-          <span className="sched__dock-actions">
-            {saveMsg && <span className="sched__msg">{saveMsg}</span>}
+        <div className="schedule__dock">
+          <span className="schedule__dock-hint">Single-day changes &amp; time off save instantly.</span>
+          <span className="schedule__dock-actions">
+            {saveMsg && <span className="schedule__msg">{saveMsg}</span>}
             <button className="btn" onClick={saveSchedule} disabled={saving}>
               {saving ? "Saving…" : "Save hours"}
             </button>

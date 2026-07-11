@@ -80,11 +80,11 @@ export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved 
         />
       ) : (
         <div className="pageview">
-          <div className="pv__head">
-            <h1 className="pv__title">{label}</h1>
+          <div className="pageview__head">
+            <h1 className="pageview__title">{label}</h1>
             <button className="btn btn--new" onClick={() => setEditing({})}>+ Add {label.replace(/s$/, "").toLowerCase()}</button>
           </div>
-          <div className="pv__body">
+          <div className="pageview__body">
             {err && <p className="form__error">{err}</p>}
             {!list ? <LoadingSpinner />
               : list.length === 0 ? <p className="empty">No {label.toLowerCase()} yet.</p>
@@ -132,7 +132,7 @@ export function InviteModal({ invite, onClose }) {
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="form">
-          <p className="sp__hint">Send {invite.name} this link. When they open it they’ll set a password and be connected to your store. The link works once and expires in 14 days.</p>
+          <p className="panel__hint">Send {invite.name} this link. When they open it they’ll set a password and be connected to your store. The link works once and expires in 14 days.</p>
           <div className="invite__row">
             <input className="invite__link" readOnly value={invite.url} onFocus={e => e.target.select()} />
             <button className="btn" onClick={copy}>{copied ? "Copied!" : "Copy"}</button>
@@ -214,20 +214,20 @@ export function useTodayStatus(provider) {
 export function StylistCard({ provider: p, onOpen }) {
   const status = useTodayStatus(p);
   return (
-    <button className={`pcard${!p.active ? " pcard--off" : ""}`} onClick={onOpen}>
-      <div className="pcard__top">
+    <button className={`providercard${!p.active ? " providercard--off" : ""}`} onClick={onOpen}>
+      <div className="providercard__top">
         <Avatar name={p.name} photo={p.photo} />
-        <div className="pcard__id">
-          <span className="pcard__name">{p.name}</span>
+        <div className="providercard__id">
+          <span className="providercard__name">{p.name}</span>
           {status && (
-            <span className={`wstat wstat--${status.kind}`}>
-              <i className="wdot" />{status.label}
+            <span className={`workstatus workstatus--${status.kind}`}>
+              <i className="weekdot" />{status.label}
             </span>
           )}
         </div>
       </div>
-      <p className="pcard__bio">{p.bio || <em>No bio yet</em>}</p>
-      <span className="pcard__go">View profile →</span>
+      <p className="providercard__bio">{p.bio || <em>No bio yet</em>}</p>
+      <span className="providercard__go">View profile →</span>
     </button>
   );
 }
@@ -246,7 +246,7 @@ export function InviteLinkButton({ providerId, hasEmail }) {
     setUrl(link);
     navigator.clipboard?.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
   }
-  if (!hasEmail) return <p className="sp__hint">Add an email for this staff member first to create a sign-up link.</p>;
+  if (!hasEmail) return <p className="panel__hint">Add an email for this staff member first to create a sign-up link.</p>;
   return (
     <div>
       {url ? (
@@ -263,8 +263,8 @@ export function InviteLinkButton({ providerId, hasEmail }) {
 }
 
 // Read-only for the owner — providers manage their own profile, services & hours.
-// Round avatar: shows the staff photo if set, else their initial. Reuses .pav
-// sizing (pass pav--lg / pav--sm via className).
+// Round avatar: shows the staff photo if set, else their initial. Reuses .avatarpic
+// sizing (pass avatarpic--lg / avatarpic--sm via className).
 // Read a chosen image file, center-crop to a square, and return a compact JPEG
 // data URL (stored on the provider so no external file hosting is needed).
 
@@ -275,51 +275,51 @@ export function StylistProfile({ provider: p, err, onBack, onDelete }) {
 
   return (
     <div className="pageview">
-      <div className="pv__head pv__head--bar">
+      <div className="pageview__head pageview__head--bar">
         <button className="backlink" onClick={onBack}>← All staff</button>
         <button className="linkbtn linkbtn--danger" onClick={onDelete}>Remove from team</button>
       </div>
-      <div className="pv__body">
+      <div className="pageview__body">
         {err && <p className="form__error">{err}</p>}
 
-        <div className="sp__hero">
-          <Avatar name={p.name} photo={p.photo} className="pav--lg" />
-          <div className="sp__hero-main">
-            <h1 className="sp__name">{p.name}</h1>
-            <span className={`pv__badge${p.active ? " pv__badge--on" : ""}`}>{p.active ? "Active — bookable" : "Hidden — not bookable"}</span>
+        <div className="panel__hero">
+          <Avatar name={p.name} photo={p.photo} className="avatarpic--lg" />
+          <div className="panel__hero-main">
+            <h1 className="panel__name">{p.name}</h1>
+            <span className={`pageview__badge${p.active ? " pageview__badge--on" : ""}`}>{p.active ? "Active — bookable" : "Hidden — not bookable"}</span>
           </div>
         </div>
 
-        <p className="sp__readonly">Read-only — {p.name} manages their own profile, services and hours.</p>
+        <p className="panel__readonly">Read-only — {p.name} manages their own profile, services and hours.</p>
 
         {p.accountStatus !== "active" && !p.ownerUserId && (
-          <section className="sp__block">
-            <h3 className="sched__label">Staff sign-in</h3>
-            <p className="sp__hint">{p.name} hasn’t set up their login yet. Share this one-time link so they can set a password and manage their own profile, services &amp; hours.</p>
+          <section className="panel__block">
+            <h3 className="schedule__label">Staff sign-in</h3>
+            <p className="panel__hint">{p.name} hasn’t set up their login yet. Share this one-time link so they can set a password and manage their own profile, services &amp; hours.</p>
             <InviteLinkButton providerId={p._id} hasEmail={!!p.email} />
           </section>
         )}
 
-        <section className="sp__block">
-          <h3 className="sched__label">Contact</h3>
-          <dl className="sp__dl sp__dl--grid">
+        <section className="panel__block">
+          <h3 className="schedule__label">Contact</h3>
+          <dl className="panel__dl panel__dl--grid">
             <div><dt>Email</dt><dd>{p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : "—"}</dd></div>
             <div><dt>Phone</dt><dd>{p.phone ? <a href={`tel:${p.phone}`}>{p.phone}</a> : "—"}</dd></div>
-            <div className="sp__dl-wide"><dt>Specialties &amp; bio</dt><dd>{p.bio || "—"}</dd></div>
+            <div className="panel__dl-wide"><dt>Specialties &amp; bio</dt><dd>{p.bio || "—"}</dd></div>
           </dl>
         </section>
 
-        <section className="sp__block">
-          <h3 className="sched__label">Services offered</h3>
-          <div className="svcprov__chips">
+        <section className="panel__block">
+          <h3 className="schedule__label">Services offered</h3>
+          <div className="serviceproviders__chips">
             {offered.length > 0
               ? offered.map(s => <span key={s._id} className="chip chip--on chip--static">{s.name}</span>)
-              : <span className="ct__dim">No services set.</span>}
+              : <span className="clienttable__dim">No services set.</span>}
           </div>
         </section>
 
-        <section className="sp__block">
-          <h3 className="sched__label">Hours</h3>
+        <section className="panel__block">
+          <h3 className="schedule__label">Hours</h3>
           <HoursReview providerId={p._id} />
         </section>
       </div>
@@ -354,7 +354,7 @@ export function ProviderSelfView({ provider, onChange, onEditHours, onBack, back
     catch { setErr("Couldn't read that image."); }
   }
 
-  if (!provider) return <div className="pageview"><div className="pv__body"><LoadingSpinner /></div></div>;
+  if (!provider) return <div className="pageview"><div className="pageview__body"><LoadingSpinner /></div></div>;
 
   const toggle = (sid) => { setSaved(false); setIds(prev => prev.includes(sid) ? prev.filter(x => x !== sid) : [...prev, sid]); };
 
@@ -374,22 +374,22 @@ export function ProviderSelfView({ provider, onChange, onEditHours, onBack, back
   return (
     <div className="pageview">
       {onBack && (
-        <div className="pv__head pv__head--bar">
+        <div className="pageview__head pageview__head--bar">
           <button className="backlink" onClick={onBack}>{backLabel || "← Back"}</button>
         </div>
       )}
-      <div className="pv__head">
-        <h1 className="pv__title">My profile</h1>
+      <div className="pageview__head">
+        <h1 className="pageview__title">My profile</h1>
         <button className="btn btn--new" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
-      <div className="pv__body">
+      <div className="pageview__body">
         {err && <p className="form__error">{err}</p>}
 
-        <div className="sp__hero">
-          <Avatar name={provider.name} photo={photo} className="pav--lg" />
-          <div className="sp__hero-main">
-            <h1 className="sp__name">{provider.name}</h1>
-            <span className={`pv__badge${provider.active ? " pv__badge--on" : ""}`}>{provider.active ? "Active — bookable" : "Hidden — not bookable"}</span>
+        <div className="panel__hero">
+          <Avatar name={provider.name} photo={photo} className="avatarpic--lg" />
+          <div className="panel__hero-main">
+            <h1 className="panel__name">{provider.name}</h1>
+            <span className={`pageview__badge${provider.active ? " pageview__badge--on" : ""}`}>{provider.active ? "Active — bookable" : "Hidden — not bookable"}</span>
             <div className="photo-actions">
               <label className="linkbtn photo-upload">
                 {photo ? "Change photo" : "Add photo"}
@@ -397,12 +397,12 @@ export function ProviderSelfView({ provider, onChange, onEditHours, onBack, back
               </label>
               {photo && <button type="button" className="linkbtn linkbtn--danger" onClick={() => { setSaved(false); setPhoto(""); }}>Remove</button>}
             </div>
-            <p className="sp__hint" style={{ margin: "4px 0 0" }}>Shown to clients when booking. Remember to Save changes.</p>
+            <p className="panel__hint" style={{ margin: "4px 0 0" }}>Shown to clients when booking. Remember to Save changes.</p>
           </div>
         </div>
 
-        <section className="sp__block">
-          <h3 className="sched__label">Details</h3>
+        <section className="panel__block">
+          <h3 className="schedule__label">Details</h3>
           <label className="field" style={{ marginBottom: 12 }}>
             <span className="field__label">Display name <span className="field__hint">— how clients see you when booking</span></span>
             <input type="text" value={name} onChange={e => { setSaved(false); setName(e.target.value); }} placeholder="e.g. Maria L." />
@@ -419,17 +419,17 @@ export function ProviderSelfView({ provider, onChange, onEditHours, onBack, back
           </div>
         </section>
 
-        <section className="sp__block">
-          <h3 className="sched__label">Specialties &amp; bio</h3>
-          <p className="sp__hint">Shown to clients when they book with you.</p>
+        <section className="panel__block">
+          <h3 className="schedule__label">Specialties &amp; bio</h3>
+          <p className="panel__hint">Shown to clients when they book with you.</p>
           <textarea className="selfbio" rows={3} value={bio} onChange={e => { setSaved(false); setBio(e.target.value); }} placeholder="Your specialties, experience…" />
         </section>
 
-        <section className="sp__block">
-          <h3 className="sched__label">Services I offer</h3>
-          <p className="sp__hint">Pick the services clients can book with you. The menu &amp; prices are set by your manager.</p>
-          <div className="svcprov__chips">
-            {services.length === 0 ? <span className="ct__dim">No services in the menu yet.</span>
+        <section className="panel__block">
+          <h3 className="schedule__label">Services I offer</h3>
+          <p className="panel__hint">Pick the services clients can book with you. The menu &amp; prices are set by your manager.</p>
+          <div className="serviceproviders__chips">
+            {services.length === 0 ? <span className="clienttable__dim">No services in the menu yet.</span>
               : services.map(s => (
                 <button key={s._id} type="button" className={`chip chip--btn${ids.includes(s._id) ? " chip--on" : ""}`} onClick={() => toggle(s._id)}>
                   {s.name}
@@ -438,15 +438,15 @@ export function ProviderSelfView({ provider, onChange, onEditHours, onBack, back
           </div>
         </section>
 
-        <section className="sp__block">
-          <div className="sp__block-head">
-            <h3 className="sched__label">My hours</h3>
+        <section className="panel__block">
+          <div className="panel__block-head">
+            <h3 className="schedule__label">My hours</h3>
             <button className="btn" onClick={onEditHours}>Edit hours</button>
           </div>
           <HoursReview providerId={provider._id} />
         </section>
 
-        {saved && <p className="sp__saved">✓ Changes saved.</p>}
+        {saved && <p className="panel__saved">✓ Changes saved.</p>}
       </div>
     </div>
   );

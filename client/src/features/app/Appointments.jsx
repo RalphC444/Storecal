@@ -50,14 +50,14 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        <div className="apptview">
-          <div className="apptview__when">
-            <span className="apptview__time">{fmtTime(a.timeValue)}</span>
+        <div className="appointmentview">
+          <div className="appointmentview__when">
+            <span className="appointmentview__time">{fmtTime(a.timeValue)}</span>
             <span className={`tag tag--${eff}`}>{STATUS_LABEL[eff]}</span>
           </div>
-          <div className="apptview__date">{fmtSideDay(a.dateKey)}</div>
+          <div className="appointmentview__date">{fmtSideDay(a.dateKey)}</div>
 
-          <dl className="apptview__dl">
+          <dl className="appointmentview__dl">
             <div>
               <dt>Client</dt>
               <dd>{a.client?.name || "—"}</dd>
@@ -74,13 +74,13 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
             <div><dt>Service</dt><dd>{a.service || "—"}</dd></div>
             {a.addons?.length > 0 && <div><dt>Add-ons</dt><dd>{a.addons.map(x => x.name + (x.price ? ` (${x.price})` : "")).join(", ")}</dd></div>}
             <div><dt>Staff</dt><dd>{a.providerName || "—"}</dd></div>
-            {a.issueDescription && <div className="apptview__notes"><dt>Notes</dt><dd>{a.issueDescription}</dd></div>}
+            {a.issueDescription && <div className="appointmentview__notes"><dt>Notes</dt><dd>{a.issueDescription}</dd></div>}
           </dl>
 
-          <div className="apptview__status">
+          <div className="appointmentview__status">
             <span className="field__label">Status</span>
             {isDone ? (
-              <p className="apptview__done">Automatically marked <b>completed</b> — the appointment time has passed.</p>
+              <p className="appointmentview__done">Automatically marked <b>completed</b> — the appointment time has passed.</p>
             ) : (
               <>
                 <div className="actions">
@@ -93,7 +93,7 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
                     >{STATUS_LABEL[s]}</button>
                   ))}
                 </div>
-                <p className="apptview__note">Clients aren’t notified automatically of changes — let them know yourself.</p>
+                <p className="appointmentview__note">Clients aren’t notified automatically of changes — let them know yourself.</p>
               </>
             )}
           </div>

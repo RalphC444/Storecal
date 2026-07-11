@@ -59,7 +59,7 @@ export function ApplyForWebsiteModal({ plan, onClose }) {
         </div>
         {sent ? (
           <div className="form">
-            <p className="sp__hint">
+            <p className="panel__hint">
               Thanks{form.name ? `, ${form.name.split(" ")[0]}` : ""}! We got your details and will be
               in touch shortly at <b>{form.email}</b>.
             </p>
@@ -71,7 +71,7 @@ export function ApplyForWebsiteModal({ plan, onClose }) {
           </div>
         ) : (
           <form className="form" onSubmit={submit}>
-            <p className="sp__hint" style={{ marginTop: 0 }}>
+            <p className="panel__hint" style={{ marginTop: 0 }}>
               Tell us about you and your business and we’ll get you set up.
             </p>
             <div className="form__row form__row--2">

@@ -6,10 +6,10 @@ export function AuthShell({ title, subtitle, children, footer }) {
     <div className="authwrap">
       <div className="authcard">
         <div className="authcard__brand">
-          <span className="saas__mark">
+          <span className="brand__mark">
             <BrandLogo />
           </span>
-          <span className="saas__name">StoreCal</span>
+          <span className="brand__name">StoreCal</span>
         </div>
         <h1 className="authcard__title">{title}</h1>
         {subtitle && <p className="authcard__sub">{subtitle}</p>}

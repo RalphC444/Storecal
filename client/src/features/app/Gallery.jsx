@@ -54,27 +54,27 @@ export function GalleryView({ addReq }) {
 
   return (
     <div className="pageview">
-      <div className="pv__head">
-        <h1 className="pv__title">Gallery</h1>
+      <div className="pageview__head">
+        <h1 className="pageview__title">Gallery</h1>
         <button className="btn btn--new" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : "+ Add photos"}</button>
       </div>
-      <div className="pv__body">
-        <p className="sp__hint">Photos shown in your website’s gallery. Mark one as the <b>cover</b> to feature it in the site hero (it won’t appear in the gallery grid). JPG or PNG, up to 40 images.</p>
+      <div className="pageview__body">
+        <p className="panel__hint">Photos shown in your website’s gallery. Mark one as the <b>cover</b> to feature it in the site hero (it won’t appear in the gallery grid). JPG or PNG, up to 40 images.</p>
         {err && <p className="form__error">{err}</p>}
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
         {!images ? <LoadingSpinner /> : (
-          <div className="gal-grid">
-            <button type="button" className="gal-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
-              <span className="gal-add__plus">+</span>
-              <span className="gal-add__t">{busy ? "Uploading…" : "Add photo"}</span>
+          <div className="gallery-grid">
+            <button type="button" className="gallery-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
+              <span className="gallery-add__plus">+</span>
+              <span className="gallery-add__t">{busy ? "Uploading…" : "Add photo"}</span>
             </button>
             {images.map(img => (
-              <div key={img._id} className={"gal-item" + (img.cover ? " gal-item--cover" : "")}>
+              <div key={img._id} className={"gallery-item" + (img.cover ? " gallery-item--cover" : "")}>
                 <img src={img.url} alt={img.caption || ""} loading="lazy" />
                 {img.cover
-                  ? <span className="gal-badge">★ Cover</span>
-                  : <button className="gal-cover-btn" onClick={() => setCover(img)}>Set as cover</button>}
-                <button className="gal-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
+                  ? <span className="gallery-badge">★ Cover</span>
+                  : <button className="gallery-cover-btn" onClick={() => setCover(img)}>Set as cover</button>}
+                <button className="gallery-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
               </div>
             ))}
           </div>
@@ -127,17 +127,17 @@ export function StaffGallery({ providerId, addReq, standalone }) {
 
   const count = images ? images.length : 0;
   const grid = !images ? <LoadingSpinner /> : (
-    <div className="gal-grid">
+    <div className="gallery-grid">
       {count < MAX && (
-        <button type="button" className="gal-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
-          <span className="gal-add__plus">+</span>
-          <span className="gal-add__t">{busy ? "Uploading…" : "Add photo"}</span>
+        <button type="button" className="gallery-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
+          <span className="gallery-add__plus">+</span>
+          <span className="gallery-add__t">{busy ? "Uploading…" : "Add photo"}</span>
         </button>
       )}
       {images.map(img => (
-        <div key={img._id} className="gal-item">
+        <div key={img._id} className="gallery-item">
           <img src={img.url} alt={img.caption || ""} loading="lazy" />
-          <button className="gal-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
+          <button className="gallery-rm" onClick={() => remove(img)} aria-label="Remove photo">✕</button>
         </div>
       ))}
     </div>
@@ -148,12 +148,12 @@ export function StaffGallery({ providerId, addReq, standalone }) {
   if (standalone) {
     return (
       <div className="pageview">
-        <div className="pv__head">
-          <h1 className="pv__title">My gallery</h1>
+        <div className="pageview__head">
+          <h1 className="pageview__title">My gallery</h1>
           <button className="btn btn--new" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : "Add photos"}</button>
         </div>
-        <div className="pv__body">
-          <p className="sp__hint">Show off your work — these photos appear next to your name when clients book, and on the website. Up to {MAX} ({count}/{MAX} used).</p>
+        <div className="pageview__body">
+          <p className="panel__hint">Show off your work — these photos appear next to your name when clients book, and on the website. Up to {MAX} ({count}/{MAX} used).</p>
           {err && <p className="form__error">{err}</p>}
           {picker}
           {grid}
@@ -163,9 +163,9 @@ export function StaffGallery({ providerId, addReq, standalone }) {
   }
 
   return (
-    <section className="sp__block">
-      <h3 className="sched__label">Gallery</h3>
-      <p className="sp__hint">Photos of your work, shown on the website. Up to {MAX} — {count}/{MAX} used.</p>
+    <section className="panel__block">
+      <h3 className="schedule__label">Gallery</h3>
+      <p className="panel__hint">Photos of your work, shown on the website. Up to {MAX} — {count}/{MAX} used.</p>
       {err && <p className="form__error">{err}</p>}
       {picker}
       {grid}

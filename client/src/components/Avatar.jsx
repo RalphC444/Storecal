@@ -1,6 +1,6 @@
 // A person's avatar — their photo as a background, or their initial as a fallback.
 export function Avatar({ name, photo, className }) {
-  const cls = "pav" + (className ? " " + className : "");
+  const cls = "avatarpic" + (className ? " " + className : "");
   if (photo)
     return (
       <span
