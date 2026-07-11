@@ -3,6 +3,7 @@ import { Icon } from "../../components/Icon";
 import { BrandLogo } from "../../components/BrandLogo";
 import { ToastHost } from "../../components/Toast";
 import { useIsMobile } from "../../lib/hooks";
+import { useAppointmentEvents } from "../../lib/realtime";
 import { GALLERY_TYPES, TEAM_LABEL } from "../../lib/businessTypes";
 import { addDaysKey, toMin, todayKey, weekStartOf } from "../../lib/datetime";
 import { WeekCalendar, StoreHoursModal } from "./Calendar";
@@ -73,12 +74,21 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
 
   useEffect(() => { loadAppts(); }, [loadAppts]);
 
-  // Auto-refresh the calendar so bookings made elsewhere (e.g. the embed) appear
-  // without a manual reload: poll every 30s and refresh when the tab regains focus.
+  // Live updates: a booking made anywhere (the embed, another admin tab, a phone
+  // booking) pushes an event over the socket and the calendar refetches instantly
+  // — no manual reload. We refetch (silent) rather than merge so the current week
+  // window and provider filter are always respected.
+  useAppointmentEvents(useCallback(() => {
+    if (view === "calendar") loadAppts({ silent: true });
+  }, [view, loadAppts]));
+
+  // Fallback refresh in case the socket drops (proxy hiccup, sleep/wake): a slow
+  // poll plus a refresh when the tab regains focus. The socket carries the
+  // real-time load; this is just a safety net.
   useEffect(() => {
     if (view !== "calendar") return;
     const refresh = () => { if (document.visibilityState === "visible") loadAppts({ silent: true }); };
-    const id = setInterval(refresh, 30000);
+    const id = setInterval(refresh, 120000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => { clearInterval(id); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };

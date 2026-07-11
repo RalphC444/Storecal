@@ -132,7 +132,13 @@ app.use((err, req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+// Wrap Express in an explicit HTTP server so Socket.IO can share the same port.
+// Real-time push: admin calendars subscribe per-shop and update live on booking.
+const http = require("http");
+const { init: initRealtime } = require("./lib/realtime");
+const server = http.createServer(app);
+initRealtime(server);
+server.listen(PORT, () => {
   console.log(`StoreCal → http://localhost:${PORT}`);
 });
 

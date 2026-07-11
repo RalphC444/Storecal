@@ -250,6 +250,34 @@
     book: function (arg) { if (!booking.active) return callStore(); openModal(typeof arg === "string" ? { service: arg } : arg); },
   };
 
+  // ── Live availability ───────────────────────────────────────────────────────
+  // Open a Socket.IO connection scoped to this shop's PUBLIC key so open widgets
+  // update the moment a slot is taken or freed anywhere (another visitor books,
+  // the owner adds a walk-in, an appointment is cancelled). The date/time step
+  // registers a refresher in `onAvailabilityChange`; when nothing is showing
+  // times it's null and events are ignored. Best-effort: if socket.io can't load
+  // (offline, blocked), booking still works — it just won't live-update.
+  var onAvailabilityChange = null;
+  (function connectLive() {
+    function wire() {
+      if (!window.io) return;
+      try {
+        var socket = window.io(API, { auth: { key: STORE_KEY }, withCredentials: false });
+        socket.on("availability:changed", function (payload) {
+          if (typeof onAvailabilityChange === "function") onAvailabilityChange(payload || {});
+        });
+      } catch (e) { /* live updates are optional */ }
+    }
+    if (window.io) return wire();
+    // socket.io serves its browser client from the same origin as the API.
+    var s = document.createElement("script");
+    s.src = API + "/socket.io/socket.io.js";
+    s.async = true;
+    s.onload = wire;
+    s.onerror = function () { /* offline / blocked — skip live updates */ };
+    document.head.appendChild(s);
+  })();
+
   // ── State ──────────────────────────────────────────────────────────────────
   var cfg = null;                 // shop-config payload
   // provider = the chosen option ({_id:"any"} allowed); assigned = the concrete
@@ -629,6 +657,16 @@
     }
 
     renderCal(); loadTimes(); // initial (skeleton) render before schedules load
+
+    // Live refresh: when a booking elsewhere changes availability, silently
+    // reload the open day's times so a just-taken slot disappears (or a freed
+    // one returns). Guarded on the panes still being on-screen, so once the user
+    // leaves this step (or closes the modal) the stale handler no-ops itself.
+    onAvailabilityChange = function (payload) {
+      if (!document.body.contains(timePane)) { onAvailabilityChange = null; return; }
+      if (payload.dateKey && state.date && payload.dateKey !== state.date) return;
+      if (state.date) loadTimes();
+    };
 
     Promise.all([
       fetch(api("/api/availability/" + state.provider._id)).then(function (r) { return r.json(); }).catch(function () { return null; }),

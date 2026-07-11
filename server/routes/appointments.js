@@ -3,6 +3,7 @@ const { getDb } = require("../lib/db");
 const { upsertClient } = require("../lib/clients");
 const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
+const { notifyAppointmentChange } = require("../lib/realtime");
 
 const router = Router();
 
@@ -156,6 +157,7 @@ router.post("/", async (req, res) => {
 
     try {
       const result = await db.collection("appointments").insertOne(doc);
+      notifyAppointmentChange(shopId, { action: "created", _id: result.insertedId.toString(), dateKey: doc.dateKey, providerId: doc.providerId });
       res.status(201).json({ success: true, _id: result.insertedId.toString() });
     } catch (e) {
       if (e && e.code === 11000) return res.status(409).json({ error: "Sorry, that time was just booked. Please pick another." });
@@ -207,6 +209,7 @@ router.put("/:id", async (req, res) => {
       throw e;
     }
     if (result.matchedCount === 0) return res.status(404).json({ error: "Appointment not found" });
+    notifyAppointmentChange(shopId, { action: "updated", _id: req.params.id, dateKey: doc.dateKey, providerId: doc.providerId });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -231,6 +234,7 @@ router.patch("/:id", async (req, res) => {
     );
 
     if (result.matchedCount === 0) return res.status(404).json({ error: "Appointment not found" });
+    notifyAppointmentChange(shopId, { action: "status", _id: req.params.id, status });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
