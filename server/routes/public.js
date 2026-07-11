@@ -2,8 +2,8 @@
 // service menu and staff. Keyed by the store's public key (?key=...), CORS-open,
 // and returns only public-safe fields (no staff email/phone).
 const { Router } = require("express");
-const { getDb } = require("../db");
-const { resolveShop } = require("../shopScope");
+const { getDb } = require("../lib/db");
+const { resolveShop } = require("../lib/shopScope");
 
 const router = Router();
 

@@ -4,10 +4,10 @@
 // repeatedly: it wipes only the demo shop's data (scoped by shopId) and reseeds
 // fresh, restoring the demo owner's password each time.
 
-const { getDb } = require("./db");
-const { hashPassword } = require("./auth");
-const { generatePublicKey } = require("./shopScope");
-const { upsertClient } = require("./clients");
+const { getDb } = require("../lib/db");
+const { hashPassword } = require("../lib/auth");
+const { generatePublicKey } = require("../lib/shopScope");
+const { upsertClient } = require("../lib/clients");
 
 const DEMO_SLUG = "demo";
 const DEMO_OWNER_EMAIL = "demo@storecal.com";

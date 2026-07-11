@@ -14,7 +14,7 @@ const shopConfigRouter = require("./routes/shopConfig");
 const clientsRouter = require("./routes/clients");
 const servicesRouter = require("./routes/services");
 const billingRouter = require("./routes/billing");
-const { attachAuth } = require("./auth");
+const { attachAuth } = require("./lib/auth");
 
 const app = express();
 
@@ -73,7 +73,7 @@ app.listen(PORT, () => {
 // Public demo store: bootstrap on boot, then reset every few hours so visitors
 // always get a clean, isolated sandbox (never a real account). Set DEMO=off to disable.
 if (process.env.DEMO !== "off") {
-  const { seedDemo } = require("./seedDemo");
+  const { seedDemo } = require("./scripts/seedDemo");
   const run = (why) => seedDemo()
     .then((r) => console.log(`Demo store ${why} (${r.publicKey})`))
     .catch((e) => console.error("Demo seed failed:", e.message));

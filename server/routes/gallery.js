@@ -3,10 +3,10 @@
 // public shop-config stays lean. Read is public; writes are owner-only for the
 // shop gallery, and owner-or-self for a staff gallery.
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { resolveShopId } = require("../shopScope");
-const { requireAuth } = require("../auth");
+const { resolveShopId } = require("../lib/shopScope");
+const { requireAuth } = require("../lib/auth");
 
 const router = Router();
 const MAX_SHOP = 40;

@@ -1,8 +1,8 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { upsertClient } = require("../clients");
-const { resolveShopId } = require("../shopScope");
+const { upsertClient } = require("../lib/clients");
+const { resolveShopId } = require("../lib/shopScope");
 
 const router = Router();
 

@@ -4,7 +4,7 @@
 
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 const { MongoClient } = require("mongodb");
-const { hashPassword } = require("./auth");
+const { hashPassword } = require("../lib/auth");
 
 async function run() {
   const [, , email, password] = process.argv;

@@ -2,10 +2,10 @@
 // the shop document — the whole list is read publicly (for the booking widget)
 // and replaced by the owner in one save.
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { resolveShop } = require("../shopScope");
-const { requireAuth, requireOwner } = require("../auth");
+const { resolveShop } = require("../lib/shopScope");
+const { requireAuth, requireOwner } = require("../lib/auth");
 
 const router = Router();
 

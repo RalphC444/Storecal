@@ -1,10 +1,10 @@
 // Platform-operator API: manage every shop (client) — create, list, update
 // (plan / booking access / contact), and delete. Super-admin only.
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { requireAuth, requireSuperAdmin, hashPassword } = require("../auth");
-const { generatePublicKey } = require("../shopScope");
+const { requireAuth, requireSuperAdmin, hashPassword } = require("../lib/auth");
+const { generatePublicKey } = require("../lib/shopScope");
 
 const router = Router();
 const PLAN_IDS = ["booking", "website"];

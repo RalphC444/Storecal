@@ -6,7 +6,7 @@
 //
 // The base URL defaults to $PUBLIC_URL or a placeholder — pass your real domain.
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
-const { getDb } = require("./db");
+const { getDb } = require("../lib/db");
 
 const arg = process.argv[2];
 const base = (process.argv[3] || process.env.PUBLIC_URL || "https://YOUR-DOMAIN").replace(/\/$/, "");

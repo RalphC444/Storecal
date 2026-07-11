@@ -1,12 +1,12 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
 const {
   hashPassword, comparePassword, signToken,
   setAuthCookie, clearAuthCookie, requireAuth, verifyInvite, signReset, verifyReset,
-} = require("../auth");
-const { sendReset } = require("../mailer");
-const { generatePublicKey } = require("../shopScope");
+} = require("../lib/auth");
+const { sendReset } = require("../lib/mailer");
+const { generatePublicKey } = require("../lib/shopScope");
 
 const router = Router();
 

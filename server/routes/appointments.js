@@ -1,8 +1,8 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
-const { upsertClient } = require("../clients");
-const { checkWithinHours } = require("../availabilityCheck");
-const { resolveShopId } = require("../shopScope");
+const { getDb } = require("../lib/db");
+const { upsertClient } = require("../lib/clients");
+const { checkWithinHours } = require("../lib/availabilityCheck");
+const { resolveShopId } = require("../lib/shopScope");
 
 const router = Router();
 

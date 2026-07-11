@@ -1,7 +1,7 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { resolveShopId } = require("../shopScope");
+const { resolveShopId } = require("../lib/shopScope");
 
 const router = Router();
 

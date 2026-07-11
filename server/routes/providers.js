@@ -1,9 +1,9 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { hashPassword, generateTempPassword, signInvite, requireAuth, requireOwner } = require("../auth");
-const { sendInvite } = require("../mailer");
-const { resolveShopId } = require("../shopScope");
+const { hashPassword, generateTempPassword, signInvite, requireAuth, requireOwner } = require("../lib/auth");
+const { sendInvite } = require("../lib/mailer");
+const { resolveShopId } = require("../lib/shopScope");
 
 const router = Router();
 

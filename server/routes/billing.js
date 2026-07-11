@@ -1,7 +1,7 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { requireAuth, requireOwner } = require("../auth");
+const { requireAuth, requireOwner } = require("../lib/auth");
 
 const router = Router();
 

@@ -102,5 +102,5 @@ same-origin cookie, no other change is needed when the domain goes live.
 - **Free tier** sleeps after inactivity (first request after idle is slow). Move
   to a paid instance for always-on once you're selling.
 - **Provisioning a new store:** the same Atlas DB backs every environment, so you
-  can create/seed stores locally (e.g. `node server/create-owner.js`) or via
+  can create/seed stores locally (e.g. `node server/scripts/create-owner.js`) or via
   `POST /api/auth/register`, and they appear in production instantly.

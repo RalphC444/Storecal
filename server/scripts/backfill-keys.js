@@ -1,8 +1,8 @@
 // One-off: give every existing shop a stable publicKey (for embed snippets).
 // Run once after deploying the embed feature:  node server/backfill-keys.js
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
-const { getDb } = require("./db");
-const { generatePublicKey } = require("./shopScope");
+const { getDb } = require("../lib/db");
+const { generatePublicKey } = require("../lib/shopScope");
 
 (async () => {
   const db = await getDb();

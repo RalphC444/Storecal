@@ -1,8 +1,8 @@
 const { Router } = require("express");
-const { getDb } = require("../db");
+const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { resolveShopId } = require("../shopScope");
-const { effectiveRanges } = require("../availabilityCheck");
+const { resolveShopId } = require("../lib/shopScope");
+const { effectiveRanges } = require("../lib/availabilityCheck");
 
 const router = Router();
 

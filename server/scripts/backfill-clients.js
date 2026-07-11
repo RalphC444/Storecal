@@ -6,7 +6,7 @@
 
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 const { MongoClient } = require("mongodb");
-const { upsertClient } = require("./clients");
+const { upsertClient } = require("../lib/clients");
 
 async function run() {
   const client = new MongoClient(process.env.MONGODB_URI);
