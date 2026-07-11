@@ -4,137 +4,24 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const TIME_OPTIONS = (() => {
-  const opts = [];
-  for (let min = 360; min <= 1320; min += 30) {
-    const h = Math.floor(min / 60), m = min % 60;
-    const label = `${h > 12 ? h - 12 : h === 0 ? 12 : h}:${m.toString().padStart(2,"0")} ${h >= 12 ? "PM" : "AM"}`;
-    opts.push({ value: min, label });
-  }
-  return opts;
-})();
-
-// "HH:MM" slots for the appointment form (6:00 AM – 9:00 PM, every 15 min).
-const TIME_SLOTS = (() => {
-  const opts = [];
-  for (let min = 360; min <= 1260; min += 15) {
-    const h = Math.floor(min / 60), m = min % 60;
-    const value = `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}`;
-    const label = `${h > 12 ? h - 12 : h === 0 ? 12 : h}:${m.toString().padStart(2,"0")} ${h >= 12 ? "PM" : "AM"}`;
-    opts.push({ value, label });
-  }
-  return opts;
-})();
-
-const DAYS_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const DURATIONS = [15, 30, 45, 60, 75, 90, 105, 120, 150, 180];
-
-// Local YYYY-MM-DD (matches the calendar's day columns; avoids the UTC shift
-// toISOString would introduce, which could leave "today" unselected near midnight).
-const todayKey = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-};
-
-// The Sunday on or before today (local), as YYYY-MM-DD — the biweekly anchor.
-const sundayKey = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay());
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-};
-
-function dateKey(offsetDays) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
-}
-
-// Local YYYY-MM-DD (avoids the UTC shift toISOString would introduce).
-function ymd(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
-function parseYmd(str) {
-  const [y, m, d] = str.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-function addDaysKey(str, n) {
-  const d = parseYmd(str); d.setDate(d.getDate() + n); return ymd(d);
-}
-// Sunday (start) of the week containing `str`.
-function weekStartOf(str) {
-  const d = parseYmd(str); d.setDate(d.getDate() - d.getDay()); return ymd(d);
-}
-// "HH:MM" → minutes since midnight.
-function toMin(tv) {
-  if (!tv) return 0;
-  const [h, m] = tv.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function fmtDayHeading(str) {
-  const [y, mo, d] = str.split("-").map(Number);
-  const date = new Date(y, mo - 1, d);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.round((date - today) / 86400000);
-  const long = date.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
-  if (diff === 0) return `Today · ${long}`;
-  if (diff === 1) return `Tomorrow · ${long}`;
-  return long;
-}
-
-function fmtTime(tv) {
-  if (!tv) return "";
-  const [h, m] = tv.split(":").map(Number);
-  return `${h > 12 ? h - 12 : h === 0 ? 12 : h}:${m.toString().padStart(2,"0")} ${h >= 12 ? "PM" : "AM"}`;
-}
-
-function fmtShort(str) {
-  return parseYmd(str).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function fmtSideDay(str) {
-  const date = parseYmd(str);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.round((date - today) / 86400000);
-  const long = date.toLocaleDateString("en-US", { weekday:"long", month:"short", day:"numeric" });
-  if (diff === 0) return `Today · ${long}`;
-  if (diff === 1) return `Tomorrow · ${long}`;
-  return long;
-}
-
-const STATUSES = ["pending", "confirmed", "completed", "cancelled"];
-// Statuses an owner can set by hand — "completed" is automatic (see effStatus).
-const MANUAL_STATUSES = ["pending", "confirmed", "cancelled"];
-const STATUS_LABEL = {
-  pending: "Pending", confirmed: "Confirmed", completed: "Completed", cancelled: "Cancelled",
-};
-
-// Effective status: an appointment auto-completes once its end time has passed
-// (a past day, or today with end ≤ now). Cancelled/completed are left as-is.
-function effStatus(a, durationOf) {
-  if (a.status === "cancelled") return "cancelled";
-  // "Completed" is time-driven, not a stored state: an appointment is done only
-  // once its end time has passed. A future appointment is never completed — even
-  // if an old record carries that status.
-  const today = todayKey();
-  const now = new Date();
-  const endMin = toMin(a.timeValue) + (durationOf ? durationOf(a.service) : 45);
-  const past = a.dateKey < today || (a.dateKey === today && endMin <= now.getHours() * 60 + now.getMinutes());
-  if (past) return "completed";
-  return a.status === "completed" ? "confirmed" : a.status;
-}
-
-// Team wording per vertical (hair / nail / barber), driven by shop.businessType.
-const TEAM_LABEL = {
-  salon: "Staff", hair: "Staff", barber: "Staff", nail: "Staff", generic: "Staff",
-};
-
-// Pet weight bands — must match the grooming booking widget's dropdown (embed.js).
-const PET_WEIGHTS = ["1–40 lbs", "40–65 lbs", "65–100 lbs", "100+ lbs"];
-
-// Business types that get a photo Gallery tab (visual work worth showing off).
-const GALLERY_TYPES = ["salon", "grooming", "hair", "barber", "nail"];
+import {
+  TIME_OPTIONS,
+  TIME_SLOTS,
+  DAYS_FULL,
+  DURATIONS,
+  todayKey,
+  sundayKey,
+  ymd,
+  parseYmd,
+  addDaysKey,
+  weekStartOf,
+  toMin,
+  fmtTime,
+  fmtShort,
+  fmtSideDay,
+} from "./lib/datetime";
+import { STATUSES, MANUAL_STATUSES, STATUS_LABEL, effStatus } from "./lib/appointments";
+import { TEAM_LABEL, PET_WEIGHTS, GALLERY_TYPES } from "./lib/businessTypes";
 
 // Lightweight toast: call toast("Saved") from anywhere; <ToastHost/> renders them.
 let _emitToast = null;
