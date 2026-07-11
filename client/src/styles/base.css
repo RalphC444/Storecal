@@ -1,22 +1,38 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --ink:     #111111;
-  --ink-2:   #666666;
-  --ink-3:   #999999;
-  --line:    #e4e4e4;
-  --line-2:  #d0d0d0;
+  /* Neutrals tuned to the marketing site's navy-tinted palette. */
+  --ink:     #14133a;
+  --ink-2:   #5c5a7c;
+  --ink-3:   #9997b3;
+  --line:    #e7e6f2;
+  --line-2:  #d6d4e6;
   --paper:   #ffffff;
-  --wash:    #f6f6f6;
+  --wash:    #f7f7fd;
+
+  /* Type — Manrope for UI, Fraunces for display titles (loaded in index.html). */
+  --font-sans:    "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   background: var(--paper);
   color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Brand-cohesive display headings — the serif face used on the marketing site. */
+.pageview__title,
+.brand__name,
+.settings__cattitle,
+.adminconsole__title,
+.modal__title {
+  font-family: var(--font-display);
+  font-weight: 560;
+  letter-spacing: -0.01em;
 }
 
 button { font-family: inherit; }
@@ -371,9 +387,9 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
 /* ══ App shell ═══════════════════════════════════════════════════ */
 :root {
-  --accent:      #2563eb;   /* rich blue — one accent across the whole app */
-  --accent-2:    #1d4ed8;
-  --accent-soft: #e8eefc;
+  --accent:      #4d4bd9;   /* periwinkle — matches the marketing site */
+  --accent-2:    #3d3bc0;
+  --accent-soft: #ecebff;
   --nav:         var(--accent);   /* sidebar shares the same accent */
   --nav-2:       var(--accent-2);
   --nav-soft:    var(--accent-soft);
