@@ -129,17 +129,12 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
             </h1>
             <p className="marketing__lead" data-reveal>
               A clean calendar, staff scheduling, and store hours — plus a booking widget you drop
-              onto <em>any website</em> in one line.
+              onto any website.
             </p>
             <div className="marketing__cta" data-reveal>
               <button className="mbtn mbtn--primary" onClick={onSignIn}>Sign in →</button>
               <button className="mbtn mbtn--ghost" onClick={onDemo }>Try the live demo →</button>
             </div>
-            <ul className="marketing__chips" data-reveal>
-              <li className="marketing__chip"><span className="marketing__chip-ic">⚡</span> Set up in minutes</li>
-              <li className="marketing__chip"><span className="marketing__chip-ic">🔗</span> One-line embed</li>
-              <li className="marketing__chip"><span className="marketing__chip-ic">✓</span> No app to download</li>
-            </ul>
           </div>
 
           {/* Hero visual — the live-calendar mock, framed and floating. */}
@@ -182,7 +177,15 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
           <span>Online booking ✦ Staff calendars ✦ Store hours ✦ Client list ✦ One-line embed ✦ Built for local shops ✦&nbsp;</span>
           <span>Online booking ✦ Staff calendars ✦ Store hours ✦ Client list ✦ One-line embed ✦ Built for local shops ✦&nbsp;</span>
         </div>
-      </div>────────── */}
+      </div>────────── 
+      
+      
+      <ul className="marketing__chips" data-reveal>
+              <li className="marketing__chip"><span className="marketing__chip-ic">⚡</span> Set up in minutes</li>
+              <li className="marketing__chip"><span className="marketing__chip-ic">🔗</span> One-line embed</li>
+              <li className="marketing__chip"><span className="marketing__chip-ic">✓</span> No app to download</li>
+            </ul>
+            */}
 
       {/* ── Features ────────────────────────────────────────────────────── */}
       <section className="marketing__section" id="features">
