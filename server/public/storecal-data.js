@@ -46,6 +46,26 @@
       if (v != null) el.textContent = v;
     });
   }
+  // Announcement banner ("We're on vacation…"). Renders into any
+  // [data-storecal="banner"] element; if none exists but a message is set, drops
+  // a full-width banner at the top of the page so it shows on any site.
+  function renderBanner(data) {
+    var msg = (data.announcement || "").trim();
+    var hosts = document.querySelectorAll('[data-storecal="banner"]');
+    hosts.forEach(function (host) {
+      if (!msg) { host.style.display = "none"; return; }
+      host.style.display = "";
+      if (host.className.indexOf("scd-banner") === -1) host.className = (host.className + " scd-banner").trim();
+      host.textContent = msg;
+    });
+    if (msg && hosts.length === 0 && !document.querySelector(".scd-banner--top")) {
+      var bar = document.createElement("div");
+      bar.className = "scd-banner scd-banner--top";
+      bar.textContent = msg;
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+  }
+
   function renderServices(data) {
     document.querySelectorAll('[data-storecal="services"]').forEach(function (host) {
       host.classList.add("scd-grid");
@@ -148,6 +168,8 @@
     ".scd-shot figcaption{padding:8px 10px;font-size:13px;color:#5a6069}",
     ".scd-staffgal{margin-bottom:28px}",
     ".scd-staffgal__name{margin:0 0 12px;font-size:18px}",
+    ".scd-banner{background:#000D6E;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;line-height:1.5;text-align:center;margin:0 0 16px}",
+    ".scd-banner--top{border-radius:0;margin:0;position:relative;z-index:2147483000}",
   ].join("");
   document.head.appendChild(style);
 
@@ -177,7 +199,7 @@
       });
     }
     StoreCal.data = data;
-    bindText(data); renderServices(data); renderStaff(data); renderGallery(data); renderCover(data); renderStaffGallery(data);
+    bindText(data); renderBanner(data); renderServices(data); renderStaff(data); renderGallery(data); renderCover(data); renderStaffGallery(data);
     StoreCal._cbs.forEach(function (cb) { try { cb(data); } catch (e) { /* ignore */ } });
     document.dispatchEvent(new CustomEvent("storecal:loaded", { detail: data }));
   }).catch(function (e) { console.error("[StoreCal] couldn't load content:", e.message); });

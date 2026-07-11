@@ -94,6 +94,9 @@ async function sendBookingConfirmation(d) {
         `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:88px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
     )
     .join("");
+  const callLine = d.shopPhone
+    ? `Need to change or cancel? Call ${esc(d.shopName)} at <b>${esc(d.shopPhone)}</b>.`
+    : "Need to change or cancel? Just call the shop and they'll take care of it.";
   await resend.emails.send({
     from: FROM,
     to: d.to,
@@ -101,7 +104,44 @@ async function sendBookingConfirmation(d) {
     html: shell(`You're booked${first ? `, ${esc(first)}` : ""}!`,
       `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">Thanks for booking with <b>${esc(d.shopName)}</b>. Here are your details:</p>
        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
-       <p style="color:#9aa0a8;font-size:13px;line-height:1.6;margin:0">Need to change or cancel? Just call the shop and they'll take care of it.</p>`),
+       <p style="color:#9aa0a8;font-size:13px;line-height:1.6;margin:0">${callLine}</p>`),
+  });
+  return true;
+}
+
+// Branded cancellation notice to the customer, with the staff/owner's message
+// and the shop's phone number so they can rebook or ask questions.
+// `d` = { to, clientName, shopName, shopPhone, service, dateLabel, timeLabel, providerName, message }
+async function sendBookingCancellation(d) {
+  const resend = client();
+  if (!resend || !d.to) return false;
+  const first = (d.clientName || "").trim().split(/\s+/)[0];
+  const rows = [
+    ["Service", d.service],
+    ["Was", `${d.dateLabel} at ${d.timeLabel}`],
+    d.providerName ? ["With", d.providerName] : null,
+  ].filter(Boolean);
+  const table = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:88px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
+    )
+    .join("");
+  const note = d.message
+    ? `<div style="background:#f7f8fa;border-radius:10px;padding:14px 16px;margin:0 0 16px"><p style="margin:0;color:#333;font-size:14px;line-height:1.6"><b>A note from ${esc(d.shopName)}:</b><br>${esc(d.message)}</p></div>`
+    : "";
+  const callLine = d.shopPhone
+    ? `Questions or want to rebook? Call ${esc(d.shopName)} at <b>${esc(d.shopPhone)}</b>.`
+    : "Questions or want to rebook? Please contact the shop.";
+  await resend.emails.send({
+    from: FROM,
+    to: d.to,
+    subject: `Your booking at ${d.shopName} has been cancelled`,
+    html: shell("Your appointment was cancelled",
+      `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">Hi${first ? ` ${esc(first)}` : ""}, your appointment with <b>${esc(d.shopName)}</b> has been cancelled:</p>
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
+       ${note}
+       <p style="color:#333;font-size:14px;line-height:1.6;margin:0">${callLine}</p>`),
   });
   return true;
 }
@@ -110,5 +150,6 @@ module.exports = {
   sendInvite,
   sendReset,
   sendBookingConfirmation,
+  sendBookingCancellation,
   emailEnabled: () => !!process.env.RESEND_API_KEY,
 };

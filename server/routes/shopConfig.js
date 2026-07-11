@@ -1,6 +1,8 @@
 const { Router } = require("express");
+const { ObjectId } = require("mongodb");
 const { getDb } = require("../lib/db");
 const { resolveShop } = require("../lib/shopScope");
+const { requireAuth, requireOwner } = require("../lib/auth");
 
 const router = Router();
 
@@ -59,6 +61,8 @@ router.get("/", async (req, res) => {
       showStaff: shop.showStaff !== false,
       showGallery: shop.showGallery !== false,
       showStaffGalleries: shop.showStaffGalleries !== false,
+      // Owner-set announcement banner ("We're on vacation…"). "" = no banner.
+      announcement: shop.announcement || "",
       shop: {
         slug: shop.slug,
         name: shop.name,
@@ -89,6 +93,22 @@ router.get("/", async (req, res) => {
         serviceIds: (p.serviceIds || []).map(String),
       })),
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/shop-config — owner updates their own website banner message.
+// Body: { announcement }. Empty string clears it (no banner).
+router.patch("/", requireAuth, requireOwner, async (req, res) => {
+  try {
+    const db = await getDb();
+    const announcement = String(req.body.announcement || "").trim().slice(0, 250);
+    await db.collection("shops").updateOne(
+      { _id: new ObjectId(req.auth.shopId) },
+      { $set: { announcement, updatedAt: new Date() } }
+    );
+    res.json({ success: true, announcement });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

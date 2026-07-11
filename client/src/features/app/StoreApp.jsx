@@ -112,11 +112,11 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     loadAppts();
   }
 
-  async function updateStatus(id, status) {
+  async function updateStatus(id, status, message) {
     await fetch(`/api/appointments/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, message }),
     });
     setAppts(prev => prev.map(a => a._id === id ? { ...a, status } : a));
     // Cancelling removes it from the calendar, so close the modal too.

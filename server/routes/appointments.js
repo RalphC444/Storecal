@@ -4,35 +4,46 @@ const { upsertClient } = require("../lib/clients");
 const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
 const { notifyAppointmentChange } = require("../lib/realtime");
-const { sendBookingConfirmation } = require("../lib/mailer");
+const { sendBookingConfirmation, sendBookingCancellation } = require("../lib/mailer");
 const { ObjectId } = require("mongodb");
 
-// Fire-and-forget branded confirmation to the customer after they book. Never
-// blocks or fails the booking — email is best-effort.
+// Shared email fields (shop name + phone, formatted date/time, details) for a
+// booking doc — used by both the confirmation and cancellation notices.
+async function bookingFields(db, shopId, doc) {
+  const shop = await db.collection("shops").findOne({ _id: new ObjectId(shopId) }, { projection: { name: 1, phone: 1 } });
+  const [h, m] = String(doc.timeValue || "").split(":").map(Number);
+  const timeLabel = Number.isFinite(h) ? `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
+  const dateLabel = doc.dateKey
+    ? new Date(`${doc.dateKey}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    : "";
+  return {
+    to: doc.client?.email || "",
+    clientName: doc.client?.name || "",
+    shopName: shop?.name || "the shop",
+    shopPhone: shop?.phone || "",
+    service: doc.service || "your appointment",
+    dateLabel,
+    timeLabel,
+    providerName: doc.providerName || "",
+    addons: doc.addons || [],
+  };
+}
+
+// Fire-and-forget branded emails to the customer. Never block or fail the
+// booking/cancellation — email is best-effort.
 function emailBookingConfirmation(db, shopId, doc) {
-  const to = doc.client?.email;
-  if (!to) return;
+  if (!doc.client?.email) return;
   (async () => {
-    try {
-      const shop = await db.collection("shops").findOne({ _id: new ObjectId(shopId) }, { projection: { name: 1 } });
-      const [h, m] = String(doc.timeValue || "").split(":").map(Number);
-      const timeLabel = Number.isFinite(h) ? `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
-      const dateLabel = doc.dateKey
-        ? new Date(`${doc.dateKey}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
-        : "";
-      await sendBookingConfirmation({
-        to,
-        clientName: doc.client?.name || "",
-        shopName: shop?.name || "the shop",
-        service: doc.service || "your appointment",
-        dateLabel,
-        timeLabel,
-        providerName: doc.providerName || "",
-        addons: doc.addons || [],
-      });
-    } catch (e) {
-      console.error("Booking confirmation email failed:", e.message);
-    }
+    try { await sendBookingConfirmation(await bookingFields(db, shopId, doc)); }
+    catch (e) { console.error("Booking confirmation email failed:", e.message); }
+  })();
+}
+
+function emailBookingCancellation(db, shopId, doc, message) {
+  if (!doc.client?.email) return;
+  (async () => {
+    try { await sendBookingCancellation({ ...(await bookingFields(db, shopId, doc)), message: message || "" }); }
+    catch (e) { console.error("Booking cancellation email failed:", e.message); }
   })();
 }
 
@@ -251,8 +262,7 @@ router.put("/:id", async (req, res) => {
 // PATCH /api/appointments/:id — update status
 router.patch("/:id", async (req, res) => {
   try {
-    const { ObjectId } = require("mongodb");
-    const { status } = req.body;
+    const { status, message } = req.body;
 
     if (!["pending", "confirmed", "cancelled", "completed"].includes(status)) {
       return res.status(400).json({ error: "Invalid status value" });
@@ -260,13 +270,18 @@ router.patch("/:id", async (req, res) => {
 
     const db = await getDb();
     const shopId = await resolveShopId(req, db);
-    const result = await db.collection("appointments").updateOne(
-      { _id: new ObjectId(req.params.id), shopId },
-      { $set: { status, updatedAt: new Date() } }
-    );
+    // Load the appointment first — we need its details (customer email, service,
+    // date/time) to email a cancellation notice.
+    const appt = await db.collection("appointments").findOne({ _id: new ObjectId(req.params.id), shopId });
+    if (!appt) return res.status(404).json({ error: "Appointment not found" });
 
-    if (result.matchedCount === 0) return res.status(404).json({ error: "Appointment not found" });
+    const set = { status, updatedAt: new Date() };
+    if (status === "cancelled" && message) set.cancelMessage = String(message).trim();
+    await db.collection("appointments").updateOne({ _id: new ObjectId(req.params.id), shopId }, { $set: set });
+
     notifyAppointmentChange(shopId, { action: "status", _id: req.params.id, status });
+    // Email the customer a branded cancellation with the staff message + shop phone.
+    if (status === "cancelled") emailBookingCancellation(db, shopId, appt, message);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -42,6 +42,7 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
   const isDone = eff === "completed";
   const isPet = businessType === "grooming"; // grooming widget collects pet name/breed/weight
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelMsg, setCancelMsg] = useState("");
   return (
     <div className="modal" onMouseDown={onClose}>
       <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
@@ -93,20 +94,40 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
                     >{STATUS_LABEL[s]}</button>
                   ))}
                 </div>
-                <p className="appointmentview__note">Clients aren’t notified automatically of changes — let them know yourself.</p>
+                <p className="appointmentview__note">Cancelling emails the client a notice automatically. Status changes to Pending/Confirmed don’t notify them.</p>
               </>
             )}
           </div>
         </div>
 
         {confirmCancel && (
-          <ConfirmDialog
-            title="Cancel this appointment?"
-            message="The client will NOT be notified automatically. Please contact them to let them know it’s cancelled."
-            confirmLabel="Cancel appointment"
-            onCancel={() => setConfirmCancel(false)}
-            onConfirm={() => { onStatusChange(a._id, "cancelled"); setConfirmCancel(false); }}
-          />
+          <div className="modal" onMouseDown={() => setConfirmCancel(false)}>
+            <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
+              <div className="modal__head">
+                <h2 className="modal__title">Cancel this appointment?</h2>
+                <button className="modal__x" onClick={() => setConfirmCancel(false)} aria-label="Close">✕</button>
+              </div>
+              <div className="form">
+                <p className="panel__hint" style={{ marginTop: 0 }}>
+                  {a.client?.email
+                    ? <>We’ll email <b>{a.client.email}</b> a cancellation notice. Add a message they’ll see (optional):</>
+                    : "This client has no email on file, so no notice can be sent. Please contact them directly."}
+                </p>
+                <label className="field">
+                  <span className="field__label">Message to the client <span className="field__hint">— from you or your staff</span></span>
+                  <textarea rows={3} value={cancelMsg} onChange={e => setCancelMsg(e.target.value)}
+                    placeholder="e.g. So sorry — we’ve had to close today for a family emergency. Please call us to rebook." />
+                </label>
+                <div className="form__actions">
+                  <button type="button" className="action" onClick={() => setConfirmCancel(false)}>Keep appointment</button>
+                  <button type="button" className="btn btn--danger"
+                    onClick={() => { onStatusChange(a._id, "cancelled", cancelMsg.trim()); setConfirmCancel(false); }}>
+                    {a.client?.email ? "Cancel & notify client" : "Cancel appointment"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="form__actions modal__foot">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PasswordInput } from "../../components/PasswordInput";
+import { toast } from "../../components/Toast";
 
 export function SettingsView({ user, onUserChange, onSignOut }) {
   const [name, setName] = useState(user.name || "");
@@ -42,6 +43,7 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
           <ChangePasswordInline />
         </section>
 
+        {user.role === "owner" && <AnnouncementBannerSection />}
         {user.role === "owner" && <BookableSelfSection />}
         {user.role === "owner" && <BookingLinksSection />}
         {user.role === "owner" && <BillingSection />}
@@ -129,6 +131,46 @@ export function BookingLinksSection() {
             <button className="btn" onClick={() => copy(bioUrl, "bio")}>{copied === "bio" ? "Copied!" : "Copy link"}</button>
           </div>
         )}
+    </section>
+  );
+}
+
+// Owner-set announcement banner shown across the top of their website.
+export function AnnouncementBannerSection() {
+  const [msg, setMsg] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/shop-config").then(r => r.json())
+      .then(d => { setMsg(d.announcement || ""); })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  async function save() {
+    setSaving(true); setSaved(false);
+    const res = await fetch("/api/shop-config", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ announcement: msg }),
+    });
+    setSaving(false);
+    if (res.ok) { setSaved(true); toast(msg.trim() ? "Banner saved" : "Banner cleared"); setTimeout(() => setSaved(false), 2000); }
+  }
+
+  return (
+    <section className="panel__block">
+      <h3 className="schedule__label">Website banner</h3>
+      <p className="panel__hint">Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.” Leave it empty to hide the banner.</p>
+      <label className="field">
+        <textarea rows={2} maxLength={250} value={msg} onChange={e => { setSaved(false); setMsg(e.target.value); }}
+          placeholder="We’re closed for vacation July 20–28 — book us for after. Thanks!" />
+      </label>
+      <div className="schedule__save">
+        <button className="btn" onClick={save} disabled={saving || !loaded}>{saving ? "Saving…" : "Save banner"}</button>
+        <span className="schedule__msg">{saved ? "✓ Saved" : `${msg.length}/250`}</span>
+      </div>
     </section>
   );
 }
