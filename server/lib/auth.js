@@ -79,7 +79,8 @@ function verifyInvite(token) {
 
 // Password-reset token (short-lived).
 function signReset(uid) {
-  return jwt.sign({ purpose: "reset", uid }, JWT_SECRET, { expiresIn: "1h" });
+  // 24h window so a user who opens the email later still has a valid link.
+  return jwt.sign({ purpose: "reset", uid }, JWT_SECRET, { expiresIn: "24h" });
 }
 function verifyReset(token) {
   const p = jwt.verify(token, JWT_SECRET);

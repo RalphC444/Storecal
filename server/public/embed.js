@@ -772,6 +772,16 @@
     loadSchedule();
   }
 
+  // Mask a phone number to "(XXX) XXX XXXX" as the user types, so it's always
+  // stored in a consistent format (the server also normalises it for dedupe).
+  function formatPhone(v) {
+    var d = (v || "").replace(/\D/g, "").slice(0, 10);
+    if (!d) return "";
+    if (d.length <= 3) return "(" + d;
+    if (d.length <= 6) return "(" + d.slice(0, 3) + ") " + d.slice(3);
+    return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + " " + d.slice(6);
+  }
+
   function contact() {
     var prov = state.assigned || state.provider;
     // Pet-vertical fields (dog name / breed / weight) are gated by business type
@@ -798,10 +808,14 @@
     var form = el(
       "<div>" + petFields +
       '<label class="sc__field"><span class="sc__label">Your name</span><input class="sc__input" id="sc-name" autocomplete="name" required aria-required="true"></label>' +
-      '<label class="sc__field"><span class="sc__label">Phone</span><input class="sc__input" id="sc-phone" type="tel" autocomplete="tel" required aria-required="true"></label>' +
+      '<label class="sc__field"><span class="sc__label">Phone</span><input class="sc__input" id="sc-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(555) 123 4567" maxlength="14" required aria-required="true"></label>' +
       '<label class="sc__field"><span class="sc__label">Email</span><input class="sc__input" id="sc-email" type="email" autocomplete="email" required aria-required="true"></label>' +
       "</div>"
     );
+    // Live phone masking → "(XXX) XXX XXXX".
+    var phoneInput = form.querySelector("#sc-phone");
+    phoneInput.addEventListener("input", function () { phoneInput.value = formatPhone(phoneInput.value); });
+
     var btn = el('<button class="sc__btn">Confirm booking</button>');
     var err = el('<div class="sc__err" style="display:none"></div>');
     btn.onclick = function () {
@@ -810,7 +824,7 @@
       var email = form.querySelector("#sc-email").value.trim();
       if (!name) { err.textContent = "Please enter your name."; err.style.display = "block"; return; }
       if (!phone) { err.textContent = "Please enter your phone number."; err.style.display = "block"; return; }
-      if (phone.replace(/\D/g, "").length < 7) { err.textContent = "Please enter a valid phone number."; err.style.display = "block"; return; }
+      if (phone.replace(/\D/g, "").length !== 10) { err.textContent = "Please enter a 10-digit phone number, e.g. (555) 123 4567."; err.style.display = "block"; return; }
       if (!email) { err.textContent = "Please enter your email."; err.style.display = "block"; return; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = "Please enter a valid email address."; err.style.display = "block"; return; }
       var pet = null;
