@@ -23,106 +23,14 @@ import {
 import { STATUSES, MANUAL_STATUSES, STATUS_LABEL, effStatus } from "./lib/appointments";
 import { TEAM_LABEL, PET_WEIGHTS, GALLERY_TYPES } from "./lib/businessTypes";
 
-// Lightweight toast: call toast("Saved") from anywhere; <ToastHost/> renders them.
-let _emitToast = null;
-function toast(message) { if (_emitToast) _emitToast(message); }
-function ToastHost() {
-  const [items, setItems] = useState([]);
-  useEffect(() => {
-    let seq = 0;
-    _emitToast = (message) => {
-      const id = ++seq;
-      setItems(list => [...list, { id, message }]);
-      setTimeout(() => setItems(list => list.filter(t => t.id !== id)), 2400);
-    };
-    return () => { _emitToast = null; };
-  }, []);
-  return (
-    <div className="toast-host" aria-live="polite">
-      {items.map(t => <div key={t.id} className="toast">✓ {t.message}</div>)}
-    </div>
-  );
-}
-
-// Inline stroke icons (no dependency). 24-grid, inherits currentColor.
-function Icon({ name }) {
-  const paths = {
-    calendar: <><rect x="3" y="4.5" width="18" height="16" rx="2" /><path d="M3 9h18M8 3v3M16 3v3" /></>,
-    clients: <><circle cx="9" cy="8" r="3.1" /><path d="M2.7 19a6.3 6.3 0 0 1 12.6 0" /><path d="M16.5 5.6a3 3 0 0 1 0 5.8M17.5 19a6.3 6.3 0 0 0-2-4.6" /></>,
-    scissors: <><circle cx="6" cy="6.5" r="2.3" /><circle cx="6" cy="17.5" r="2.3" /><path d="M8 8l12 8.5M8 16l12-8.5" /></>,
-    plus: <path d="M12 5v14M5 12h14" />,
-    menu: <path d="M3 6h18M3 12h18M3 18h18" />,
-    chevronLeft: <path d="M15 6l-6 6 6 6" />,
-    chevronRight: <path d="M9 6l6 6-6 6" />,
-    clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
-    tag: <><path d="M20.6 13.4l-7.2 7.2a1.9 1.9 0 0 1-2.7 0l-6.9-6.9A1.9 1.9 0 0 1 3.3 12.4V5a1.7 1.7 0 0 1 1.7-1.7h7.4a1.9 1.9 0 0 1 1.3.6l6.9 6.9a1.9 1.9 0 0 1 0 2.6z" /><circle cx="7.8" cy="7.8" r="1.2" /></>,
-    signout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>,
-    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
-    eyeOff: <><path d="M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.2 6.2A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 4.2-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><path d="M3 3l18 18" /></>,
-    image: <><rect x="3" y="4.5" width="18" height="15" rx="2" /><circle cx="8.5" cy="9.5" r="1.6" /><path d="M4 17l5-5 4 4 3-3 4 4" /></>,
-  };
-  return (
-    <svg className="ico" viewBox="0 0 24 24" width="20" height="20" fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths[name]}
-    </svg>
-  );
-}
-
-// The StoreCal logomark (storefront). Two-tone, self-colored — scales to fill
-// its container, so callers size it via the wrapping element.
-function BrandMark() {
-  return (
-    <svg className="brandmark" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M1.4 17.2495C1.17909 17.2495 1 17.0704 1 16.8495V11.6495C1 11.4286 0.820914 11.2495 0.6 11.2495H0.4C0.179086 11.2495 0 11.0704 0 10.8495V9.28912C0 9.26278 0.00260188 9.2365 0.00776773 9.21067L0.935689 4.57107C0.973083 4.3841 1.13725 4.24951 1.32792 4.24951H16.6721C16.8628 4.24951 17.0269 4.3841 17.0643 4.57107L17.9922 9.21067C17.9974 9.2365 18 9.26278 18 9.28912V10.8495C18 11.0704 17.8209 11.2495 17.6 11.2495H17.4C17.1791 11.2495 17 11.4286 17 11.6495V16.8495C17 17.0704 16.8209 17.2495 16.6 17.2495H15.4C15.1791 17.2495 15 17.0704 15 16.8495V11.6495C15 11.4286 14.8209 11.2495 14.6 11.2495H11.4C11.1791 11.2495 11 11.4286 11 11.6495V16.8495C11 17.0704 10.8209 17.2495 10.6 17.2495H1.4ZM3 14.8495C3 15.0704 3.17909 15.2495 3.4 15.2495H8.6C8.82091 15.2495 9 15.0704 9 14.8495V11.6495C9 11.4286 8.82091 11.2495 8.6 11.2495H3.4C3.17909 11.2495 3 11.4286 3 11.6495V14.8495ZM2.14569 8.77107C2.09619 9.01858 2.2855 9.24951 2.53792 9.24951H15.4621C15.7145 9.24951 15.9038 9.01858 15.8543 8.77107L15.4143 6.57107C15.3769 6.3841 15.2128 6.24951 15.0221 6.24951H2.97792C2.78725 6.24951 2.62308 6.3841 2.58569 6.57107L2.14569 8.77107Z" fill="#000D6E" />
-      <path d="M5.55615 0C5.77705 1.97655e-05 5.95654 0.179489 5.95654 0.400391V1.25098H11.9731V0.400391C11.9731 0.179477 12.1526 0 12.3735 0H13.5737C13.7945 0.000184484 13.9731 0.179591 13.9731 0.400391V1.25098H16.5649C16.7858 1.25098 16.9653 1.42952 16.9653 1.65039V2.85059C16.9653 3.07145 16.7858 3.25098 16.5649 3.25098H1.36475C1.14408 3.25073 0.965385 3.0713 0.965332 2.85059V1.65039C0.965385 1.42968 1.14408 1.25123 1.36475 1.25098H3.95654V0.400391C3.95654 0.17953 4.13512 8.56908e-05 4.35596 0H5.55615Z" fill="#7B79FF" />
-    </svg>
-  );
-}
-
-// Password field with a show/hide toggle. Forwards all input props (value,
-// onChange, placeholder, autoComplete, required…); just swaps type.
-function PasswordInput(props) {
-  const [show, setShow] = useState(false);
-  return (
-    <span className="pwfield">
-      <input {...props} type={show ? "text" : "password"} />
-      <button type="button" className="pwfield__toggle" onClick={() => setShow(s => !s)} tabIndex={-1}
-        aria-label={show ? "Hide password" : "Show password"} title={show ? "Hide password" : "Show password"}>
-        <Icon name={show ? "eyeOff" : "eye"} />
-      </button>
-    </span>
-  );
-}
-
-// Only surfaces `active` after `ms` — avoids loader flashes on fast responses.
-function useDelayed(active, ms = 500) {
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    if (!active) { setShown(false); return; }
-    const t = setTimeout(() => setShown(true), ms);
-    return () => clearTimeout(t);
-  }, [active, ms]);
-  return shown;
-}
-
-// Consistent page loader — spinner only appears if loading exceeds 500ms.
-function Loader() {
-  const show = useDelayed(true, 500);
-  if (!show) return null;
-  return <div className="loader"><span className="spinner" aria-label="Loading" /></div>;
-}
-
-// True when the viewport is phone-sized (drives the single-day calendar).
-function useIsMobile(bp = 860) {
-  const [m, setM] = useState(() => typeof window !== "undefined" && window.innerWidth <= bp);
-  useEffect(() => {
-    const on = () => setM(window.innerWidth <= bp);
-    window.addEventListener("resize", on);
-    return () => window.removeEventListener("resize", on);
-  }, [bp]);
-  return m;
-}
+import { toast, ToastHost } from "./components/Toast";
+import { Icon } from "./components/Icon";
+import { BrandLogo } from "./components/BrandLogo";
+import { PasswordInput } from "./components/PasswordInput";
+import { LoadingSpinner } from "./components/LoadingSpinner";
+import { Avatar } from "./components/Avatar";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { useIsMobile } from "./lib/hooks";
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
@@ -344,7 +252,7 @@ function AdminApp({ user, onSignOut, onUserChange }) {
       <aside className="sidebar">
         <div className="sidebar__top">
           <div className="saas">
-            <span className="saas__mark"><BrandMark /></span>
+            <span className="saas__mark"><BrandLogo /></span>
             <span className="saas__name">StoreCal</span>
           </div>
           <div className="ws">{shopName}</div>
@@ -607,7 +515,7 @@ function WeekCalendar({
       </div>
 
       <div className="cal__grid">
-        {loading && <div className="cal__loading"><Loader /></div>}
+        {loading && <div className="cal__loading"><LoadingSpinner /></div>}
         <div className="cal__scroll">
           {/* Day headers (sticky, share the scroll container so they align with columns) */}
           <div className="cal__headrow">
@@ -973,7 +881,7 @@ function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved }) {
           </div>
           <div className="pv__body">
             {err && <p className="form__error">{err}</p>}
-            {!list ? <Loader />
+            {!list ? <LoadingSpinner />
               : list.length === 0 ? <p className="empty">No {label.toLowerCase()} yet.</p>
               : (
                 <div className="pgrid">
@@ -1152,12 +1060,6 @@ function InviteLinkButton({ providerId, hasEmail }) {
 // Read-only for the owner — providers manage their own profile, services & hours.
 // Round avatar: shows the staff photo if set, else their initial. Reuses .pav
 // sizing (pass pav--lg / pav--sm via className).
-function Avatar({ name, photo, className }) {
-  const cls = "pav" + (className ? " " + className : "");
-  if (photo) return <span className={cls} style={{ backgroundImage: `url(${photo})`, backgroundSize: "cover", backgroundPosition: "center" }} aria-label={name} />;
-  return <span className={cls}>{(name || "?").slice(0, 1).toUpperCase()}</span>;
-}
-
 // Read a chosen image file, center-crop to a square, and return a compact JPEG
 // data URL (stored on the provider so no external file hosting is needed).
 function resizeToDataUrl(file, size = 256) {
@@ -1264,7 +1166,7 @@ function GalleryView({ addReq }) {
         <p className="sp__hint">Photos shown in your website’s gallery. Mark one as the <b>cover</b> to feature it in the site hero (it won’t appear in the gallery grid). JPG or PNG, up to 40 images.</p>
         {err && <p className="form__error">{err}</p>}
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
-        {!images ? <Loader /> : (
+        {!images ? <LoadingSpinner /> : (
           <div className="gal-grid">
             <button type="button" className="gal-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
               <span className="gal-add__plus">+</span>
@@ -1328,7 +1230,7 @@ function StaffGallery({ providerId, addReq, standalone }) {
   }
 
   const count = images ? images.length : 0;
-  const grid = !images ? <Loader /> : (
+  const grid = !images ? <LoadingSpinner /> : (
     <div className="gal-grid">
       {count < MAX && (
         <button type="button" className="gal-add" onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Add photo">
@@ -1461,7 +1363,7 @@ function ProviderSelfView({ provider, onChange, onEditHours, onBack, backLabel }
     catch { setErr("Couldn't read that image."); }
   }
 
-  if (!provider) return <div className="pageview"><div className="pv__body"><Loader /></div></div>;
+  if (!provider) return <div className="pageview"><div className="pv__body"><LoadingSpinner /></div></div>;
 
   const toggle = (sid) => { setSaved(false); setIds(prev => prev.includes(sid) ? prev.filter(x => x !== sid) : [...prev, sid]); };
 
@@ -1569,7 +1471,7 @@ function HoursReview({ providerId }) {
     fetch(`/api/timeoff/${providerId}`).then(r => r.json()).then(d => Array.isArray(d) && setTimeoff(d)).catch(() => {});
   }, [providerId]);
 
-  if (!av) return <Loader />;
+  if (!av) return <LoadingSpinner />;
 
   const fmtRanges = (day) => {
     if (!day.enabled) return <span className="hr__closed">Closed</span>;
@@ -1726,7 +1628,7 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
         <section className="sp__block">
           <h3 className="sched__label">Service menu</h3>
           <p className="sp__hint">The services clients can book online — name, length, and price.</p>
-          {!services ? <Loader />
+          {!services ? <LoadingSpinner />
             : (
               <div className="svc-list">
                 {services.map(s => (
@@ -1753,7 +1655,7 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
 
       {editing && <ServiceForm service={editing} onClose={() => setEditing(null)} onSave={save} />}
       {confirmDel && (
-        <ConfirmModal
+        <ConfirmDialog
           title={`Delete “${confirmDel.name}”?`}
           message="This removes the service from your menu, the booking widget, and every staff member who offers it. Past appointments keep their record. This can’t be undone."
           confirmLabel="Delete service"
@@ -1766,30 +1668,6 @@ function ServicesView({ providers, teamLabel, onProvidersChange, addReq }) {
 }
 
 // Generic confirm dialog for destructive actions.
-function ConfirmModal({ title, message, confirmLabel, onCancel, onConfirm }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="modal" onMouseDown={onCancel}>
-      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
-        <div className="modal__head">
-          <h2 className="modal__title">{title}</h2>
-          <button className="modal__x" onClick={onCancel} aria-label="Close">✕</button>
-        </div>
-        <div className="form">
-          <div className="danger-note"><p style={{ margin: 0 }}>{message}</p></div>
-          <div className="form__actions">
-            <button type="button" className="action" onClick={onCancel}>Cancel</button>
-            <button type="button" className="btn btn--danger" disabled={busy}
-              onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}>
-              {busy ? "Deleting…" : (confirmLabel || "Delete")}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Optional booking add-ons (name + price) — offered during checkout.
 // Auto-saves on any change (no Save button); a toast confirms each save.
 function AddonsSection() {
@@ -1839,7 +1717,7 @@ function AddonsSection() {
     <section className="sp__block">
       <h3 className="sched__label">Add-ons</h3>
       <p className="sp__hint">Optional extras clients can add at checkout (e.g. Teeth Brushing $10). Changes save automatically.</p>
-      {!rows ? <Loader /> : (
+      {!rows ? <LoadingSpinner /> : (
         <div className="addon-rows">
           {rows.map((r, i) => (
             <div key={i} className="addon-row">
@@ -2049,7 +1927,7 @@ function ClientsView({ providers, services, durationOf, onApptSaved, addReq, bus
       </div>
       <div className={`pv__body${isMobile ? "" : " pv__body--flush"}`}>
         {loading && clients.length === 0 ? (
-          <Loader />
+          <LoadingSpinner />
         ) : !loading && clients.length === 0 ? (
           <p className="empty">{q ? "No clients match your search." : "No clients yet."}</p>
         ) : isMobile ? (
@@ -2203,7 +2081,7 @@ function ClientProfile({ clientId, providers, services, durationOf, businessType
     onApptSaved?.(); onDeleted?.();
   }
 
-  if (!data) return <div className="pageview"><div className="pv__body"><Loader /></div></div>;
+  if (!data) return <div className="pageview"><div className="pv__body"><LoadingSpinner /></div></div>;
 
   const dirty = notes !== savedNotes;
   const newForClient = () => setEditing({
@@ -2392,7 +2270,7 @@ function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, onStatus
         </div>
 
         {confirmCancel && (
-          <ConfirmModal
+          <ConfirmDialog
             title="Cancel this appointment?"
             message="The client will NOT be notified automatically. Please contact them to let them know it’s cancelled."
             confirmLabel="Cancel appointment"
@@ -2759,7 +2637,7 @@ function ScheduleEditor({ provider, mode, docked, onSaved }) {
     onSaved?.();
   }
 
-  if (!week) return <Loader />;
+  if (!week) return <LoadingSpinner />;
 
   return (
     <div className="sched sched--stacked">
@@ -2997,7 +2875,7 @@ function BookingLinksSection() {
       <h3 className="sched__label">Booking links</h3>
       <p className="sp__hint">Share your booking page anywhere — no website needed.</p>
 
-      {!loaded ? <Loader />
+      {!loaded ? <LoadingSpinner />
         : !publicKey ? <p className="sp__hint">No booking key yet for this store.</p>
         : (
           <div className="bl">
@@ -3144,7 +3022,7 @@ function AdminConsole({ user, onSignOut }) {
       <ToastHost />
       <div className="acon">
         <header className="acon__head">
-          <span className="acon__brand"><span className="saas__mark"><BrandMark /></span> StoreCal Admin</span>
+          <span className="acon__brand"><span className="saas__mark"><BrandLogo /></span> StoreCal Admin</span>
           <span className="acon__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
         </header>
         <div className="acon__body">
@@ -3165,7 +3043,7 @@ function AdminConsole({ user, onSignOut }) {
                 <button className="btn" onClick={() => setAdding(true)}>+ Add client</button>
               </div>
               {err && <p className="form__error">{err}</p>}
-              {!shops ? <Loader />
+              {!shops ? <LoadingSpinner />
                 : shops.length === 0 ? <p className="empty">No clients yet.</p>
                 : (
                   <div className="acon__tablewrap">
@@ -3203,7 +3081,7 @@ function AdminConsole({ user, onSignOut }) {
       </div>
       {adding && <AddClientModal origin={origin} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
       {delShop && (
-        <ConfirmModal
+        <ConfirmDialog
           title={`Delete “${delShop.name}”?`}
           message="This permanently removes the client — their login, staff, services, appointments, and all booking data. This can’t be undone."
           confirmLabel="Delete client"
@@ -3486,7 +3364,7 @@ export default function App() {
     } catch { setPhase("login"); }
   }
 
-  if (phase === "loading") return <div className="authwrap"><Loader /></div>;
+  if (phase === "loading") return <div className="authwrap"><LoadingSpinner /></div>;
 
   if (phase === "landing")
     return <Landing onSignIn={() => setPhase("login")} onDemo={demoLogin} onLegal={openLegal} />;
@@ -3560,7 +3438,7 @@ function Landing({ onSignIn, onDemo, onLegal }) {
       <header className="mk__nav">
         <div className="mk__navwrap">
           <a className="mk__brand" href="#top">
-            <span className="saas__mark"><BrandMark /></span>
+            <span className="saas__mark"><BrandLogo /></span>
             <span className="saas__name">StoreCal</span>
           </a>
           <nav className="mk__links">
@@ -3668,7 +3546,7 @@ function Landing({ onSignIn, onDemo, onLegal }) {
 
       <footer className="mk__foot">
         <a className="mk__brand" href="#top">
-          <span className="saas__mark"><BrandMark /></span>
+          <span className="saas__mark"><BrandLogo /></span>
           <span className="saas__name">StoreCal</span>
         </a>
         <span className="mk__foot-links">
@@ -3817,7 +3695,7 @@ function AuthShell({ title, subtitle, children, footer }) {
     <div className="authwrap">
       <div className="authcard">
         <div className="authcard__brand">
-          <span className="saas__mark"><BrandMark /></span>
+          <span className="saas__mark"><BrandLogo /></span>
           <span className="saas__name">StoreCal</span>
         </div>
         <h1 className="authcard__title">{title}</h1>
@@ -4001,7 +3879,7 @@ function OnboardingHours({ user, onDone }) {
     <div className="authwrap authwrap--wide">
       <div className="authcard authcard--wide">
         <div className="authcard__brand">
-          <span className="saas__mark"><BrandMark /></span>
+          <span className="saas__mark"><BrandLogo /></span>
           <span className="saas__name">StoreCal</span>
         </div>
         <h1 className="authcard__title">Add your {isOwner ? "store" : "work"} hours</h1>
