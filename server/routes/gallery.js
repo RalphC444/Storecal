@@ -36,6 +36,7 @@ router.get("/", async (req, res) => {
     else if (providerId) filter = { shopId, providerId };
     else filter = { shopId, providerId: null };
     const imgs = await db.collection("gallery").find(filter).sort({ createdAt: -1, _id: -1 }).toArray();
+    res.set("Cache-Control", "public, max-age=60"); // photos change rarely
     res.json(imgs.map(publicImg));
   } catch (err) {
     res.status(500).json({ error: err.message });

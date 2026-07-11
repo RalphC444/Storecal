@@ -24,6 +24,10 @@ router.get("/", async (req, res) => {
     const shop = await resolveShop(req, db);
     if (!shop) return res.status(404).json({ error: "Shop not found" });
 
+    // Short cache: client sites hit this on every visitor; 30s shaves DB load
+    // while keeping menu/booking-gate changes near-live.
+    res.set("Cache-Control", "public, max-age=30");
+
     const shopId = shop._id.toString();
 
     const [services, providers] = await Promise.all([
