@@ -1,6 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
+// Stylesheets, split by area for navigability. Order preserves the original
+// cascade: shared/app base first, then the standalone feature screens.
+import "./styles/base.css";
+import "./styles/auth.css";
+import "./styles/marketing.css";
+import "./styles/admin.css";
 import App from "./App.jsx";
 
 // Send the auth cookie with every API call (client :5177 → api :5001).
