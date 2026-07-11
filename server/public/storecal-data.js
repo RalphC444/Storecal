@@ -32,6 +32,59 @@
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function fmtDur(m) { if (!m) return ""; var h = Math.floor(m / 60), mm = m % 60; return h ? (h + "h" + (mm ? " " + mm + "m" : "")) : (mm + " min"); }
 
+  // ── Banner theming helpers ──────────────────────────────────────────────────
+  // The announcement banner inherits the site's primary color so it never looks
+  // bolted on. Source order (first hit wins), so it "just works" and stays easy
+  // to override:
+  //   1. data-accent on this <script> tag
+  //   2. any StoreCal script's data-accent (the embed widget already carries one)
+  //   3. a --sc-accent CSS variable on :root (explicit opt-in)
+  //   4. StoreCal navy as a safe default
+  function detectAccent() {
+    var a = script.getAttribute("data-accent");
+    if (a) return a.trim();
+    var s = document.querySelector("script[data-accent]");
+    if (s && s.getAttribute("data-accent")) return s.getAttribute("data-accent").trim();
+    try {
+      var v = getComputedStyle(document.documentElement).getPropertyValue("--sc-accent");
+      if (v && v.trim()) return v.trim();
+    } catch (e) { /* ignore */ }
+    return "#000D6E";
+  }
+  // Parse #rgb / #rrggbb / rgb()/rgba() into {r,g,b}; null if unrecognized.
+  function parseColor(c) {
+    if (!c) return null;
+    c = c.trim();
+    var m = c.match(/^#([0-9a-f]{3})$/i);
+    if (m) { var h = m[1]; return { r: parseInt(h[0] + h[0], 16), g: parseInt(h[1] + h[1], 16), b: parseInt(h[2] + h[2], 16) }; }
+    m = c.match(/^#([0-9a-f]{6})$/i);
+    if (m) { return { r: parseInt(m[1].slice(0, 2), 16), g: parseInt(m[1].slice(2, 4), 16), b: parseInt(m[1].slice(4, 6), 16) }; }
+    m = c.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (m) { return { r: +m[1], g: +m[2], b: +m[3] }; }
+    return null;
+  }
+  // White or near-black text — whichever is most legible on the given background.
+  function idealText(bg) {
+    var c = parseColor(bg);
+    if (!c) return "#ffffff";
+    var lum = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255;
+    return lum > 0.6 ? "#111111" : "#ffffff";
+  }
+  // Push any fixed/sticky header pinned to the very top down by the banner's
+  // height, so the banner shows as a block ABOVE the nav instead of under it.
+  // (The banner itself is in normal flow, so static content is already offset.)
+  function offsetFixedHeaders(bar) {
+    var pinned = [];
+    document.querySelectorAll("body *").forEach(function (el) {
+      if (el === bar || bar.contains(el)) return;
+      var cs = getComputedStyle(el);
+      if ((cs.position === "fixed" || cs.position === "sticky") && cs.top === "0px") pinned.push(el);
+    });
+    function apply() { var h = bar.offsetHeight; pinned.forEach(function (el) { el.style.top = h + "px"; }); }
+    apply();
+    window.addEventListener("resize", apply);
+  }
+
   var StoreCal = {
     data: null, _cbs: [],
     ready: function (cb) { if (this.data) cb(this.data); else this._cbs.push(cb); },
@@ -51,18 +104,23 @@
   // a full-width banner at the top of the page so it shows on any site.
   function renderBanner(data) {
     var msg = (data.announcement || "").trim();
+    var accent = detectAccent();
+    var fg = idealText(accent);
     var hosts = document.querySelectorAll('[data-storecal="banner"]');
     hosts.forEach(function (host) {
       if (!msg) { host.style.display = "none"; return; }
       host.style.display = "";
       if (host.className.indexOf("scd-banner") === -1) host.className = (host.className + " scd-banner").trim();
+      host.style.background = accent; host.style.color = fg;
       host.textContent = msg;
     });
     if (msg && hosts.length === 0 && !document.querySelector(".scd-banner--top")) {
       var bar = document.createElement("div");
       bar.className = "scd-banner scd-banner--top";
+      bar.style.background = accent; bar.style.color = fg;
       bar.textContent = msg;
       document.body.insertBefore(bar, document.body.firstChild);
+      offsetFixedHeaders(bar);
     }
   }
 
