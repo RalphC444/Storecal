@@ -13,6 +13,23 @@ function inviteUrl(req, token) {
   return `${origin}/invite?token=${token}`;
 }
 
+// Seed a brand-new provider's weekly hours from the store's hours, so a freshly
+// created staff account is bookable on the same days the shop is open (e.g. it
+// works on Sundays if the store does). The owner can still adjust any day later.
+// No-op if the store has no hours set yet (the provider then inherits the shop's
+// hours at booking time via the availability fallback).
+async function seedHoursFromShop(db, shopId, providerId) {
+  const shopHours = await db.collection("workingHours").find({ shopId, providerId: "shop" }).toArray();
+  if (shopHours.length === 0) return;
+  const copies = shopHours.map(({ _id, ...h }) => ({ ...h, providerId, createdAt: new Date() }));
+  await db.collection("workingHours").insertMany(copies);
+  const shopMeta = await db.collection("scheduleMeta").findOne({ shopId, providerId: "shop" });
+  if (shopMeta) {
+    const { _id, ...m } = shopMeta;
+    await db.collection("scheduleMeta").updateOne({ shopId, providerId }, { $set: { ...m, providerId } }, { upsert: true });
+  }
+}
+
 // GET /api/providers/self — the owner's own bookable provider record (or null).
 // Defined before /:id-style routes so "self" isn't treated as an id.
 router.get("/self", requireAuth, requireOwner, async (req, res) => {
@@ -43,6 +60,7 @@ router.post("/self", requireAuth, requireOwner, async (req, res) => {
         active: true, ownerUserId: req.auth.uid, serviceIds: svcIds, sortOrder: 0, createdAt: new Date(),
       });
       p = { _id: r.insertedId };
+      await seedHoursFromShop(db, shopId, r.insertedId.toString());
     } else if (p) {
       await db.collection("providers").updateOne({ _id: p._id }, { $set: { active: listed } });
     }
@@ -119,6 +137,7 @@ router.post("/", async (req, res) => {
     };
     const result = await db.collection("providers").insertOne(doc);
     const providerId = result.insertedId.toString();
+    await seedHoursFromShop(db, shopId, providerId);
 
     // If an email was given, auto-provision a provider login bound to this shop
     // + provider, and mint a one-time invite link the owner shares. The provider
