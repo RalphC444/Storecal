@@ -206,6 +206,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     { key: "clients", label: "Clients", icon: "clients" },
     { key: "myprofile", label: "My profile", icon: "scissors" },
     ...(galleryTab ? [{ key: "mygallery", label: "My gallery", icon: "image" }] : []),
+    { key: "settings", label: "Settings", icon: "settings" },
   ] : [
     { key: "calendar", label: "Calendar", icon: "calendar" },
     { key: "services", label: "Services", icon: "tag" },
@@ -213,12 +214,14 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     { key: "clients", label: "Clients", icon: "clients" },
     // Staff/team tab hidden when the operator has turned staff off (e.g. auto shops).
     ...(showStaff ? [{ key: "providers", label: teamLabel, icon: "scissors" }] : []),
+    { key: "settings", label: "Settings", icon: "settings" },
   ];
   const go = (v) => { setView(v); setMobileOpen(false); };
 
   // Context action shown fixed in the mobile top nav, per active tab.
   const topAction =
-    view === "calendar" ? (isProvider ? { label: "My hours", onClick: openHours } : { label: "Store hours", onClick: () => setStoreHoursOpen(true) })
+    view === "settings" ? null
+    : view === "calendar" ? (isProvider ? { label: "My hours", onClick: openHours } : { label: "Store hours", onClick: () => setStoreHoursOpen(true) })
     : view === "myprofile" ? { label: "My hours", onClick: openHours }
     : view === "providers" ? { label: `Add ${teamLabel.replace(/s$/, "").toLowerCase()}`, onClick: () => setAddReq(n => n + 1) }
     : view === "services" ? { label: "Add service", onClick: () => setAddReq(n => n + 1) }
@@ -276,13 +279,15 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         </button>
 
         <div className="userprofile">
-          <button className="userprofile__acct" onClick={() => go("settings")} title="Account settings">
+          {/* Account link disabled for now — Settings lives in the nav above.
+              The store name + sign-out stay here. */}
+          <div className="userprofile__acct userprofile__acct--static">
             <span className="userprofile__av">{(user.name || user.email).slice(0, 1).toUpperCase()}<span className="userprofile__dot" /></span>
             <span className="userprofile__meta">
               <span className="userprofile__name">{user.name || user.email}</span>
-              <span className="userprofile__role">{user.role === "owner" ? "Owner" : "Staff"} · Settings</span>
+              <span className="userprofile__role">{user.role === "owner" ? "Owner" : "Staff"}</span>
             </span>
-          </button>
+          </div>
           <button className="userprofile__out" onClick={onSignOut} title="Sign out" aria-label="Sign out">
             <Icon name="signout" />
           </button>
@@ -295,7 +300,9 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
             <Icon name="menu" />
           </button>
           <span className="topbar__title">{shopName}</span>
-          <button className="topbar__cta" onClick={topAction.onClick}>{topAction.label}</button>
+          {topAction
+            ? <button className="topbar__cta" onClick={topAction.onClick}>{topAction.label}</button>
+            : <span className="topbar__cta-spacer" />}
         </div>
 
         {view === "calendar" ? (

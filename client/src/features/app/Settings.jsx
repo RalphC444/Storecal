@@ -197,40 +197,91 @@ function SecurityPanel() {
 
 function WebsitePanel() {
   const [msg, setMsg] = useState("");
+  const [until, setUntil] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+
+  // Compare against saved values so the Save button only enables on real edits.
+  const [savedMsg, setSavedMsg] = useState("");
+  const [savedUntil, setSavedUntil] = useState("");
 
   useEffect(() => {
     fetch("/api/shop-config").then(r => r.json())
-      .then(d => { setMsg(d.announcement || ""); })
+      .then(d => {
+        setMsg(d.announcement || ""); setSavedMsg(d.announcement || "");
+        setUntil(d.announcementUntil || ""); setSavedUntil(d.announcementUntil || "");
+      })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
 
-  async function save() {
-    setSaving(true); setSaved(false);
+  async function persist(nextMsg, nextUntil) {
+    setSaving(true);
     const res = await fetch("/api/shop-config", {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ announcement: msg }),
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ announcement: nextMsg, announcementUntil: nextUntil }),
     });
+    const d = await res.json().catch(() => ({}));
     setSaving(false);
-    if (res.ok) { setSaved(true); toast(msg.trim() ? "Banner saved" : "Banner cleared"); setTimeout(() => setSaved(false), 2000); }
+    if (res.ok) {
+      setSavedMsg(d.announcement ?? nextMsg);
+      setSavedUntil(d.announcementUntil ?? "");
+      setUntil(d.announcementUntil ?? "");
+      return true;
+    }
+    return false;
   }
+
+  async function save() {
+    if (await persist(msg.trim(), until)) toast(msg.trim() ? "Banner saved" : "Banner cleared");
+  }
+  async function clearBanner() {
+    setMsg(""); setUntil("");
+    if (await persist("", "")) toast("Banner cleared");
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const hasSaved = !!savedMsg;
+  const dirty = msg.trim() !== savedMsg || until !== savedUntil;
+  const isLive = hasSaved && (!savedUntil || todayStr < savedUntil);
 
   return (
     <>
       <CategoryHead title="Website" desc="Control what visitors see on your storefront." />
       <SettingsCard
         title="Announcement banner"
-        desc="Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.” Leave it empty to hide it."
+        desc="Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
       >
         <label className="field">
-          <textarea rows={2} maxLength={250} value={msg} onChange={(e) => { setSaved(false); setMsg(e.target.value); }}
+          <span className="field__label">Message</span>
+          <textarea rows={2} maxLength={250} value={msg} onChange={(e) => setMsg(e.target.value)}
             placeholder="We’re closed for vacation July 20–28 — book us for after. Thanks!" />
+          <span className="banner__count">{msg.length}/250</span>
         </label>
-        <div className="schedule__save">
-          <button className="btn" onClick={save} disabled={saving || !loaded}>{saving ? "Saving…" : "Save banner"}</button>
-          <span className="schedule__msg">{saved ? "✓ Saved" : `${msg.length}/250`}</span>
+
+        <label className="field banner__when">
+          <span className="field__label">Automatically hide on <span className="field__opt">— optional</span></span>
+          <input type="date" min={todayStr} value={until} onChange={(e) => setUntil(e.target.value)} disabled={!msg.trim()} />
+          <span className="banner__hint">
+            {until ? `The banner disappears on ${until}.` : "Leave empty to keep it up until you remove it."}
+          </span>
+        </label>
+
+        {hasSaved && (
+          <p className={"banner__status" + (isLive ? " banner__status--live" : "")}>
+            {isLive
+              ? <>● Live on your website{savedUntil ? ` — hides on ${savedUntil}` : ""}.</>
+              : <>This banner has expired and is no longer showing.</>}
+          </p>
+        )}
+
+        <div className="banner__actions">
+          <button className="btn" onClick={save} disabled={saving || !loaded || !dirty}>
+            {saving ? "Saving…" : "Save banner"}
+          </button>
+          <button className="action action--danger" onClick={clearBanner} disabled={saving || !loaded || (!hasSaved && !msg && !until)}>
+            Clear banner
+          </button>
         </div>
       </SettingsCard>
     </>

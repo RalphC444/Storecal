@@ -17,6 +17,19 @@ const DEFAULT_BOOKING = {
   notesPlaceholder: "Anything we should know before your appointment?",
 };
 
+// Local YYYY-MM-DD for "today" (matches the date the owner picks in the editor).
+function todayKeyLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// Whether the announcement banner should currently show: it needs a message and,
+// if an auto-hide date is set, today must still be before it (disappears ON that date).
+function bannerActive(shop) {
+  if (!shop.announcement) return false;
+  if (!shop.announcementUntil) return true;
+  return todayKeyLocal() < shop.announcementUntil;
+}
+
 // GET /api/shop-config
 // One call the booking widget can consume: shop identity + booking-form config,
 // the service menu, and the bookable providers.
@@ -62,7 +75,11 @@ router.get("/", async (req, res) => {
       showGallery: shop.showGallery !== false,
       showStaffGalleries: shop.showStaffGalleries !== false,
       // Owner-set announcement banner ("We're on vacation…"). "" = no banner.
-      announcement: shop.announcement || "",
+      // An optional announcementUntil (YYYY-MM-DD) auto-hides it: once today is
+      // on or past that date, the public banner is suppressed (raw value still
+      // returned so the Settings editor can show/adjust the schedule).
+      announcement: bannerActive(shop) ? (shop.announcement || "") : "",
+      announcementUntil: shop.announcementUntil || "",
       shop: {
         slug: shop.slug,
         name: shop.name,
@@ -104,11 +121,15 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
   try {
     const db = await getDb();
     const announcement = String(req.body.announcement || "").trim().slice(0, 250);
+    // Optional auto-hide date (YYYY-MM-DD). Anything else clears the schedule.
+    // Clearing the message also clears any schedule.
+    let announcementUntil = String(req.body.announcementUntil || "").trim();
+    if (!announcement || !/^\d{4}-\d{2}-\d{2}$/.test(announcementUntil)) announcementUntil = "";
     await db.collection("shops").updateOne(
       { _id: new ObjectId(req.auth.shopId) },
-      { $set: { announcement, updatedAt: new Date() } }
+      { $set: { announcement, announcementUntil, updatedAt: new Date() } }
     );
-    res.json({ success: true, announcement });
+    res.json({ success: true, announcement, announcementUntil });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
