@@ -35,7 +35,7 @@ router.get("/", async (req, res) => {
     if (req.query.scope === "staff") filter = { shopId, providerId: { $ne: null } };
     else if (providerId) filter = { shopId, providerId };
     else filter = { shopId, providerId: null };
-    const imgs = await db.collection("gallery").find(filter).sort({ createdAt: -1, _id: -1 }).toArray();
+    const imgs = await db.collection("gallery").find(filter).sort({ sortOrder: 1, createdAt: 1, _id: 1 }).toArray();
     // Public (embed, ?key=) URLs vary per shop → safe to share-cache. Signed-in
     // admin URLs are the same string for every account (differ only by cookie),
     // so a shared cache would serve the previous account's photos after a login
@@ -70,6 +70,28 @@ router.post("/", requireAuth, async (req, res) => {
     const doc = { shopId, providerId, url, caption: String(req.body.caption || "").trim(), sortOrder: count, createdAt: new Date() };
     const r = await db.collection("gallery").insertOne(doc);
     res.status(201).json(publicImg({ ...doc, _id: r.insertedId }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/gallery/reorder — persist a new display order for a gallery.
+// Body: { ids: [orderedId, …], providerId? }. Writes sortOrder = list index.
+router.put("/reorder", requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const shopId = req.auth.shopId;
+    const providerId = req.body.providerId || null;
+    if (!canManage(req.auth, providerId)) return res.status(403).json({ error: "Not allowed" });
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    const ops = [];
+    ids.forEach((id, i) => {
+      let _id;
+      try { _id = new ObjectId(id); } catch { return; }
+      ops.push({ updateOne: { filter: { _id, shopId, providerId }, update: { $set: { sortOrder: i } } } });
+    });
+    if (ops.length) await db.collection("gallery").bulkWrite(ops);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -115,8 +137,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
     await db.collection("gallery").deleteOne({ _id, shopId });
     // If a shop cover was removed, promote the newest remaining shop photo to cover.
     if (img.cover && !img.providerId) {
-      const newest = await db.collection("gallery").find({ shopId, providerId: null }).sort({ createdAt: -1, _id: -1 }).limit(1).next();
-      if (newest) await db.collection("gallery").updateOne({ _id: newest._id }, { $set: { cover: true } });
+      const first = await db.collection("gallery").find({ shopId, providerId: null }).sort({ sortOrder: 1, createdAt: 1, _id: 1 }).limit(1).next();
+      if (first) await db.collection("gallery").updateOne({ _id: first._id }, { $set: { cover: true } });
     }
     res.json({ success: true });
   } catch (err) {

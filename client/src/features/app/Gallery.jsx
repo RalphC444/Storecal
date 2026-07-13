@@ -28,7 +28,7 @@ export function GalleryView({ addReq }) {
         const url = await resizeImageDataUrl(f);
         const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
         const d = await res.json().catch(() => ({}));
-        if (res.ok) setImages(list => [d, ...(list || [])]); // newest first
+        if (res.ok) setImages(list => [...(list || []), d]); // append (display order is manual)
         else setErr(d.error || "Couldn’t add that image");
       } catch { setErr("Couldn’t process an image"); }
     }
@@ -52,6 +52,29 @@ export function GalleryView({ addReq }) {
     if (res.ok) toast("Cover photo set"); else { setErr("Couldn’t set cover"); load(); }
   }
 
+  // Drag-to-reorder (native HTML5 DnD). Reorder locally as you drag over a tile,
+  // then persist the final order on drop. Best-effort: on failure, reload.
+  const dragFrom = useRef(null);
+  function onDragStart(i) { dragFrom.current = i; }
+  function onDragOver(e, i) {
+    e.preventDefault();
+    const from = dragFrom.current;
+    if (from === null || from === i) return;
+    setImages(list => {
+      const next = [...list];
+      const [moved] = next.splice(from, 1);
+      next.splice(i, 0, moved);
+      return next;
+    });
+    dragFrom.current = i;
+  }
+  async function onDrop() {
+    dragFrom.current = null;
+    const ids = (images || []).map(i => i._id);
+    const res = await fetch("/api/gallery/reorder", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+    if (res.ok) toast("Order saved"); else { setErr("Couldn’t save order"); load(); }
+  }
+
   return (
     <div className="pageview">
       <div className="pageview__head">
@@ -59,7 +82,7 @@ export function GalleryView({ addReq }) {
         <button className="btn btn--new" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : "+ Add photos"}</button>
       </div>
       <div className="pageview__body">
-        <p className="panel__hint">Photos shown in your website’s gallery. Mark one as the <b>cover</b> to feature it in the site hero (it won’t appear in the gallery grid). JPG or PNG, up to 40 images.</p>
+        <p className="panel__hint">Photos shown in your website’s gallery. <b>Drag to reorder.</b> Mark one as the <b>cover</b> to feature it in the site hero (it won’t appear in the gallery grid). JPG or PNG, up to 40 images.</p>
         {err && <p className="form__error">{err}</p>}
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
         {!images ? <LoadingSpinner /> : (
@@ -68,9 +91,17 @@ export function GalleryView({ addReq }) {
               <span className="gallery-add__plus">+</span>
               <span className="gallery-add__t">{busy ? "Uploading…" : "Add photo"}</span>
             </button>
-            {images.map(img => (
-              <div key={img._id} className={"gallery-item" + (img.cover ? " gallery-item--cover" : "")}>
-                <img src={img.url} alt={img.caption || ""} loading="lazy" />
+            {images.map((img, i) => (
+              <div
+                key={img._id}
+                className={"gallery-item" + (img.cover ? " gallery-item--cover" : "")}
+                draggable
+                onDragStart={() => onDragStart(i)}
+                onDragOver={e => onDragOver(e, i)}
+                onDrop={onDrop}
+                onDragEnd={() => { dragFrom.current = null; }}
+              >
+                <img src={img.url} alt={img.caption || ""} loading="lazy" draggable={false} />
                 {img.cover
                   ? <span className="gallery-badge">★ Cover</span>
                   : <button className="gallery-cover-btn" onClick={() => setCover(img)}>Set as cover</button>}
