@@ -429,8 +429,7 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .brand__mark {
   width: 30px; height: 30px; flex: none;
   display: grid; place-items: center;
-  background: var(--nav-soft); color: var(--nav);
-  border-radius: 9px;
+  color: var(--nav);
 }
 .brand__mark .ico { width: 18px; height: 18px; }
 .brand__name {

@@ -880,9 +880,7 @@
     var actions = el('<div class="sc__done-actions"></div>');
     var cal = el('<button class="sc__btn">Add to calendar</button>');
     cal.onclick = downloadIcs;
-    var close = el('<button class="sc__btn sc__btn--ghost">Close</button>');
-    close.onclick = closeModal;
-    actions.appendChild(cal); actions.appendChild(close);
+    actions.appendChild(cal);
     body.appendChild(actions);
     frame("Confirmed", body);
   }
