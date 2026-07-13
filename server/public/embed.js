@@ -822,13 +822,17 @@
     // so only grooming shops collect them. Driven by the shop's booking config.
     var booking = (cfg.shop && cfg.shop.booking) || {};
     var isPet = cfg.shop.businessType === "grooming" || !!booking.pet;
+    // Auto shops don't assign a customer-facing technician, so drop the
+    // "with <staff>" clause entirely (matches the admin, which hides Staff too).
+    var isAuto = cfg.shop.businessType === "auto";
+    var withPart = isAuto ? "" : " with <b>" + esc(prov.name) + "</b>";
     var addonLine = (state.addons || []).length
       ? "<br>Add-ons: " + state.addons.map(function (a) { return esc(a.name) + (a.price ? " (" + esc(a.price) + ")" : ""); }).join(", ")
       : "";
     var body = document.createElement("div");
     body.appendChild(el(
-      '<div class="sc__summary"><b>' + esc(state.service.name) + "</b> with <b>" + esc(prov.name) +
-      "</b><br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b>" + addonLine + "</div>"
+      '<div class="sc__summary"><b>' + esc(state.service.name) + "</b>" + withPart +
+      "<br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b>" + addonLine + "</div>"
     ));
     var petFields = isPet ?
       '<label class="sc__field"><span class="sc__label">Pet’s name</span><input class="sc__input" id="sc-pet-name"></label>' +
@@ -906,7 +910,8 @@
     var body = el(
       '<div class="sc__done"><div class="sc__check">✓</div>' +
       '<div class="sc__done-t">You\'re booked!</div>' +
-      '<div class="sc__done-s">' + esc(state.service.name) + " with " + esc((state.assigned || state.provider).name) + "<br>" +
+      '<div class="sc__done-s">' + esc(state.service.name) +
+      (cfg.shop.businessType === "auto" ? "" : " with " + esc((state.assigned || state.provider).name)) + "<br>" +
       esc(fmtDate(state.date)) + " at " + esc(fmtTime(state.time)) + "</div></div>"
     );
     var actions = el('<div class="sc__done-actions"></div>');
@@ -940,7 +945,7 @@
       "DTEND:" + icsLocal(state.date, state.time, dur),
       "SUMMARY:" + icsEsc(state.service.name + " · " + cfg.shop.name),
       "LOCATION:" + icsEsc(cfg.shop.address || ""),
-      "DESCRIPTION:" + icsEsc("Appointment with " + (state.assigned || state.provider).name),
+      "DESCRIPTION:" + icsEsc(cfg.shop.businessType === "auto" ? "Appointment at " + cfg.shop.name : "Appointment with " + (state.assigned || state.provider).name),
       "END:VEVENT", "END:VCALENDAR",
     ].join("\r\n");
     var url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
