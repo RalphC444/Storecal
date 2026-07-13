@@ -9,9 +9,10 @@ export function Icon({ name }) {
     ),
     clients: (
       <>
-        <circle cx="9" cy="8" r="3.1" />
-        <path d="M2.7 19a6.3 6.3 0 0 1 12.6 0" />
-        <path d="M16.5 5.6a3 3 0 0 1 0 5.8M17.5 19a6.3 6.3 0 0 0-2-4.6" />
+        <path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20" />
+        <circle cx="9" cy="7" r="3.5" />
+        <path d="M22 20v-1.5a4 4 0 0 0-3-3.87" />
+        <path d="M15 3.63a4 4 0 0 1 0 7.75" />
       </>
     ),
     scissors: (
