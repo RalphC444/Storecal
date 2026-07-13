@@ -109,6 +109,37 @@ async function sendBookingConfirmation(d) {
   return true;
 }
 
+// Heads-up to the shop owner when a customer books through the widget, nudging
+// them to open StoreCal to manage it. `d` = { to, shopName, clientName, service,
+// dateLabel, timeLabel, providerName, appUrl }
+async function sendOwnerBookingNotification(d) {
+  const resend = client();
+  if (!resend || !d.to) return false;
+  const rows = [
+    ["Client", d.clientName],
+    ["Service", d.service],
+    ["When", `${d.dateLabel} at ${d.timeLabel}`],
+    d.providerName ? ["With", d.providerName] : null,
+  ].filter(Boolean);
+  const table = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:88px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
+    )
+    .join("");
+  await resend.emails.send({
+    from: FROM,
+    to: d.to,
+    subject: `New booking${d.clientName ? ` from ${d.clientName}` : ""} at ${d.shopName}`,
+    html: shell("You've got a new booking",
+      `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">A customer just booked online. Log in to StoreCal to view or manage it.</p>
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
+       ${button(d.appUrl, "Open StoreCal")}
+       <p style="color:#9aa0a8;font-size:12px;margin:0">Or go to <a href="${d.appUrl}" style="color:${PERIWINKLE};text-decoration:none">${d.appUrl}</a> and sign in.</p>`),
+  });
+  return true;
+}
+
 // Branded cancellation notice to the customer, with the staff/owner's message
 // and the shop's phone number so they can rebook or ask questions.
 // `d` = { to, clientName, shopName, shopPhone, service, dateLabel, timeLabel, providerName, message }
@@ -158,5 +189,6 @@ module.exports = {
   sendReset,
   sendBookingConfirmation,
   sendBookingCancellation,
+  sendOwnerBookingNotification,
   emailEnabled: () => !!process.env.RESEND_API_KEY,
 };

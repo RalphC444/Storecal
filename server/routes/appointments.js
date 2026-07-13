@@ -4,7 +4,7 @@ const { upsertClient } = require("../lib/clients");
 const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
 const { notifyAppointmentChange } = require("../lib/realtime");
-const { sendBookingConfirmation, sendBookingCancellation } = require("../lib/mailer");
+const { sendBookingConfirmation, sendBookingCancellation, sendOwnerBookingNotification } = require("../lib/mailer");
 const { ObjectId } = require("mongodb");
 
 // Shared email fields (shop name + phone, formatted date/time, details) for a
@@ -69,6 +69,32 @@ function emailBookingConfirmation(db, shopId, doc) {
   (async () => {
     try { await sendBookingConfirmation(await bookingFields(db, shopId, doc)); }
     catch (e) { console.error("Booking confirmation email failed:", e.message); }
+  })();
+}
+
+// Notify the shop owner of a new online booking, with a CTA to log in. Only for
+// customer-made (public) bookings — an owner creating a walk-in already knows.
+function emailOwnerNotification(db, shopId, doc) {
+  (async () => {
+    try {
+      const owner = await db.collection("users").findOne(
+        { shopId, role: "owner" },
+        { projection: { email: 1 } }
+      );
+      if (!owner?.email) return;
+      const f = await bookingFields(db, shopId, doc);
+      const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "https://www.storecal.com").replace(/\/$/, "");
+      await sendOwnerBookingNotification({
+        to: owner.email,
+        shopName: f.shopName,
+        clientName: f.clientName,
+        service: f.service,
+        dateLabel: f.dateLabel,
+        timeLabel: f.timeLabel,
+        providerName: f.providerName,
+        appUrl,
+      });
+    } catch (e) { console.error("Owner booking notification failed:", e.message); }
   })();
 }
 
@@ -221,7 +247,8 @@ function validate(body, isPublic) {
 // POST /api/appointments — create an appointment (phone / walk-in booking)
 router.post("/", async (req, res) => {
   try {
-    const err = validate(req.body, !!req.body.key);
+    const isPublic = !!req.body.key; // came from the embed / hosted booking page
+    const err = validate(req.body, isPublic);
     if (err) return res.status(400).json({ error: err });
 
     const db = await getDb();
@@ -252,6 +279,7 @@ router.post("/", async (req, res) => {
       const result = await db.collection("appointments").insertOne(doc);
       notifyAppointmentChange(shopId, { action: "created", _id: result.insertedId.toString(), dateKey: doc.dateKey, providerId: doc.providerId });
       emailBookingConfirmation(db, shopId, doc); // branded confirmation to the customer (best-effort)
+      if (isPublic) emailOwnerNotification(db, shopId, doc); // heads-up + login nudge to the owner
       res.status(201).json({ success: true, _id: result.insertedId.toString() });
     } catch (e) {
       if (e && e.code === 11000) return res.status(409).json({ error: "Sorry, that time was just booked. Please pick another." });
