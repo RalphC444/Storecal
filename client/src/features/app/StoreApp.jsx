@@ -58,7 +58,9 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         setShowGallery(cfg.showGallery !== false);
       })
       .catch(() => {});
-  }, [loadProviders]);
+    // Re-key on the signed-in shop so switching accounts (without a full
+    // remount) refreshes the store name/config instead of showing stale data.
+  }, [loadProviders, user.shopId]);
 
   const teamLabel = TEAM_LABEL[businessType] || TEAM_LABEL.generic;
   const isMobile = useIsMobile();
