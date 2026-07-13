@@ -36,7 +36,12 @@ router.get("/", async (req, res) => {
     else if (providerId) filter = { shopId, providerId };
     else filter = { shopId, providerId: null };
     const imgs = await db.collection("gallery").find(filter).sort({ createdAt: -1, _id: -1 }).toArray();
-    res.set("Cache-Control", "public, max-age=60"); // photos change rarely
+    // Public (embed, ?key=) URLs vary per shop → safe to share-cache. Signed-in
+    // admin URLs are the same string for every account (differ only by cookie),
+    // so a shared cache would serve the previous account's photos after a login
+    // switch. Only cache the public case.
+    if (req.auth?.shopId) { res.set("Cache-Control", "no-store, private"); res.set("Vary", "Cookie"); }
+    else res.set("Cache-Control", "public, max-age=60"); // photos change rarely
     res.json(imgs.map(publicImg));
   } catch (err) {
     res.status(500).json({ error: err.message });

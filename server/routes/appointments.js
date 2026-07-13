@@ -9,8 +9,11 @@ const { ObjectId } = require("mongodb");
 
 // Shared email fields (shop name + phone, formatted date/time, details) for a
 // booking doc — used by both the confirmation and cancellation notices.
-async function bookingFields(db, shopId, doc) {
-  const shop = await db.collection("shops").findOne({ _id: new ObjectId(shopId) }, { projection: { name: 1, phone: 1 } });
+async function bookingFields(db, shopId, doc, origin) {
+  const shop = await db.collection("shops").findOne(
+    { _id: new ObjectId(shopId) },
+    { projection: { name: 1, phone: 1, website: 1, businessType: 1, publicKey: 1 } }
+  );
   const [h, m] = String(doc.timeValue || "").split(":").map(Number);
   const timeLabel = Number.isFinite(h) ? `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
   const dateLabel = doc.dateKey
@@ -26,7 +29,37 @@ async function bookingFields(db, shopId, doc) {
     timeLabel,
     providerName: doc.providerName || "",
     addons: doc.addons || [],
+    // Deep-link back to the shop's website with the same service + groomer
+    // preselected, so the cancellation email can offer one-tap rebooking.
+    rebookUrl: buildRebookUrl(shop, doc, origin),
   };
+}
+
+// A rebook link that preselects the same service + staff member (the embed
+// reads sc_service/sc_provider and auto-opens the widget). Grooming only for
+// now. Targets the shop's own website when set (the embed lives there); else
+// falls back to the StoreCal-hosted /book page so the link always works.
+function buildRebookUrl(shop, doc, origin) {
+  if (!shop || shop.businessType !== "grooming" || !doc.service) return "";
+  let base = "";
+  if (shop.website) {
+    // The embed lives on the shop's own site — send them straight there.
+    base = /^https?:\/\//i.test(shop.website) ? shop.website : `https://${shop.website}`;
+  } else if (shop.publicKey) {
+    // No own website → the StoreCal-hosted /book page. Prefer an explicit
+    // PUBLIC_URL, else the app origin the request came from (same-origin in prod).
+    const host = (process.env.PUBLIC_URL || origin || "").replace(/\/$/, "");
+    if (host) base = `${host}/book?key=${encodeURIComponent(shop.publicKey)}`;
+  }
+  if (!base) return "";
+  try {
+    const u = new URL(base);
+    u.searchParams.set("sc_service", doc.service);
+    if (doc.providerId) u.searchParams.set("sc_provider", String(doc.providerId));
+    return u.toString();
+  } catch {
+    return "";
+  }
 }
 
 // Fire-and-forget branded emails to the customer. Never block or fail the
@@ -39,10 +72,10 @@ function emailBookingConfirmation(db, shopId, doc) {
   })();
 }
 
-function emailBookingCancellation(db, shopId, doc, message) {
+function emailBookingCancellation(db, shopId, doc, message, origin) {
   if (!doc.client?.email) return;
   (async () => {
-    try { await sendBookingCancellation({ ...(await bookingFields(db, shopId, doc)), message: message || "" }); }
+    try { await sendBookingCancellation({ ...(await bookingFields(db, shopId, doc, origin)), message: message || "" }); }
     catch (e) { console.error("Booking cancellation email failed:", e.message); }
   })();
 }
@@ -57,8 +90,14 @@ router.get("/", async (req, res) => {
     const shopId = await resolveShopId(req, db);
     if (!shopId) return res.status(404).json({ error: "Shop not found" });
 
-    // A provider can only ever see their own appointments.
-    const scopedProviderId = req.auth?.role === "provider" ? req.auth.providerId : null;
+    // A provider can only ever see their own appointments — EXCEPT at auto shops,
+    // where "staff" are administrators (not bookable service providers): they help
+    // manage the store's whole calendar, so they see every appointment.
+    let scopedProviderId = req.auth?.role === "provider" ? req.auth.providerId : null;
+    if (scopedProviderId) {
+      const shop = await db.collection("shops").findOne({ _id: new ObjectId(shopId) }).catch(() => null);
+      if (shop?.businessType === "auto") scopedProviderId = null;
+    }
     const { from, to, status, providerId } = req.query;
 
     const filter = { shopId };
@@ -292,8 +331,9 @@ router.patch("/:id", async (req, res) => {
     await db.collection("appointments").updateOne({ _id: new ObjectId(req.params.id), shopId }, { $set: set });
 
     notifyAppointmentChange(shopId, { action: "status", _id: req.params.id, status });
-    // Email the customer a branded cancellation with the staff message + shop phone.
-    if (status === "cancelled") emailBookingCancellation(db, shopId, appt, message);
+    // Email the customer a branded cancellation with the staff message + shop
+    // phone, and a rebook link (grooming). origin backstops the hosted /book URL.
+    if (status === "cancelled") emailBookingCancellation(db, shopId, appt, message, req.headers.origin);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

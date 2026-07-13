@@ -130,9 +130,15 @@ async function sendBookingCancellation(d) {
   const note = d.message
     ? `<div style="background:#f7f8fa;border-radius:10px;padding:14px 16px;margin:0 0 16px"><p style="margin:0;color:#333;font-size:14px;line-height:1.6"><b>A note from ${esc(d.shopName)}:</b><br>${esc(d.message)}</p></div>`
     : "";
+  // When we have a rebook link (shop website + same service/provider preselected),
+  // lead with a one-tap "Book again" CTA — the fastest path back onto the calendar.
+  const rebook = d.rebookUrl
+    ? `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 4px">Want to come back in? Rebook the same${d.providerName ? " service with the same groomer" : " service"} in a couple of taps:</p>
+       ${button(d.rebookUrl, "Book another time")}`
+    : "";
   const callLine = d.shopPhone
-    ? `Questions or want to rebook? Call ${esc(d.shopName)} at <b>${esc(d.shopPhone)}</b>.`
-    : "Questions or want to rebook? Please contact the shop.";
+    ? `Questions${d.rebookUrl ? "" : " or want to rebook"}? Call ${esc(d.shopName)} at <b>${esc(d.shopPhone)}</b>.`
+    : `Questions${d.rebookUrl ? "" : " or want to rebook"}? Please contact the shop.`;
   await resend.emails.send({
     from: FROM,
     to: d.to,
@@ -141,6 +147,7 @@ async function sendBookingCancellation(d) {
       `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">Hi${first ? ` ${esc(first)}` : ""}, your appointment with <b>${esc(d.shopName)}</b> has been cancelled:</p>
        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
        ${note}
+       ${rebook}
        <p style="color:#333;font-size:14px;line-height:1.6;margin:0">${callLine}</p>`),
   });
   return true;

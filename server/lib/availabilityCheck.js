@@ -46,7 +46,7 @@ async function openRangesForDate(db, shopId, providerId, dateKey) {
     db.collection("workingHours").find({ providerId, shopId }).toArray(),
     db.collection("scheduleMeta").findOne({ providerId, shopId }),
     db.collection("scheduleOverrides").findOne({ providerId, shopId, date: dateKey }),
-    db.collection("timeOff").find({ providerId, startDate: { $lte: dateKey }, endDate: { $gte: dateKey } }).toArray(),
+    db.collection("timeOff").find({ providerId, shopId, startDate: { $lte: dateKey }, endDate: { $gte: dateKey } }).toArray(),
   ]);
 
   if (timeoffs.length > 0) return { configured: true, ranges: [] }; // on leave

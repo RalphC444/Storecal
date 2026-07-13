@@ -199,12 +199,16 @@
   root.appendChild(overlay);
 
   // openModal(opts): opts.service = a service id or name to preselect (jumps
-  // straight to the staff step). Ignores non-object args (e.g. click events).
+  // straight to the staff step). opts.provider = a provider id to also preselect
+  // (jumps straight to date/time — used by rebook links). Ignores non-object
+  // args (e.g. click events).
   function openModal(opts) {
-    var pre = opts && typeof opts === "object" && (opts.service || opts.serviceId || opts.serviceName);
+    var o = opts && typeof opts === "object" ? opts : null;
+    var pre = o && (o.service || o.serviceId || o.serviceName);
+    var provPre = o && (o.provider || o.providerId);
     overlay.classList.add("sc-overlay--open");
     document.body.style.overflow = "hidden"; // lock page scroll behind the modal
-    start(pre || null);
+    start(pre || null, provPre || null);
   }
   function closeModal() {
     overlay.classList.remove("sc-overlay--open");
@@ -213,8 +217,23 @@
   trigger.onclick = function () { if (!booking.active) return callStore(); openModal(); };
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
-  // Link-in-bio pages set data-auto to open the booking modal immediately.
-  if (script.getAttribute("data-auto")) setTimeout(function () { if (booking.active) openModal(); }, 0);
+  // Rebook deep-link (e.g. from a cancellation email): a URL with
+  // ?sc_service=<id|name>[&sc_provider=<id>] auto-opens the widget with that
+  // service (and staff member) preselected. start() re-fetches config and
+  // gracefully falls back if booking is off or the ids no longer match.
+  var qService = null, qProvider = null;
+  try {
+    var params = new URLSearchParams(window.location.search);
+    qService = params.get("sc_service");
+    qProvider = params.get("sc_provider");
+  } catch (e) { /* URLSearchParams unsupported → skip deep-link */ }
+  if (qService) {
+    setTimeout(function () { openModal({ service: qService, provider: qProvider || undefined }); }, 0);
+  } else if (script.getAttribute("data-auto")) {
+    // Link-in-bio / hosted /book pages set data-auto to open immediately. Skip
+    // this when a deep-link is present so we don't open twice.
+    setTimeout(function () { if (booking.active) openModal(); }, 0);
+  }
 
   // Per-service "Book" CTAs anywhere on the page: <button data-storecal-book
   // data-service="SERVICE_ID_OR_NAME">. Opens the widget preselected to that
@@ -389,7 +408,10 @@
   // ── Steps ────────────────────────────────────────────────────────────────
   // preselect (optional): a service id or name. When it matches, skip straight
   // to the staff step with that service already chosen.
-  function start(preselect) {
+  // providerPre (optional): a provider id. When BOTH a service and this provider
+  // match (e.g. a rebook link), skip straight to the date/time step with the
+  // same service + staff member locked in.
+  function start(preselect, providerPre) {
     frame("Loading…", loading());
     fetch(api("/api/shop-config")).then(function (r) { return r.json(); }).then(function (d) {
       if (d.error) throw new Error(d.error);
@@ -402,10 +424,18 @@
       })[0];
       if (svc) {
         state.service = svc; state.provider = null; state.assigned = null; state.addons = []; state.date = ""; state.time = "";
-        // Deep-link straight to staff when there's nothing to add on the first
-        // step; otherwise show the combined step with the service preselected.
-        if ((cfg.addons || []).length) chooseService();
-        else goAfterService();
+        var prov = providerPre && (cfg.providers || []).filter(function (p) { return p._id === String(providerPre); })[0];
+        if (prov) {
+          // Rebook: same service + same groomer → straight to date/time.
+          state.provider = prov; state.assigned = null;
+          chooseWhen();
+        } else if ((cfg.addons || []).length) {
+          // Nothing to add on the first step → jump to staff; else show the
+          // combined step with the service preselected.
+          chooseService();
+        } else {
+          goAfterService();
+        }
       } else {
         chooseService();
       }
@@ -537,7 +567,7 @@
   // Date & time: a month calendar (left) + open timeslots for the chosen day (right).
   function chooseWhen() {
     var today = todayStr();
-    var provAv = null, shopAv = null, provTimeoff = []; // schedules + time off for graying closed days
+    var provAv = null, shopAv = null, provTimeoff = [], shopTimeoff = []; // schedules + time off for graying closed days
     var scheduleLoaded = false; // false until hours load → show skeletons, not a wrong all-open grid
     var startFrom = state.date && state.date >= today ? state.date : today;
     var view = new Date(startFrom + "T00:00:00"); // month being shown
@@ -597,7 +627,7 @@
     }
     function isOpenDay(ds) {
       if (ds < today) return false;
-      var p = ranges(provAv, ds, provTimeoff), s = ranges(shopAv, ds, null);
+      var p = ranges(provAv, ds, provTimeoff), s = ranges(shopAv, ds, shopTimeoff);
       return (p === null || p.length > 0) && (s === null || s.length > 0);
     }
 
@@ -741,8 +771,10 @@
         fetch(api("/api/availability/" + state.provider._id)).then(jsonOr(null)).catch(function () { return null; }),
         fetch(api("/api/availability/shop")).then(jsonOr(null)).catch(function () { return null; }),
         fetch(api("/api/timeoff/" + state.provider._id)).then(jsonOr([])).catch(function () { return []; }),
+        fetch(api("/api/timeoff/shop")).then(jsonOr([])).catch(function () { return []; }),
       ]).then(function (res) {
         provAv = res[0]; shopAv = res[1]; provTimeoff = Array.isArray(res[2]) ? res[2] : [];
+        shopTimeoff = Array.isArray(res[3]) ? res[3] : [];
         scheduleLoaded = true; // real hours are in → swap skeletons for the live grid/times
         // Keep the selection valid: if the chosen day is now closed (or none is
         // chosen), jump to the first open day within ~60 days so times show.

@@ -70,9 +70,11 @@ export function WeekCalendar({
             </select>
           </label>
         )}
-        <button className="navbutton navbutton--cta calendar__storehours" onClick={onStoreHours}>
-          <Icon name="clock" /> {hoursLabel}
-        </button>
+        {onStoreHours && (
+          <button className="navbutton navbutton--cta calendar__storehours" onClick={onStoreHours}>
+            <Icon name="clock" /> {hoursLabel}
+          </button>
+        )}
       </div>
 
       <div className="calendar__grid">

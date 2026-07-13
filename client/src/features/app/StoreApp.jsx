@@ -23,8 +23,14 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const [showStaff, setShowStaff] = useState(true);
   const [showGallery, setShowGallery] = useState(true);
   const isProvider = user.role === "provider";
+  // At auto shops, "staff" are administrators — not bookable service providers.
+  // They manage the store's whole calendar and have no personal schedule, so an
+  // auto provider-role user behaves like a limited admin rather than a stylist.
+  const isAuto = businessType === "auto";
+  const isAutoAdmin = isProvider && isAuto;
   const [view, setView] = useState("calendar"); // "calendar" | "clients" | "providers"
-  // Providers only ever see their own calendar — lock the filter to themselves.
+  // Service providers only ever see their own calendar — lock the filter to them.
+  // Auto admins (and owners) see the whole store.
   const [selected, setSelected] = useState(isProvider ? user.providerId : "all");
 
   const [appts, setAppts] = useState([]);
@@ -61,6 +67,10 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     // Re-key on the signed-in shop so switching accounts (without a full
     // remount) refreshes the store name/config instead of showing stale data.
   }, [loadProviders, user.shopId]);
+
+  // businessType loads async: once we learn this is an auto admin, widen the
+  // calendar from "their own" (the provider default) to the whole store.
+  useEffect(() => { if (isAutoAdmin) setSelected("all"); }, [isAutoAdmin]);
 
   const teamLabel = TEAM_LABEL[businessType] || TEAM_LABEL.generic;
   const isMobile = useIsMobile();
@@ -162,13 +172,20 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const [hoursNeeded, setHoursNeeded] = useState(false);
   const [provHoursOpen, setProvHoursOpen] = useState(false);
   const hoursId = user.role === "owner" ? "shop" : user.providerId;
+  const hoursReq = useRef(0);
   const recheckHours = useCallback(() => {
-    if (!hoursId) { setHoursNeeded(false); return; }
+    // Guard against stale responses: businessType loads async, so an early check
+    // (before we know it's an auto admin) can have an in-flight fetch resolve
+    // AFTER the auto-admin path cleared the banner. Only the latest call wins.
+    const reqId = ++hoursReq.current;
+    // Auto admins don't have a personal schedule — never nag them for hours.
+    if (!hoursId || isAutoAdmin) { setHoursNeeded(false); return; }
     fetch(`/api/availability/${hoursId}`).then(r => r.json()).then(av => {
+      if (reqId !== hoursReq.current) return; // superseded by a newer check
       const open = av?.weekA?.some(d => d.enabled) || av?.weekB?.some(d => d.enabled);
       setHoursNeeded(!open);
     }).catch(() => {});
-  }, [hoursId]);
+  }, [hoursId, isAutoAdmin]);
   useEffect(() => { recheckHours(); }, [recheckHours]);
   const myProvider = providers.find(p => p._id === user.providerId);
   // Re-check the "hours needed" banner and force the calendar to refetch hours
@@ -200,10 +217,20 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     if (res.ok && d.url) window.location.href = d.url;
   }
 
-  // Owner manages the whole shop; a provider gets a scoped set of tabs and a
-  // "My profile" tab to self-manage their bio, services and hours.
+  // Owner manages the whole shop; a service provider gets a scoped set of tabs
+  // and a "My profile" tab to self-manage their bio, services and hours. Auto
+  // admins are neither — they help run the store, so they get the full calendar
+  // and clients, but no personal profile/gallery/hours.
   const galleryTab = GALLERY_TYPES.includes(businessType) && showGallery;
-  const NAV = isProvider ? [
+  // Auto owners can still manage their team (administrators) even though staff
+  // never appear on the website — so the Team tab shows for auto regardless of
+  // the website "show staff" toggle.
+  const showTeamTab = showStaff || isAuto;
+  const NAV = isAutoAdmin ? [
+    { key: "calendar", label: "Calendar", icon: "calendar" },
+    { key: "clients", label: "Clients", icon: "clients" },
+    { key: "settings", label: "Settings", icon: "settings" },
+  ] : isProvider ? [
     { key: "calendar", label: "My calendar", icon: "calendar" },
     { key: "clients", label: "Clients", icon: "clients" },
     { key: "myprofile", label: "My profile", icon: "scissors" },
@@ -214,8 +241,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     { key: "services", label: "Services", icon: "tag" },
     ...(galleryTab ? [{ key: "gallery", label: "Gallery", icon: "image" }] : []),
     { key: "clients", label: "Clients", icon: "clients" },
-    // Staff/team tab hidden when the operator has turned staff off (e.g. auto shops).
-    ...(showStaff ? [{ key: "providers", label: teamLabel, icon: "scissors" }] : []),
+    ...(showTeamTab ? [{ key: "providers", label: teamLabel, icon: "scissors" }] : []),
     { key: "settings", label: "Settings", icon: "settings" },
   ];
   const go = (v) => { setView(v); setMobileOpen(false); };
@@ -223,7 +249,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   // Context action shown fixed in the mobile top nav, per active tab.
   const topAction =
     view === "settings" ? null
-    : view === "calendar" ? (isProvider ? { label: "My hours", onClick: openHours } : { label: "Store hours", onClick: () => setStoreHoursOpen(true) })
+    : view === "calendar" ? (isAutoAdmin ? null : isProvider ? { label: "My hours", onClick: openHours } : { label: "Store hours", onClick: () => setStoreHoursOpen(true) })
     : view === "myprofile" ? { label: "My hours", onClick: openHours }
     : view === "providers" ? { label: `Add ${teamLabel.replace(/s$/, "").toLowerCase()}`, onClick: () => setAddReq(n => n + 1) }
     : view === "services" ? { label: "Add service", onClick: () => setAddReq(n => n + 1) }
@@ -328,12 +354,12 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
             onSelectAppt={a => setEditing(a)}
             onNewAt={newAt}
             hoursLabel={isProvider ? "My hours" : "Store hours"}
-            onStoreHours={openHours}
+            onStoreHours={isAutoAdmin ? undefined : openHours}
           />
         ) : view === "myprofile" ? (
           <ProviderSelfView provider={myProvider} onChange={loadProviders} onEditHours={() => setProvHoursOpen(true)} />
         ) : view === "providers" ? (
-          <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} onHoursSaved={refreshHours} />
+          <ProvidersView onChange={loadProviders} teamLabel={teamLabel} addReq={addReq} user={user} onHoursSaved={refreshHours} isAuto={isAuto} />
         ) : view === "services" ? (
           <ServicesView providers={providers} teamLabel={teamLabel} onProvidersChange={loadProviders} addReq={addReq} businessType={businessType} />
         ) : view === "gallery" ? (

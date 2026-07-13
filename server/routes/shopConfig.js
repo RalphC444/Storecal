@@ -39,15 +39,30 @@ router.get("/", async (req, res) => {
     const shop = await resolveShop(req, db);
     if (!shop) return res.status(404).json({ error: "Shop not found" });
 
-    // Short cache: client sites hit this on every visitor; 30s shaves DB load
-    // while keeping menu/booking-gate changes near-live.
-    res.set("Cache-Control", "public, max-age=30");
+    // Caching depends on WHO is asking:
+    //  • Public embed (resolved via ?key=/?slug=) → the URL already varies per
+    //    shop, so a short shared cache is safe and shaves DB load on client sites.
+    //  • Signed-in admin (resolved via the auth cookie) → the URL is the same
+    //    "/api/shop-config" for EVERY account, differing only by cookie. A shared
+    //    cache would serve the previous account's shop after switching logins
+    //    (stale store name/config). Never cache that response.
+    if (req.auth?.shopId) {
+      res.set("Cache-Control", "no-store, private");
+      res.set("Vary", "Cookie");
+    } else {
+      res.set("Cache-Control", "public, max-age=30");
+    }
 
     const shopId = shop._id.toString();
 
+    // Auto shops have no bookable staff — their team members are administrators
+    // (they manage the store calendar, not their own bookings). So the public
+    // widget never lists staff profiles for an auto shop; booking always targets
+    // the shop itself (see availability.js "any" → book-the-shop path).
+    const isAuto = shop.businessType === "auto";
     const [services, providers] = await Promise.all([
       db.collection("services").find({ shopId }).sort({ sortOrder: 1, name: 1 }).toArray(),
-      db.collection("providers").find({ shopId, active: true }).sort({ sortOrder: 1, name: 1 }).toArray(),
+      isAuto ? [] : db.collection("providers").find({ shopId, active: true }).sort({ sortOrder: 1, name: 1 }).toArray(),
     ]);
 
     // Whether online booking is turned on for this shop. Gates the widget CTAs:

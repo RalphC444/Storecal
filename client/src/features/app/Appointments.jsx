@@ -74,7 +74,7 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
             )}
             <div><dt>Service</dt><dd>{a.service || "—"}</dd></div>
             {a.addons?.length > 0 && <div><dt>Add-ons</dt><dd>{a.addons.map(x => x.name + (x.price ? ` (${x.price})` : "")).join(", ")}</dd></div>}
-            <div><dt>Staff</dt><dd>{a.providerName || "—"}</dd></div>
+            {businessType !== "auto" && <div><dt>Staff</dt><dd>{a.providerName || "—"}</dd></div>}
             {a.issueDescription && <div className="appointmentview__notes"><dt>Notes</dt><dd>{a.issueDescription}</dd></div>}
           </dl>
 
@@ -143,10 +143,13 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
 // status is managed from the read view.
 export function AppointmentEditor({ appt, providers, services, isExisting, businessType, onSave, onCancel, onClose }) {
   const isPet = businessType === "grooming"; // collect pet name/breed/weight, matching the widget
+  // Auto shops have no bookable service providers — their staff are admins. So
+  // appointments aren't assigned to a person; hide the Staff picker entirely.
+  const isAuto = businessType === "auto";
   const [form, setForm] = useState({
     dateKey: appt.dateKey || todayKey(),
     timeValue: appt.timeValue || "09:00",
-    providerId: appt.providerId || (providers[0]?._id ?? ""),
+    providerId: appt.providerId || (isAuto ? "" : (providers[0]?._id ?? "")),
     service: appt.service || (services[0]?.name ?? ""),
     name: appt.client?.name || "",
     phone: appt.client?.phone || "",
@@ -320,14 +323,17 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
             </label>
           </div>
 
-          <div className="form__row form__row--2">
-            <label className="field">
-              <span className="field__label">Staff</span>
-              <select value={form.providerId} onChange={e => set("providerId", e.target.value)}>
-                <option value="">Unassigned</option>
-                {providers.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-              </select>
-            </label>
+          <div className={isAuto ? "form__row" : "form__row form__row--2"}>
+            {/* Auto shops don't assign appointments to a person (staff are admins). */}
+            {!isAuto && (
+              <label className="field">
+                <span className="field__label">Staff</span>
+                <select value={form.providerId} onChange={e => set("providerId", e.target.value)}>
+                  <option value="">Unassigned</option>
+                  {providers.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                </select>
+              </label>
+            )}
             <label className="field">
               <span className="field__label">Service</span>
               {services.length > 0 ? (

@@ -7,7 +7,7 @@ import { openRangesFor } from "./availability";
 import { ScheduleEditor, fmtMin } from "./Scheduling";
 import { StaffGallery } from "./Gallery";
 
-export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved }) {
+export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved, isAuto }) {
   const [list, setList] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState(null); // null | {} | {…provider}
@@ -57,8 +57,14 @@ export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved 
   }
 
   const selected = list?.find(p => p._id === selectedId);
+  // Auto shops: "staff" are administrators (manage the calendar, not bookable),
+  // but we keep the "Staff" wording the owner sees everywhere else.
   const label = teamLabel || "Staff";
-  const isOwnCard = selected && user && selected.ownerUserId === user._id;
+  const single = label.replace(/s$/, "").toLowerCase();
+  // The owner's own provider record is a hidden system "rep" used to land shop
+  // bookings on the calendar — it isn't a team member, so hide it for auto.
+  const visible = isAuto ? (list || []).filter(p => !p.ownerUserId) : list;
+  const isOwnCard = selected && user && !isAuto && selected.ownerUserId === user._id;
 
   return (
     <>
@@ -74,6 +80,8 @@ export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved 
         <StylistProfile
           provider={selected}
           err={err}
+          isAuto={isAuto}
+          backLabel={`← All ${label.toLowerCase()}`}
           onBack={() => { setErr(""); setSelectedId(null); }}
           onEdit={() => setEditing(selected)}
           onToggleActive={() => toggleActive(selected)}
@@ -84,16 +92,21 @@ export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved 
         <div className="pageview">
           <div className="pageview__head">
             <h1 className="pageview__title">{label}</h1>
-            <button className="btn btn--new" onClick={() => setEditing({})}>+ Add {label.replace(/s$/, "").toLowerCase()}</button>
+            <button className="btn btn--new" onClick={() => setEditing({})}>+ Add {single}</button>
           </div>
           <div className="pageview__body">
+            {isAuto && (
+              <p className="panel__hint" style={{ marginTop: 0 }}>
+                Administrators help manage the store’s appointments and calendar. They don’t appear as bookable staff on your website.
+              </p>
+            )}
             {err && <p className="form__error">{err}</p>}
-            {!list ? <LoadingSpinner />
-              : list.length === 0 ? <p className="empty">No {label.toLowerCase()} yet.</p>
+            {!visible ? <LoadingSpinner />
+              : visible.length === 0 ? <p className="empty">No {label.toLowerCase()} yet.</p>
               : (
                 <div className="pgrid">
-                  {list.map(p => (
-                    <StylistCard key={p._id} provider={p} onOpen={() => setSelectedId(p._id)} />
+                  {visible.map(p => (
+                    <StylistCard key={p._id} provider={p} isAuto={isAuto} onOpen={() => setSelectedId(p._id)} />
                   ))}
                 </div>
               )
@@ -102,7 +115,7 @@ export function ProvidersView({ onChange, teamLabel, addReq, user, onHoursSaved 
         </div>
       )}
 
-      {editing && <ProviderForm provider={editing} onClose={() => setEditing(null)} onSave={save} />}
+      {editing && <ProviderForm provider={editing} isAuto={isAuto} onClose={() => setEditing(null)} onSave={save} />}
       {invite && <InviteModal invite={invite} onClose={() => setInvite(null)} />}
       {confirmRemove && (
         <RemoveStaffModal
@@ -217,23 +230,27 @@ export function useTodayStatus(provider) {
   return status;
 }
 
-export function StylistCard({ provider: p, onOpen }) {
-  const status = useTodayStatus(p);
+export function StylistCard({ provider: p, onOpen, isAuto }) {
+  // Auto admins aren't bookable, so "working today / off today" is meaningless.
+  const status = useTodayStatus(isAuto ? { active: false } : p);
+  const acctLabel = p.accountStatus === "active" ? "Active" : p.accountStatus === "invited" ? "Invited" : "No sign-in yet";
   return (
-    <button className={`providercard${!p.active ? " providercard--off" : ""}`} onClick={onOpen}>
+    <button className={`providercard${!isAuto && !p.active ? " providercard--off" : ""}`} onClick={onOpen}>
       <div className="providercard__top">
         <Avatar name={p.name} photo={p.photo} />
         <div className="providercard__id">
           <span className="providercard__name">{p.name}</span>
-          {status && (
-            <span className={`workstatus workstatus--${status.kind}`}>
-              <i className="weekdot" />{status.label}
-            </span>
-          )}
+          {isAuto
+            ? <span className="workstatus workstatus--soon"><i className="weekdot" />Administrator · {acctLabel}</span>
+            : status && (
+              <span className={`workstatus workstatus--${status.kind}`}>
+                <i className="weekdot" />{status.label}
+              </span>
+            )}
         </div>
       </div>
-      <p className="providercard__bio">{p.bio || <em>No bio yet</em>}</p>
-      <span className="providercard__go">View profile →</span>
+      {!isAuto && <p className="providercard__bio">{p.bio || <em>No bio yet</em>}</p>}
+      <span className="providercard__go">View {isAuto ? "details" : "profile"} →</span>
     </button>
   );
 }
@@ -274,15 +291,15 @@ export function InviteLinkButton({ providerId, hasEmail }) {
 // Read a chosen image file, center-crop to a square, and return a compact JPEG
 // data URL (stored on the provider so no external file hosting is needed).
 
-export function StylistProfile({ provider: p, err, onBack, onDelete }) {
+export function StylistProfile({ provider: p, err, onBack, onDelete, isAuto, backLabel }) {
   const [services, setServices] = useState([]);
-  useEffect(() => { fetch("/api/services").then(r => r.json()).then(d => Array.isArray(d) && setServices(d)); }, []);
+  useEffect(() => { if (!isAuto) fetch("/api/services").then(r => r.json()).then(d => Array.isArray(d) && setServices(d)); }, [isAuto]);
   const offered = services.filter(s => (p.serviceIds || []).includes(s._id));
 
   return (
     <div className="pageview">
       <div className="pageview__head pageview__head--bar">
-        <button className="backlink" onClick={onBack}>← All staff</button>
+        <button className="backlink" onClick={onBack}>{backLabel || "← All staff"}</button>
         <button className="linkbtn linkbtn--danger" onClick={onDelete}>Remove from team</button>
       </div>
       <div className="pageview__body">
@@ -292,16 +309,22 @@ export function StylistProfile({ provider: p, err, onBack, onDelete }) {
           <Avatar name={p.name} photo={p.photo} className="avatarpic--lg" />
           <div className="panel__hero-main">
             <h1 className="panel__name">{p.name}</h1>
-            <span className={`pageview__badge${p.active ? " pageview__badge--on" : ""}`}>{p.active ? "Active — bookable" : "Hidden — not bookable"}</span>
+            {isAuto
+              ? <span className="pageview__badge pageview__badge--on">Administrator</span>
+              : <span className={`pageview__badge${p.active ? " pageview__badge--on" : ""}`}>{p.active ? "Active — bookable" : "Hidden — not bookable"}</span>}
           </div>
         </div>
 
-        <p className="panel__readonly">Read-only — {p.name} manages their own profile, services and hours.</p>
+        <p className="panel__readonly">
+          {isAuto
+            ? <>{p.name} is an administrator — they help manage the store’s appointments and calendar. They aren’t shown as bookable staff on your website.</>
+            : <>Read-only — {p.name} manages their own profile, services and hours.</>}
+        </p>
 
         {p.accountStatus !== "active" && !p.ownerUserId && (
           <section className="panel__block">
-            <h3 className="schedule__label">Staff sign-in</h3>
-            <p className="panel__hint">{p.name} hasn’t set up their login yet. Share this one-time link so they can set a password and manage their own profile, services &amp; hours.</p>
+            <h3 className="schedule__label">{isAuto ? "Administrator sign-in" : "Staff sign-in"}</h3>
+            <p className="panel__hint">{p.name} hasn’t set up their login yet. Share this one-time link so they can set a password{isAuto ? " and manage the store calendar" : " and manage their own profile, services & hours"}.</p>
             <InviteLinkButton providerId={p._id} hasEmail={!!p.email} />
           </section>
         )}
@@ -311,23 +334,27 @@ export function StylistProfile({ provider: p, err, onBack, onDelete }) {
           <dl className="panel__dl panel__dl--grid">
             <div><dt>Email</dt><dd>{p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : "—"}</dd></div>
             <div><dt>Phone</dt><dd>{p.phone ? <a href={`tel:${p.phone}`}>{p.phone}</a> : "—"}</dd></div>
-            <div className="panel__dl-wide"><dt>Specialties &amp; bio</dt><dd>{p.bio || "—"}</dd></div>
+            {!isAuto && <div className="panel__dl-wide"><dt>Specialties &amp; bio</dt><dd>{p.bio || "—"}</dd></div>}
           </dl>
         </section>
 
-        <section className="panel__block">
-          <h3 className="schedule__label">Services offered</h3>
-          <div className="serviceproviders__chips">
-            {offered.length > 0
-              ? offered.map(s => <span key={s._id} className="chip chip--on chip--static">{s.name}</span>)
-              : <span className="clienttable__dim">No services set.</span>}
-          </div>
-        </section>
+        {!isAuto && (
+          <section className="panel__block">
+            <h3 className="schedule__label">Services offered</h3>
+            <div className="serviceproviders__chips">
+              {offered.length > 0
+                ? offered.map(s => <span key={s._id} className="chip chip--on chip--static">{s.name}</span>)
+                : <span className="clienttable__dim">No services set.</span>}
+            </div>
+          </section>
+        )}
 
-        <section className="panel__block">
-          <h3 className="schedule__label">Hours</h3>
-          <HoursReview providerId={p._id} />
-        </section>
+        {!isAuto && (
+          <section className="panel__block">
+            <h3 className="schedule__label">Hours</h3>
+            <HoursReview providerId={p._id} />
+          </section>
+        )}
       </div>
     </div>
   );
@@ -526,8 +553,9 @@ export function HoursReview({ providerId }) {
   );
 }
 
-export function ProviderForm({ provider, onClose, onSave }) {
+export function ProviderForm({ provider, onClose, onSave, isAuto }) {
   const isEdit = !!provider._id;
+  const noun = "staff";
   const [form, setForm] = useState({
     name: provider.name || "",
     bio: provider.bio || "",
@@ -542,7 +570,10 @@ export function ProviderForm({ provider, onClose, onSave }) {
     e.preventDefault();
     setFormErr("");
     setSaving(true);
-    const error = await onSave({ ...provider, ...form });
+    // Auto administrators aren't bookable — always create them active (so their
+    // login works) but they never surface on the website (server-enforced).
+    const payload = isAuto ? { ...provider, ...form, active: true, bio: "" } : { ...provider, ...form };
+    const error = await onSave(payload);
     setSaving(false);
     if (error) setFormErr(error);
   }
@@ -551,10 +582,15 @@ export function ProviderForm({ provider, onClose, onSave }) {
     <div className="modal" onMouseDown={onClose}>
       <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
         <div className="modal__head">
-          <h2 className="modal__title">{isEdit ? "Edit staff" : "Add staff"}</h2>
+          <h2 className="modal__title">{isEdit ? `Edit ${noun}` : `Add ${noun}`}</h2>
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <form className="form" onSubmit={submit}>
+          {isAuto && (
+            <p className="panel__hint" style={{ marginTop: 0 }}>
+              Administrators can view and manage the store’s calendar and appointments. They aren’t shown as bookable staff on your website.
+            </p>
+          )}
           <label className="field">
             <span className="field__label">Name</span>
             <input type="text" value={form.name} onChange={e => set("name", e.target.value)} placeholder="Full name" required />
@@ -563,18 +599,22 @@ export function ProviderForm({ provider, onClose, onSave }) {
             <span className="field__label">Email <span className="field__hint">— we email them a sign-up link to set their password</span></span>
             <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" required disabled={isEdit} />
           </label>
-          <label className="field">
-            <span className="field__label">Bio</span>
-            <textarea rows={2} value={form.bio} onChange={e => set("bio", e.target.value)} placeholder="Specialties, experience…" />
-          </label>
-          <label className="switch switch--field">
-            <input type="checkbox" checked={form.active} onChange={e => set("active", e.target.checked)} />
-            <span>Bookable (shown to clients &amp; on the calendar)</span>
-          </label>
+          {!isAuto && (
+            <>
+              <label className="field">
+                <span className="field__label">Bio</span>
+                <textarea rows={2} value={form.bio} onChange={e => set("bio", e.target.value)} placeholder="Specialties, experience…" />
+              </label>
+              <label className="switch switch--field">
+                <input type="checkbox" checked={form.active} onChange={e => set("active", e.target.checked)} />
+                <span>Bookable (shown to clients &amp; on the calendar)</span>
+              </label>
+            </>
+          )}
           {formErr && <p className="form__error">{formErr}</p>}
           <div className="form__actions">
             <button type="button" className="action" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save" : "Add staff"}</button>
+            <button type="submit" className="btn" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save" : `Add ${noun}`}</button>
           </div>
         </form>
       </div>

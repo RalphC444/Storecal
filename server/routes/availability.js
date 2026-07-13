@@ -236,15 +236,21 @@ router.get("/:providerId/slots", async (req, res) => {
     const step = Number(req.query.stepMin) || 15;
 
     if (providerId === "any") {
-      const active = await db.collection("providers").find({ shopId, active: true }).toArray();
+      // Auto shops never do per-staff booking — their "staff" are administrators,
+      // not bookable service providers. Force the book-the-shop path regardless of
+      // how many staff exist, so an admin is never surfaced/assigned as bookable.
+      const shopDoc = await db.collection("shops").findOne({ _id: new ObjectId(shopId) }).catch(() => null);
+      const isAuto = shopDoc?.businessType === "auto";
+
+      const active = isAuto ? [] : await db.collection("providers").find({ shopId, active: true }).toArray();
       const serviceId = req.query.serviceId;
       let staff = serviceId ? active.filter((p) => (p.serviceIds || []).map(String).includes(serviceId)) : active;
       if (staff.length === 0) staff = active; // nobody tagged for this service → offer all active staff
 
       if (staff.length === 0) {
-        // No bookable staff at all (e.g. an auto shop with staff disabled). Book
-        // the shop itself: timeslots come from the store's own hours, assigned to
-        // the shop's owner-provider so the appointment still lands on the calendar.
+        // No bookable staff at all (auto shop, or staff disabled). Book the shop
+        // itself: timeslots come from the store's own hours, assigned to the
+        // shop's owner-provider so the appointment still lands on the calendar.
         const rep =
           (await db.collection("providers").findOne({ shopId, ownerUserId: { $exists: true, $ne: null } })) ||
           (await db.collection("providers").findOne({ shopId }));

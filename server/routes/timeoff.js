@@ -1,8 +1,18 @@
 const { Router } = require("express");
 const { ObjectId } = require("mongodb");
 const { getDb } = require("../lib/db");
+const { resolveShopId } = require("../lib/shopScope");
 
 const router = Router();
+
+// Scope a time-off query to the requesting shop. Provider ids are globally
+// unique so shopId is belt-and-suspenders there, but the "shop" pseudo-provider
+// id is the SAME literal string for every tenant — without this scope one
+// store's vacation would gray out every store's calendar and booking widget.
+async function shopScopedFilter(req, db, providerId) {
+  const shopId = await resolveShopId(req, db);
+  return shopId ? { providerId, shopId } : { providerId };
+}
 
 // A UTC date a couple days back — a timezone-safe lower bound so a client's
 // LOCAL "today" is never dropped by the server's UTC clock (see availability.js).
@@ -17,9 +27,10 @@ router.get("/:providerId", async (req, res) => {
   try {
     const db = await getDb();
 
+    const scope = await shopScopedFilter(req, db, req.params.providerId);
     const records = await db
       .collection("timeOff")
-      .find({ providerId: req.params.providerId, endDate: { $gte: recentCutoff() } })
+      .find({ ...scope, endDate: { $gte: recentCutoff() } })
       .sort({ startDate: 1 })
       .toArray();
 
@@ -45,8 +56,10 @@ router.post("/:providerId", async (req, res) => {
     }
 
     const db = await getDb();
+    const shopId = await resolveShopId(req, db);
     const result = await db.collection("timeOff").insertOne({
       providerId: req.params.providerId,
+      shopId,
       startDate,
       endDate,
       reason: reason || "",
@@ -68,9 +81,10 @@ router.post("/:providerId", async (req, res) => {
 router.delete("/:providerId/:timeoffId", async (req, res) => {
   try {
     const db = await getDb();
+    const scope = await shopScopedFilter(req, db, req.params.providerId);
     const result = await db.collection("timeOff").deleteOne({
       _id: new ObjectId(req.params.timeoffId),
-      providerId: req.params.providerId,
+      ...scope,
     });
 
     if (result.deletedCount === 0) {
