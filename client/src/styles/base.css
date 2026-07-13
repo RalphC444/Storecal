@@ -1226,6 +1226,23 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .appt-avail--ok { color: #1e6b3a; background: #e9f7ee; }
 .appt-avail--warn { color: #8a5a12; background: #fdf1dd; }
 
+/* Progressive-disclosure section (secondary appointment fields) */
+.disclosure { border-top: 1px solid var(--line); padding-top: 4px; }
+.disclosure__toggle {
+  list-style: none; cursor: pointer; user-select: none;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  padding: 6px 0; display: flex; align-items: center; gap: 6px;
+}
+.disclosure__toggle::-webkit-details-marker { display: none; }
+.disclosure__toggle::before { content: "▸"; font-size: 10px; color: var(--ink-3); transition: transform .15s; }
+.disclosure[open] > .disclosure__toggle::before { transform: rotate(90deg); }
+.disclosure__toggle:hover { color: var(--ink); }
+.disclosure__hint { font-weight: 400; color: var(--ink-3); }
+.disclosure__body { display: flex; flex-direction: column; gap: 14px; padding: 8px 0 2px; }
+/* Add-on chips: toggleable, so no default cursor and no form-list indent. */
+.actions--wrap { padding: 0; }
+.actions--wrap .action--on { cursor: pointer; }
+
 /* Client typeahead */
 .field--ta { position: relative; }
 .ta__flag {

@@ -158,9 +158,31 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
     petBreed: appt.pet?.breed || "",
     petWeight: appt.pet?.weight || "",
     issueDescription: appt.issueDescription || "",
+    addons: Array.isArray(appt.addons) ? appt.addons : [],
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // The shop's optional add-ons (e.g. "Hot towel +$5"). Loaded lazily; the whole
+  // add-ons block only renders if the shop actually offers any.
+  const [addonOptions, setAddonOptions] = useState([]);
+  useEffect(() => {
+    fetch("/api/addons").then(r => r.json()).then(d => Array.isArray(d) && setAddonOptions(d)).catch(() => {});
+  }, []);
+  const hasAddon = (name) => form.addons.some(a => a.name === name);
+  function toggleAddon(a) {
+    setForm(f => ({
+      ...f,
+      addons: f.addons.some(x => x.name === a.name)
+        ? f.addons.filter(x => x.name !== a.name)
+        : [...f.addons, { name: a.name, price: a.price || "" }],
+    }));
+  }
+  // Auto-open "more details" when editing a record that already has secondary
+  // data, so nothing hidden is silently dropped or overlooked.
+  const [moreOpen, setMoreOpen] = useState(
+    !!(appt.client?.phone || appt.issueDescription || (appt.addons?.length))
+  );
 
   // Client typeahead
   const [suggestions, setSuggestions] = useState([]);
@@ -232,6 +254,7 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
         service: form.service,
         client: { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim() },
         pet: isPet ? { name: form.petName.trim(), breed: form.petBreed.trim(), weight: form.petWeight } : undefined,
+        addons: form.addons,
         issueDescription: form.issueDescription,
         status: appt.status, // preserve status on edit; undefined on new → server defaults to pending
       });
@@ -279,16 +302,10 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
             )}
           </div>
 
-          <div className="form__row form__row--2">
-            <label className="field">
-              <span className="field__label">Phone {matched ? "" : "(optional)"}</span>
-              <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 000-0000" />
-            </label>
-            <label className="field">
-              <span className="field__label">Email {matched ? "" : "(optional)"}</span>
-              <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" />
-            </label>
-          </div>
+          <label className="field">
+            <span className="field__label">Email <span className="field__hint">— for confirmations &amp; reminders</span></span>
+            <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" />
+          </label>
 
           {isPet && (
             <div className="form__row form__row--2">
@@ -353,10 +370,36 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
             </p>
           )}
 
-          <label className="field">
-            <span className="field__label">Notes</span>
-            <textarea rows={2} value={form.issueDescription} onChange={e => set("issueDescription", e.target.value)} placeholder="Allergies, preferences, reference photos…" />
-          </label>
+          <details className="disclosure" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}>
+            <summary className="disclosure__toggle">Add more details<span className="disclosure__hint"> — phone{addonOptions.length ? ", add-ons" : ""}, notes</span></summary>
+            <div className="disclosure__body">
+              <label className="field">
+                <span className="field__label">Phone</span>
+                <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 000-0000" />
+              </label>
+
+              {addonOptions.length > 0 && (
+                <div className="field">
+                  <span className="field__label">Add-ons <span className="field__hint">— optional</span></span>
+                  <div className="actions actions--wrap">
+                    {addonOptions.map(a => (
+                      <button
+                        type="button"
+                        key={a.name}
+                        className={`action${hasAddon(a.name) ? " action--on" : ""}`}
+                        onClick={() => toggleAddon(a)}
+                      >{a.name}{a.price ? ` (${a.price})` : ""}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <label className="field">
+                <span className="field__label">Notes</span>
+                <textarea rows={2} value={form.issueDescription} onChange={e => set("issueDescription", e.target.value)} placeholder="Allergies, preferences, reference photos…" />
+              </label>
+            </div>
+          </details>
 
           {error && <p className="form__error">{error}</p>}
 
