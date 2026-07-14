@@ -3,6 +3,10 @@
 // copy-able invite link and manual reset flows stay as the fallback.
 
 const FROM = process.env.EMAIL_FROM || "StoreCal <onboarding@resend.dev>";
+// StoreCal's public support inbox. Resend can only SEND from a verified domain
+// (never a gmail address), so this is used as the Reply-To on every message —
+// anyone replying to a StoreCal email reaches support here.
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "storecal.support@gmail.com";
 
 function client() {
   if (!process.env.RESEND_API_KEY) return null;
@@ -46,6 +50,7 @@ async function sendInvite(to, name, url) {
   if (!resend || !to) return false;
   await resend.emails.send({
     from: FROM,
+    replyTo: SUPPORT_EMAIL,
     to,
     subject: "You've been added to the team on StoreCal",
     html: shell(`Welcome${name ? `, ${name}` : ""}!`,
@@ -61,6 +66,7 @@ async function sendReset(to, url) {
   if (!resend || !to) return false;
   await resend.emails.send({
     from: FROM,
+    replyTo: SUPPORT_EMAIL,
     to,
     subject: "Reset your StoreCal password",
     html: shell("Reset your password",
@@ -99,6 +105,7 @@ async function sendBookingConfirmation(d) {
     : "Need to change or cancel? Just call the shop and they'll take care of it.";
   await resend.emails.send({
     from: FROM,
+    replyTo: SUPPORT_EMAIL,
     to: d.to,
     subject: `Your booking at ${d.shopName} is confirmed`,
     html: shell(`You're booked${first ? `, ${esc(first)}` : ""}!`,
@@ -129,6 +136,7 @@ async function sendOwnerBookingNotification(d) {
     .join("");
   await resend.emails.send({
     from: FROM,
+    replyTo: SUPPORT_EMAIL,
     to: d.to,
     subject: `New booking${d.clientName ? ` from ${d.clientName}` : ""} at ${d.shopName}`,
     html: shell("You've got a new booking",
@@ -172,6 +180,7 @@ async function sendBookingCancellation(d) {
     : `Questions${d.rebookUrl ? "" : " or want to rebook"}? Please contact the shop.`;
   await resend.emails.send({
     from: FROM,
+    replyTo: SUPPORT_EMAIL,
     to: d.to,
     subject: `Your booking at ${d.shopName} has been cancelled`,
     html: shell("Your appointment was cancelled",
@@ -191,4 +200,5 @@ module.exports = {
   sendBookingCancellation,
   sendOwnerBookingNotification,
   emailEnabled: () => !!process.env.RESEND_API_KEY,
+  SUPPORT_EMAIL,
 };

@@ -1,11 +1,11 @@
 // Content and contact details for the public marketing site + policy pages.
 
 // Where "Get a website" points.
-export const CONTACT_HREF = "mailto:capriglioner@gmail.com?subject=I'd%20like%20a%20website";
+export const CONTACT_HREF = "mailto:storecal.support@gmail.com?subject=I'd%20like%20a%20website";
 
 // Support / business contact shown on the site and policy pages (Stripe requires
 // reachable customer-service contact details).
-export const SUPPORT_EMAIL = "capriglioner@gmail.com";
+export const SUPPORT_EMAIL = "storecal.support@gmail.com";
 
 export const MARKETING_FEATURES = [
   {

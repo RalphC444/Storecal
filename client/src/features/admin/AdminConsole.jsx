@@ -217,6 +217,17 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
       </section>
 
       <section className="clientdetail__card">
+        <h3 className="schedule__label">Booking emails</h3>
+        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 14 }}>
+          When on, a booking sends the customer a confirmation and notifies the store owner &amp; assigned staff. Turn off to send <b>no</b> booking emails for this client — to the customer, owner, or staff. Bookings still work; nothing is emailed.
+        </p>
+        <div className="clientdetail__toggles">
+          <Toggle checked={!s.bookingEmailsOff} disabled={saving} label="Booking emails"
+            onChange={v => onPatch({ bookingEmailsOff: !v }, v ? "Booking emails on" : "Booking emails off")} />
+        </div>
+      </section>
+
+      <section className="clientdetail__card">
         <h3 className="schedule__label">Links &amp; embed</h3>
         <p className="panel__hint">Hosted booking page:</p>
         <div className="invite__row">

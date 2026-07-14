@@ -72,8 +72,23 @@ function emailBookingConfirmation(db, shopId, doc) {
   })();
 }
 
-// Notify the shop owner of a new online booking, with a CTA to log in. Only for
+// Whether an operator has switched OFF booking emails for this shop (set from
+// the super-admin console). When true, NO booking email goes out — not to the
+// customer, the owner, or staff.
+async function bookingEmailsOff(db, shopId) {
+  try {
+    const shop = await db.collection("shops").findOne(
+      { _id: new ObjectId(shopId) },
+      { projection: { bookingEmailsOff: 1 } }
+    );
+    return shop?.bookingEmailsOff === true;
+  } catch { return false; }
+}
+
+// Notify the shop team of a new online booking, with a CTA to log in. Only for
 // customer-made (public) bookings — an owner creating a walk-in already knows.
+// The store owner is always notified; the assigned staff member is too (unless
+// they're the same person, e.g. the owner-rep on an auto shop).
 function emailOwnerNotification(db, shopId, doc) {
   (async () => {
     try {
@@ -81,20 +96,25 @@ function emailOwnerNotification(db, shopId, doc) {
         { shopId, role: "owner" },
         { projection: { email: 1 } }
       );
-      if (!owner?.email) return;
       const f = await bookingFields(db, shopId, doc);
       const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "https://www.storecal.com").replace(/\/$/, "");
-      await sendOwnerBookingNotification({
-        to: owner.email,
-        shopName: f.shopName,
-        clientName: f.clientName,
-        service: f.service,
-        dateLabel: f.dateLabel,
-        timeLabel: f.timeLabel,
-        providerName: f.providerName,
-        appUrl,
-      });
-    } catch (e) { console.error("Owner booking notification failed:", e.message); }
+      const payload = {
+        shopName: f.shopName, clientName: f.clientName, service: f.service,
+        dateLabel: f.dateLabel, timeLabel: f.timeLabel, providerName: f.providerName, appUrl,
+      };
+
+      // Recipients: the owner, plus the assigned staff member (deduped by email).
+      const sent = new Set();
+      if (owner?.email) { sent.add(owner.email.toLowerCase()); await sendOwnerBookingNotification({ ...payload, to: owner.email }); }
+      if (doc.providerId) {
+        const prov = await db.collection("providers").findOne(
+          { _id: new ObjectId(doc.providerId) },
+          { projection: { email: 1 } }
+        ).catch(() => null);
+        const pe = (prov?.email || "").trim();
+        if (pe && !sent.has(pe.toLowerCase())) await sendOwnerBookingNotification({ ...payload, to: pe });
+      }
+    } catch (e) { console.error("Owner/staff booking notification failed:", e.message); }
   })();
 }
 
@@ -278,8 +298,12 @@ router.post("/", async (req, res) => {
     try {
       const result = await db.collection("appointments").insertOne(doc);
       notifyAppointmentChange(shopId, { action: "created", _id: result.insertedId.toString(), dateKey: doc.dateKey, providerId: doc.providerId });
-      emailBookingConfirmation(db, shopId, doc); // branded confirmation to the customer (best-effort)
-      if (isPublic) emailOwnerNotification(db, shopId, doc); // heads-up + login nudge to the owner
+      // Booking emails are best-effort and can be switched off per shop from the
+      // super-admin console (disables the customer, owner, AND staff notices).
+      if (!(await bookingEmailsOff(db, shopId))) {
+        emailBookingConfirmation(db, shopId, doc); // branded confirmation to the customer
+        if (isPublic) emailOwnerNotification(db, shopId, doc); // heads-up + login nudge to owner + staff
+      }
       res.status(201).json({ success: true, _id: result.insertedId.toString() });
     } catch (e) {
       if (e && e.code === 11000) return res.status(409).json({ error: "Sorry, that time was just booked. Please pick another." });
