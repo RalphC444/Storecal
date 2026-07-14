@@ -24,7 +24,10 @@ const bookingPatchFor = (v) =>
   : v === "demo" ? { freeForLife: false, bookingActive: null, demo: true }
   : { freeForLife: false, bookingActive: null, demo: false };
 const BOOKING_LABEL = { demo: "Demo", auto: "Auto", on: "On", off: "Off — call us", free: "Free for life" };
-const planLabelOf = (s) => s.planId === "website" ? "$99 · Website + Booking" : "$35 · Booking";
+const planLabelOf = (s) =>
+  s.planId === "website" ? "$99 · Website + Booking"
+  : s.planId === "booking-reduced" ? "$25 · Booking (reduced)"
+  : "$35 · Booking";
 const fmtRenewDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
 
 export function AdminConsole({ user, onSignOut }) {
@@ -173,6 +176,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
           <label className="field"><span className="field__label">Plan</span>
             <select value={s.planId} disabled={saving} onChange={e => onPatch({ planId: e.target.value }, "Plan updated")}>
               <option value="booking">Booking access — $35/mo</option>
+              <option value="booking-reduced">Booking access (reduced) — $25/mo</option>
               <option value="website">Website + Booking — $99/mo</option>
             </select>
           </label>

@@ -10,6 +10,9 @@ const router = Router();
 const PLANS = [
   { id: "booking", name: "Booking access", amount: 3500, price: "$35/mo", blurb: "The online booking widget for your existing website" },
   { id: "website", name: "Website + Booking", amount: 9900, price: "$99/mo", blurb: "A custom website for your business with booking built in" },
+  // Reduced partner rate — same as Booking access, assigned per-shop from the
+  // admin console. Not shown on the public marketing site.
+  { id: "booking-reduced", name: "Booking access (reduced)", amount: 2500, price: "$25/mo", blurb: "The online booking widget for your existing website — reduced rate" },
 ];
 
 function stripeClient() {

@@ -7,7 +7,7 @@ const { requireAuth, requireSuperAdmin, hashPassword } = require("../lib/auth");
 const { generatePublicKey } = require("../lib/shopScope");
 
 const router = Router();
-const PLAN_IDS = ["booking", "website"];
+const PLAN_IDS = ["booking", "website", "booking-reduced"];
 const NEW_CLIENT_PASSWORD = "storecal123"; // owner logs in with this, then must change it
 
 // Booking-form presets per vertical (kept in sync with set-business-type.js).
