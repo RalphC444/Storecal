@@ -13,6 +13,7 @@ export function ClientsView({ providers, services, durationOf, onApptSaved, addR
   const [selectedId, setSelectedId] = useState(null);
   const [sort, setSort] = useState({ key: "name", dir: 1 });
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const isMobile = useIsMobile();
 
   // Open the add-client modal when the top-nav action fires (ignore mount).
@@ -82,10 +83,13 @@ export function ClientsView({ providers, services, durationOf, onApptSaved, addR
     <div className="pageview">
       <div className="pageview__head">
         <h1 className="pageview__title">
-          Clients
+          Customers
           {!loading && <span className="pageview__count">{clients.length}</span>}
         </h1>
-        <button className="btn btn--new" onClick={() => setAdding(true)}>+ Add client</button>
+        <div className="pageview__actions">
+          <button className="action" onClick={() => setImporting(true)}>Import</button>
+          <button className="btn btn--new" onClick={() => setAdding(true)}>+ Add customer</button>
+        </div>
       </div>
       <div className={`pageview__body${isMobile ? "" : " pageview__body--flush"}`}>
         {(clients.length > 0 || q) && (
@@ -112,15 +116,16 @@ export function ClientsView({ providers, services, durationOf, onApptSaved, addR
           ) : (
             <div className="clients-empty">
               <span className="clients-empty__icon"><Icon name="clients" /></span>
-              <h2 className="clients-empty__title">No clients yet</h2>
+              <h2 className="clients-empty__title">No customers yet</h2>
               <p className="clients-empty__text">
-                Every booking adds a client here automatically — with their name, phone, email, and
+                Every booking adds a customer here automatically — with their name, phone, email, and
                 visit history. When someone books online or you add an appointment, they’ll show up here.
               </p>
               <div className="clients-empty__actions">
-                <button className="btn" onClick={() => setAdding(true)}>+ Add a client</button>
+                <button className="btn" onClick={() => setAdding(true)}>+ Add a customer</button>
+                <button className="action" onClick={() => setImporting(true)}>Import from a spreadsheet</button>
               </div>
-              <p className="clients-empty__hint">Share your booking link (Settings → Booking) so clients can book themselves — each one lands here.</p>
+              <p className="clients-empty__hint">Already have a customer list? Import an Excel or CSV file — or share your booking link (Settings → Booking) so customers book themselves.</p>
             </div>
           )
         ) : isMobile ? (
@@ -173,6 +178,7 @@ export function ClientsView({ providers, services, durationOf, onApptSaved, addR
       </div>
 
       {adding && <ClientForm onClose={() => setAdding(false)} onSave={createClient} />}
+      {importing && <ImportCustomers onClose={() => setImporting(false)} onDone={() => { setImporting(false); load(); }} />}
     </div>
   );
 }
@@ -194,7 +200,7 @@ export function ClientForm({ onClose, onSave }) {
     <div className="modal" onMouseDown={onClose}>
       <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
         <div className="modal__head">
-          <h2 className="modal__title">Add client</h2>
+          <h2 className="modal__title">Add customer</h2>
           <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <form className="form" onSubmit={submit}>
@@ -219,9 +225,187 @@ export function ClientForm({ onClose, onSave }) {
           {error && <p className="form__error">{error}</p>}
           <div className="form__actions">
             <button type="button" className="action" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn" disabled={saving}>{saving ? "Saving…" : "Add client"}</button>
+            <button type="submit" className="btn" disabled={saving}>{saving ? "Saving…" : "Add customer"}</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Import customers from an Excel (.xlsx/.xls) or CSV file. Parses in the browser
+// with SheetJS (lazy-loaded so it stays out of the main bundle), auto-detects
+// the Name / Phone / Email / Notes columns, shows a preview, then bulk-posts the
+// cleaned rows to /api/clients/import (which dedupes by phone/email).
+const HEADER_ALIASES = {
+  name: ["name", "full name", "fullname", "customer", "customer name", "client", "client name", "contact", "contact name"],
+  firstName: ["first name", "firstname", "first", "given name"],
+  lastName: ["last name", "lastname", "last", "surname", "family name"],
+  phone: ["phone", "phone number", "phonenumber", "mobile", "mobile number", "cell", "cell phone", "telephone", "tel", "contact number"],
+  email: ["email", "e-mail", "email address", "e-mail address", "mail"],
+  notes: ["notes", "note", "comments", "comment", "remarks", "memo"],
+};
+
+function detectColumns(headerRow) {
+  const map = {};
+  headerRow.forEach((cell, i) => {
+    const h = String(cell || "").trim().toLowerCase();
+    if (!h) return;
+    for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (map[field] === undefined && aliases.includes(h)) { map[field] = i; break; }
+    }
+  });
+  return map;
+}
+const looksLikeHeader = (map) => Object.keys(map).length > 0;
+
+function rowsFromSheet(aoa) {
+  // Drop fully-empty rows.
+  const grid = aoa.filter((r) => r.some((c) => String(c ?? "").trim() !== ""));
+  if (!grid.length) return { rows: [], detected: null };
+
+  const map = detectColumns(grid[0]);
+  let detected, dataRows;
+  if (looksLikeHeader(map)) {
+    detected = map;
+    dataRows = grid.slice(1);
+  } else {
+    // No recognizable header → assume Name, Phone, Email, Notes by position.
+    detected = { name: 0, phone: 1, email: 2, notes: 3 };
+    dataRows = grid;
+  }
+  const at = (row, i) => (i === undefined ? "" : String(row[i] ?? "").trim());
+  const rows = dataRows.map((r) => {
+    let name = at(r, detected.name);
+    if (!name && (detected.firstName !== undefined || detected.lastName !== undefined)) {
+      name = `${at(r, detected.firstName)} ${at(r, detected.lastName)}`.trim();
+    }
+    return { name, phone: at(r, detected.phone), email: at(r, detected.email), notes: at(r, detected.notes) };
+  }).filter((x) => x.name || x.phone || x.email);
+  return { rows, detected };
+}
+
+export function ImportCustomers({ onClose, onDone }) {
+  const [fileName, setFileName] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [rows, setRows] = useState(null);
+  const [detected, setDetected] = useState(null);
+  const [error, setError] = useState("");
+  const [importing, setImp] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function onFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setError(""); setRows(null); setResult(null); setFileName(file.name); setParsing(true);
+    try {
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error("That file has no sheets.");
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: "" });
+      const { rows: parsed, detected: det } = rowsFromSheet(aoa);
+      if (!parsed.length) throw new Error("No customers found. Make sure the file has a Name, Phone, or Email column.");
+      setRows(parsed); setDetected(det);
+    } catch (err) {
+      setError(err.message || "Couldn't read that file.");
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  async function runImport() {
+    setImp(true); setError("");
+    try {
+      const res = await fetch("/api/clients/import", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Import failed");
+      setResult(d);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImp(false);
+    }
+  }
+
+  const detectedLabel = detected
+    ? ["name", "phone", "email", "notes"].filter((f) => detected[f] !== undefined || (f === "name" && (detected.firstName !== undefined || detected.lastName !== undefined)))
+        .map((f) => f[0].toUpperCase() + f.slice(1)).join(" · ")
+    : "";
+  const preview = rows ? rows.slice(0, 5) : [];
+
+  return (
+    <div className="modal" onMouseDown={onClose}>
+      <div className="modal__panel" onMouseDown={e => e.stopPropagation()}>
+        <div className="modal__head">
+          <h2 className="modal__title">Import customers</h2>
+          <button className="modal__x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        {result ? (
+          <div className="form">
+            <div className="import__done">
+              <span className="clients-empty__icon"><Icon name="clients" /></span>
+              <h3 className="import__done-title">Import complete</h3>
+              <p className="import__done-text">
+                <b>{result.added}</b> added{result.merged ? <>, <b>{result.merged}</b> matched an existing customer</> : null}
+                {result.skipped ? <>, <b>{result.skipped}</b> skipped (no name, phone, or email)</> : null}.
+              </p>
+            </div>
+            <div className="form__actions">
+              <button className="btn" onClick={onDone}>Done</button>
+            </div>
+          </div>
+        ) : (
+          <div className="form">
+            <p className="panel__hint" style={{ marginTop: 0 }}>
+              Upload an Excel (<code>.xlsx</code>) or CSV file. We’ll look for <b>Name</b>, <b>Phone</b>, <b>Email</b>, and <b>Notes</b> columns
+              (a header row is recommended). Customers already on file are matched by phone or email — no duplicates.
+            </p>
+
+            <label className="import__drop">
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={onFile} hidden />
+              <span className="import__drop-main">{fileName || "Choose a spreadsheet…"}</span>
+              <span className="import__drop-sub">{parsing ? "Reading…" : ".xlsx, .xls, or .csv"}</span>
+            </label>
+
+            {error && <p className="form__error">{error}</p>}
+
+            {rows && (
+              <>
+                <p className="import__summary">
+                  Found <b>{rows.length}</b> customer{rows.length === 1 ? "" : "s"}
+                  {detectedLabel && <> · columns: {detectedLabel}</>}
+                </p>
+                <div className="import__preview">
+                  <table className="ctable">
+                    <thead><tr><th>Name</th><th>Phone</th><th>Email</th></tr></thead>
+                    <tbody>
+                      {preview.map((r, i) => (
+                        <tr key={i}>
+                          <td>{r.name || <span className="clienttable__dim">—</span>}</td>
+                          <td>{r.phone || <span className="clienttable__dim">—</span>}</td>
+                          <td>{r.email || <span className="clienttable__dim">—</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {rows.length > preview.length && <p className="import__more">+ {rows.length - preview.length} more…</p>}
+                </div>
+              </>
+            )}
+
+            <div className="form__actions">
+              <button type="button" className="action" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn" disabled={!rows || importing} onClick={runImport}>
+                {importing ? "Importing…" : rows ? `Import ${rows.length} customer${rows.length === 1 ? "" : "s"}` : "Import"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -268,7 +452,7 @@ export function ClientProfile({ clientId, providers, services, durationOf, busin
 
   async function deleteClient() {
     setDelErr("");
-    if (!window.confirm(`Delete ${data.name || "this client"}? Their profile is removed; past appointments are kept.`)) return;
+    if (!window.confirm(`Delete ${data.name || "this customer"}? Their profile is removed; past appointments are kept.`)) return;
     const res = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
     if (!res.ok) { const { error } = await res.json().catch(() => ({})); setDelErr(error || "Could not delete client"); return; }
     onApptSaved?.(); onDeleted?.();
@@ -285,7 +469,7 @@ export function ClientProfile({ clientId, providers, services, durationOf, busin
   return (
     <div className="pageview">
       <div className="pageview__head pageview__head--bar">
-        <button className="backlink" onClick={onBack}>← All clients</button>
+        <button className="backlink" onClick={onBack}>← All customers</button>
         <button className="btn" onClick={newForClient}>+ New appointment</button>
       </div>
       <div className="pageview__body">
@@ -347,7 +531,7 @@ export function ClientProfile({ clientId, providers, services, durationOf, busin
 
         <section className="panel__block">
           {delErr && <p className="form__error">{delErr}</p>}
-          <button className="action action--danger" onClick={deleteClient}>Delete client</button>
+          <button className="action action--danger" onClick={deleteClient}>Delete customer</button>
         </section>
       </div>
 

@@ -228,11 +228,11 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const showTeamTab = showStaff || isAuto;
   const NAV = isAutoAdmin ? [
     { key: "calendar", label: "Calendar", icon: "calendar" },
-    { key: "clients", label: "Clients", icon: "clients" },
+    { key: "clients", label: "Customers", icon: "clients" },
     { key: "settings", label: "Settings", icon: "settings" },
   ] : isProvider ? [
     { key: "calendar", label: "My calendar", icon: "calendar" },
-    { key: "clients", label: "Clients", icon: "clients" },
+    { key: "clients", label: "Customers", icon: "clients" },
     { key: "myprofile", label: "My profile", icon: "scissors" },
     ...(galleryTab ? [{ key: "mygallery", label: "My gallery", icon: "image" }] : []),
     { key: "settings", label: "Settings", icon: "settings" },
@@ -240,7 +240,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     { key: "calendar", label: "Calendar", icon: "calendar" },
     { key: "services", label: "Services", icon: "tag" },
     ...(galleryTab ? [{ key: "gallery", label: "Gallery", icon: "image" }] : []),
-    { key: "clients", label: "Clients", icon: "clients" },
+    { key: "clients", label: "Customers", icon: "clients" },
     ...(showTeamTab ? [{ key: "providers", label: teamLabel, icon: "scissors" }] : []),
     { key: "settings", label: "Settings", icon: "settings" },
   ];
@@ -254,7 +254,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     : view === "providers" ? { label: `Add ${teamLabel.replace(/s$/, "").toLowerCase()}`, onClick: () => setAddReq(n => n + 1) }
     : view === "services" ? { label: "Add service", onClick: () => setAddReq(n => n + 1) }
     : view === "gallery" || view === "mygallery" ? { label: "Add photos", onClick: () => setAddReq(n => n + 1) }
-    : { label: "Add client", onClick: () => setAddReq(n => n + 1) };
+    : { label: "Add customer", onClick: () => setAddReq(n => n + 1) };
 
   const hoursLabel = user.role === "owner" ? "store hours" : "work hours";
 

@@ -1,10 +1,13 @@
 const { Router } = require("express");
 const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { upsertClient } = require("../lib/clients");
+const { upsertClient, normPhone, normEmail } = require("../lib/clients");
 const { resolveShopId } = require("../lib/shopScope");
 
 const router = Router();
+
+// Escape a string for safe use inside a RegExp (exact name match on import).
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // GET /api/clients — directory with per-client visit stats.
 // Optional ?q= filters by name / phone / email.
@@ -101,6 +104,75 @@ router.post("/", async (req, res) => {
       await db.collection("clients").updateOne({ _id: new ObjectId(id) }, { $set: { notes: notes.trim() } });
     }
     res.status(201).json({ success: true, _id: id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/clients/import — bulk-add customers from a spreadsheet. The client
+// parses the .xlsx/.csv and posts clean rows [{ name, phone, email, notes }].
+// Dedupes by phone/email via upsertClient; name-only rows dedupe by exact name
+// so re-importing the same sheet doesn't pile up duplicates.
+router.post("/import", async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+    if (!rows) return res.status(400).json({ error: "No rows to import" });
+    if (rows.length > 10000) return res.status(400).json({ error: "That's a lot — please import 10,000 or fewer rows at a time." });
+
+    const db = await getDb();
+    const shopId = await resolveShopId(req, db);
+    if (!shopId) return res.status(404).json({ error: "Shop not found" });
+    const clients = db.collection("clients");
+
+    let added = 0, merged = 0, skipped = 0;
+    for (const raw of rows) {
+      const name = String(raw?.name ?? "").trim();
+      const phone = String(raw?.phone ?? "").trim();
+      const email = String(raw?.email ?? "").trim();
+      const notes = String(raw?.notes ?? "").trim();
+
+      // Nothing usable → skip.
+      if (!name && !phone && !email) { skipped++; continue; }
+
+      const phoneKey = normPhone(phone), emailKey = normEmail(email);
+
+      let id, wasNew = false;
+      if (phoneKey || emailKey) {
+        // Existing profile (by phone/email) is merged; otherwise created. Only
+        // match on NON-empty keys so a non-numeric phone can't match name-only rows.
+        const or = [];
+        if (phoneKey) or.push({ phoneKey });
+        if (emailKey) or.push({ emailKey });
+        const existing = await clients.findOne({ shopId, $or: or });
+        wasNew = !existing;
+        id = await upsertClient(db, shopId, { name, phone, email });
+      } else if (!name) {
+        // Had a phone/email string but nothing usable normalized out, and no name.
+        skipped++; continue;
+      } else {
+        // Name only → dedupe on exact (case-insensitive) name within the shop.
+        const existing = await clients.findOne({ shopId, name: new RegExp(`^${escapeRe(name)}$`, "i") });
+        if (existing) { id = existing._id.toString(); }
+        else {
+          const r = await clients.insertOne({
+            shopId, name, phone: "", email: "", phoneKey: "", emailKey: "",
+            notes: "", createdAt: new Date(), updatedAt: new Date(),
+          });
+          id = r.insertedId.toString(); wasNew = true;
+        }
+      }
+
+      if (wasNew) added++; else merged++;
+      // Only set notes when provided and the profile has none — never clobber.
+      if (notes && id) {
+        await clients.updateOne(
+          { _id: new ObjectId(id), $or: [{ notes: "" }, { notes: { $exists: false } }] },
+          { $set: { notes, updatedAt: new Date() } }
+        );
+      }
+    }
+
+    res.json({ success: true, added, merged, skipped, total: rows.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
