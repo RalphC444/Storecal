@@ -62,6 +62,19 @@ export function AdminConsole({ user, onSignOut }) {
     else setErr("Could not delete client");
   }
 
+  // Comp (or un-comp) the client's next invoice via Stripe. Hits Stripe, so
+  // reload afterward to pull the fresh discount + renewal state.
+  async function freeMonth(id, on) {
+    setSavingId(id); setErr("");
+    const res = await fetch(`/api/admin/shops/${id}/free-month`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSavingId(null);
+    if (res.ok) { toast(on ? "Next month comped" : "Free month removed"); load(); }
+    else setErr(d.error || "Could not update the comp");
+  }
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const selected = shops && shops.find(s => s._id === selectedId);
 
@@ -78,6 +91,7 @@ export function AdminConsole({ user, onSignOut }) {
             <AdminClientDetail
               shop={selected} origin={origin} saving={savingId === selected._id}
               onPatch={(body, label) => patch(selected._id, body, label)}
+              onFreeMonth={(on) => freeMonth(selected._id, on)}
               onDelete={() => setDelShop(selected)}
               onBack={() => setSelectedId(null)}
             />
@@ -104,7 +118,7 @@ export function AdminConsole({ user, onSignOut }) {
                           <tr key={s._id} className="adminconsole__row" onClick={() => setSelectedId(s._id)}>
                             <td>
                               <div className="adminconsole__name">{s.name}</div>
-                              <div className="adminconsole__meta">{s.businessType} · {s.services} svc · {s.staff} staff</div>
+                              <div className="adminconsole__meta">{s.businessType} · {s.services} svc · {s.staff} staff · {s.appointments} appts</div>
                             </td>
                             <td className="adminconsole__contact">
                               <span>{s.ownerEmail || <span className="adminconsole__dim">no email</span>}</span>
@@ -114,7 +128,12 @@ export function AdminConsole({ user, onSignOut }) {
                             <td>{BOOKING_LABEL[bookingValueOf(s)]}</td>
                             <td>
                               <span className={"adminconsole__badge" + (s.subscribed || s.freeForLife ? " adminconsole__badge--on" : "")}>{s.freeForLife ? "Free for life" : s.subscribed ? "Subscribed" : "Not subscribed"}</span>
-                              {s.subscribed && fmtRenewDate(s.renewsAt) && <div className="adminconsole__renew">Renews {fmtRenewDate(s.renewsAt)}</div>}
+                              {s.subscribed && fmtRenewDate(s.renewsAt) && (
+                                <div className="adminconsole__renew">
+                                  {s.freeMonthActive ? "Next month free · " : ""}{s.freeMonthActive ? "then renews " : "Renews "}{fmtRenewDate(s.renewsAt)}
+                                  {s.paymentsCompleted > 0 && <> · {s.paymentsCompleted} paid</>}
+                                </div>
+                              )}
                             </td>
                             <td className="adminconsole__chevron"><Icon name="chevronRight" /></td>
                           </tr>
@@ -142,7 +161,7 @@ export function AdminConsole({ user, onSignOut }) {
 }
 
 // Full CRM-style profile for one client (opened from the clients table).
-function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack }) {
+function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDelete, onBack }) {
   const [phone, setPhone] = useState(s.phone || "");
   const [website, setWebsite] = useState(s.website || "");
   const [copied, setCopied] = useState("");
@@ -165,7 +184,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
       <div className="clientdetail__head">
         <div>
           <h1 className="clientdetail__name">{s.name}</h1>
-          <span className="clientdetail__meta">{s.businessType} · {s.services} services · {s.staff} staff · <code>{s.publicKey}</code></span>
+          <span className="clientdetail__meta">{s.businessType} · {s.services} services · {s.staff} staff · {s.appointments} appts · <code>{s.publicKey}</code></span>
         </div>
         <span className={"adminconsole__badge" + (s.subscribed || s.freeForLife ? " adminconsole__badge--on" : "")}>{s.freeForLife ? "Free for life" : s.subscribed ? "Subscribed" : "Not subscribed"}</span>
       </div>
@@ -189,11 +208,44 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
               <option value="free">Free for life — comped (no billing)</option>
             </select>
           </label>
-          <p className="panel__hint">{s.freeForLife
-            ? "Comped for life — booking always on, and no payment or billing shows in their account."
-            : s.subscribed
-            ? (fmtRenewDate(s.renewsAt) ? `Subscription renews ${fmtRenewDate(s.renewsAt)}.` : "Subscription active.")
-            : "No active subscription."}</p>
+
+          {/* Live subscription summary: renewal date + payments made. */}
+          {!s.freeForLife && (
+            <div className="clientdetail__subsummary">
+              {s.subscribed ? (<>
+                <div className="clientdetail__stat">
+                  <span className="clientdetail__stat-l">{s.freeMonthActive ? "Next payment (free)" : "Next payment"}</span>
+                  <span className="clientdetail__stat-v">{fmtRenewDate(s.renewsAt) || (s.freeMonthActive ? "$0" : "—")}</span>
+                </div>
+                <div className="clientdetail__stat">
+                  <span className="clientdetail__stat-l">Payments made</span>
+                  <span className="clientdetail__stat-v">{s.paymentsCompleted}</span>
+                </div>
+              </>) : (
+                <p className="panel__hint" style={{ margin: 0 }}>No active subscription.</p>
+              )}
+            </div>
+          )}
+
+          {/* Comp the next invoice (100%-off once). Only meaningful for a live sub. */}
+          {!s.freeForLife && s.subscribed && (<>
+            <div className="clientdetail__toggles" style={{ marginTop: 14 }}>
+              <Toggle checked={!!s.freeMonthActive} disabled={saving} label="Give next month free"
+                onChange={v => onFreeMonth(v)} />
+            </div>
+            <p className="panel__hint" style={{ marginTop: 8 }}>{s.freeMonthActive
+              ? `Next invoice is comped — they’ll be charged $0${fmtRenewDate(s.renewsAt) ? ` on ${fmtRenewDate(s.renewsAt)}` : ""}, then billing resumes. They’ll see a “next month is on us” note in their account.`
+              : "Waives their next invoice (100% off, one time). Billing resumes automatically the month after."}</p>
+          </>)}
+
+          {/* First-month-free trial for a client who hasn't subscribed yet. */}
+          {!s.freeForLife && !s.subscribed && (<>
+            <div className="clientdetail__toggles" style={{ marginTop: 14 }}>
+              <Toggle checked={!!s.firstMonthFree} disabled={saving} label="First month free (new signup)"
+                onChange={v => onPatch({ firstMonthFree: v }, v ? "First month free on" : "First month free off")} />
+            </div>
+            <p className="panel__hint" style={{ marginTop: 8 }}>When on, their subscribe checkout saves the card now, charges $0 today, and starts billing after a 30-day free month.</p>
+          </>)}
         </section>
 
         <section className="clientdetail__card">
@@ -206,6 +258,26 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onDelete, onBack 
             <input type="url" value={website} onChange={e => setWebsite(e.target.value)} onBlur={() => saveContact("website", website)} placeholder="https://theirsite.com" /></label>
         </section>
       </div>
+
+      <section className="clientdetail__card">
+        <h3 className="schedule__label">Usage</h3>
+        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 14 }}>How much this client uses StoreCal.</p>
+        <div className="clientdetail__usage">
+          <div className="clientdetail__stat">
+            <span className="clientdetail__stat-l">Appointments (all-time)</span>
+            <span className="clientdetail__stat-v">{s.appointments}</span>
+          </div>
+          <div className="clientdetail__stat">
+            <span className="clientdetail__stat-l">Appointments this month</span>
+            <span className="clientdetail__stat-v">{s.appointmentsThisMonth}</span>
+          </div>
+          <div className="clientdetail__stat">
+            <span className="clientdetail__stat-l">Emails sent</span>
+            <span className="clientdetail__stat-v">{s.emailsSent}</span>
+          </div>
+        </div>
+        <p className="panel__hint" style={{ marginTop: 12 }}>Email count is tracked from when tracking was added — earlier sends aren’t included.</p>
+      </section>
 
       <section className="clientdetail__card">
         <h3 className="schedule__label">Staff &amp; content</h3>

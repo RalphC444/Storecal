@@ -62,12 +62,21 @@ function buildRebookUrl(shop, doc, origin) {
   }
 }
 
+// Usage tracking: bump the shop's lifetime "emails sent" counter. Best-effort —
+// only counts messages the mailer reports as actually sent (Resend configured).
+// Historical email volume before this counter existed can't be recovered.
+async function bumpEmails(db, shopId, n = 1) {
+  if (!n) return;
+  try { await db.collection("shops").updateOne({ _id: new ObjectId(shopId) }, { $inc: { "usage.emailsSent": n } }); }
+  catch { /* non-fatal */ }
+}
+
 // Fire-and-forget branded emails to the customer. Never block or fail the
 // booking/cancellation — email is best-effort.
 function emailBookingConfirmation(db, shopId, doc) {
   if (!doc.client?.email) return;
   (async () => {
-    try { await sendBookingConfirmation(await bookingFields(db, shopId, doc)); }
+    try { if (await sendBookingConfirmation(await bookingFields(db, shopId, doc))) await bumpEmails(db, shopId, 1); }
     catch (e) { console.error("Booking confirmation email failed:", e.message); }
   })();
 }
@@ -105,15 +114,17 @@ function emailOwnerNotification(db, shopId, doc) {
 
       // Recipients: the owner, plus the assigned staff member (deduped by email).
       const sent = new Set();
-      if (owner?.email) { sent.add(owner.email.toLowerCase()); await sendOwnerBookingNotification({ ...payload, to: owner.email }); }
+      let count = 0;
+      if (owner?.email) { sent.add(owner.email.toLowerCase()); if (await sendOwnerBookingNotification({ ...payload, to: owner.email })) count++; }
       if (doc.providerId) {
         const prov = await db.collection("providers").findOne(
           { _id: new ObjectId(doc.providerId) },
           { projection: { email: 1 } }
         ).catch(() => null);
         const pe = (prov?.email || "").trim();
-        if (pe && !sent.has(pe.toLowerCase())) await sendOwnerBookingNotification({ ...payload, to: pe });
+        if (pe && !sent.has(pe.toLowerCase())) { if (await sendOwnerBookingNotification({ ...payload, to: pe })) count++; }
       }
+      await bumpEmails(db, shopId, count);
     } catch (e) { console.error("Owner/staff booking notification failed:", e.message); }
   })();
 }
@@ -121,7 +132,7 @@ function emailOwnerNotification(db, shopId, doc) {
 function emailBookingCancellation(db, shopId, doc, message, origin) {
   if (!doc.client?.email) return;
   (async () => {
-    try { await sendBookingCancellation({ ...(await bookingFields(db, shopId, doc, origin)), message: message || "" }); }
+    try { if (await sendBookingCancellation({ ...(await bookingFields(db, shopId, doc, origin)), message: message || "" })) await bumpEmails(db, shopId, 1); }
     catch (e) { console.error("Booking cancellation email failed:", e.message); }
   })();
 }

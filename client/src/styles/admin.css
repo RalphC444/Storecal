@@ -35,6 +35,13 @@
 .adminconsole__dim { color: var(--ink-3); font-size: 12px; }
 .adminconsole__sel { padding: 8px 28px 8px 10px; border: 1px solid var(--line-2); border-radius: 9px; font-size: 13px; font-family: inherit; background: var(--paper); min-width: 150px; }
 .adminconsole__renew { font-size: 12px; color: var(--ink-2); margin-top: 5px; }
+
+/* Client detail: subscription summary + usage stat tiles */
+.clientdetail__subsummary { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.clientdetail__usage { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.clientdetail__stat { flex: 1 1 140px; min-width: 130px; background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.clientdetail__stat-l { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); margin-bottom: 5px; }
+.clientdetail__stat-v { display: block; font-size: 18px; font-weight: 700; color: var(--ink); }
 .adminconsole__links > * { display: block; margin-bottom: 6px; }
 .adminconsole__links > *:last-child { margin-bottom: 0; }
 .adminconsole__links a, .adminconsole__links .linklike { font-size: 13px; text-decoration: none; color: var(--accent); }

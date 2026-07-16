@@ -5,6 +5,7 @@ import { LoginScreen } from "./features/auth/LoginScreen";
 import { ForgotPasswordScreen } from "./features/auth/ForgotPasswordScreen";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen";
 import { ChangePasswordScreen } from "./features/auth/ChangePasswordScreen";
+import { CookieConsent } from "./components/CookieConsent";
 
 // Heavy, role-specific areas are code-split so a visitor only downloads what
 // their screen needs — a marketing/booking visitor never fetches the owner app
@@ -98,10 +99,10 @@ export default function App() {
   if (phase === "loading") return Splash;
 
   if (phase === "landing")
-    return <Suspense fallback={Splash}><LandingPage onSignIn={() => setPhase("login")} onDemo={demoLogin} onLegal={openLegal} /></Suspense>;
+    return <Suspense fallback={Splash}><LandingPage onSignIn={() => setPhase("login")} onDemo={demoLogin} onLegal={openLegal} /><CookieConsent onLegal={openLegal} /></Suspense>;
 
   if (phase === "legal")
-    return <Suspense fallback={Splash}><PolicyPages section={legalSection} onBack={() => setPhase("landing")} /></Suspense>;
+    return <Suspense fallback={Splash}><PolicyPages section={legalSection} onBack={() => setPhase("landing")} /><CookieConsent onLegal={openLegal} /></Suspense>;
 
   if (phase === "login")
     return <LoginScreen onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onForgot={() => setPhase("forgot")} onBack={() => setPhase("landing")} />;

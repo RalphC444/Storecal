@@ -382,6 +382,8 @@ function BillingPanel() {
     else setErr(d.error || "Something went wrong");
   }
 
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : null;
+
   return (
     <>
       <CategoryHead title="Billing" desc="Your subscription and payment method. Only the store owner manages this." />
@@ -397,8 +399,21 @@ function BillingPanel() {
                 {busy ? "Opening…" : (data.assignedPlan ? `Subscribe — ${data.assignedPlan.name} ${data.assignedPlan.price}` : "Subscribe")}
               </button>)}
         </div>
+
+        {/* Good-news banner: a comped month, or a free trial in progress. */}
+        {data && data.subscribed && data.freeMonthActive && (
+          <div className="billing__gift">🎉 Your next month is on us — you won’t be charged{fmtDate(data.renewsAt) ? ` on ${fmtDate(data.renewsAt)}` : " next cycle"}. Billing resumes normally the month after.</div>
+        )}
+        {data && data.subscribed && !data.freeMonthActive && data.trialing && fmtDate(data.renewsAt) && (
+          <div className="billing__gift">🎁 You’re in your free month — your first payment is on {fmtDate(data.renewsAt)}.</div>
+        )}
+        {/* Plain next-payment line when nothing special is going on. */}
+        {data && data.subscribed && !data.freeMonthActive && !data.trialing && fmtDate(data.renewsAt) && (
+          <p className="panel__hint">Next payment: <b>{fmtDate(data.renewsAt)}</b>.</p>
+        )}
+
         {data && !data.subscribed && data.assignedPlan && (
-          <p className="panel__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}</p>
+          <p className="panel__hint">Your plan: <b>{data.assignedPlan.name}</b> — {data.assignedPlan.price}. {data.assignedPlan.blurb}{data.firstMonthFree ? " Your first month is free — we’ll save your card and start billing after 30 days." : ""}</p>
         )}
         {err && <p className="form__error">{err}</p>}
         {data && !data.stripeConfigured && (

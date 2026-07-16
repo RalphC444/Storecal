@@ -6,6 +6,7 @@ import "./styles/base.css";
 import "./styles/auth.css";
 import "./styles/marketing.css";
 import "./styles/admin.css";
+import "./styles/cookie.css";
 import App from "./App.jsx";
 
 // Send the auth cookie with every API call (client :5177 → api :5001).

@@ -1,0 +1,114 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   COOKIE CONSENT
+   A slim, glass, bottom-left notice in StoreCal's navy + periwinkle branding.
+   Tokens are self-contained so it looks identical on the landing page, the
+   policy pages, or any auth screen — no dependence on the .marketing scope.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.cookie-consent {
+  --cc-navy:     #000D6E;
+  --cc-peri:     #7B79FF;
+  --cc-peri-2:   #4d4bd9;
+  --cc-lav-soft: #f0efff;
+  --cc-muted:    #5c5a7c;
+  --cc-line:     rgba(0, 13, 110, 0.10);
+  --cc-ease:     cubic-bezier(.22, 1, .36, 1);
+  --cc-serif:    "Fraunces", Georgia, "Times New Roman", serif;
+  --cc-sans:     "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  position: fixed;
+  left: clamp(1rem, 3vw, 1.75rem);
+  bottom: clamp(1rem, 3vw, 1.75rem);
+  z-index: 200;
+  width: min(380px, calc(100vw - 2rem));
+  font-family: var(--cc-sans);
+
+  /* Hidden start-state — the entrance transitions out of this. */
+  opacity: 0;
+  transform: translateY(18px) scale(.985);
+  transition: opacity .6s var(--cc-ease), transform .6s var(--cc-ease);
+  will-change: transform, opacity;
+}
+.cookie-consent.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.cookie-consent__card {
+  display: flex;
+  gap: .95rem;
+  padding: 1.25rem 1.3rem 1.15rem;
+  background: rgba(255, 255, 255, .86);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border: 1px solid var(--cc-line);
+  border-radius: 20px;
+  box-shadow:
+    0 30px 60px -24px rgba(0, 13, 110, .42),
+    0 2px 6px -2px rgba(0, 13, 110, .12);
+}
+
+.cookie-consent__icon {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(150deg, var(--cc-lav-soft), #fff);
+  color: var(--cc-peri-2);
+  box-shadow: inset 0 0 0 1px var(--cc-line);
+}
+.cookie-consent__icon svg { width: 22px; height: 22px; display: block; }
+
+.cookie-consent__body { min-width: 0; }
+.cookie-consent__title {
+  font-family: var(--cc-serif);
+  font-weight: 500; font-size: 1.15rem; line-height: 1.15; letter-spacing: -.01em;
+  color: var(--cc-navy);
+  margin: 0 0 .3rem;
+}
+.cookie-consent__text {
+  font-size: .875rem; line-height: 1.5; color: var(--cc-muted);
+  margin: 0 0 1rem;
+}
+.cookie-consent__link {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--cc-peri-2); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px;
+  transition: color .25s;
+}
+.cookie-consent__link:hover { color: var(--cc-navy); }
+
+.cookie-consent__actions { display: flex; gap: .5rem; }
+.cookie-consent__btn {
+  flex: 1;
+  font-family: var(--cc-sans); font-weight: 700; font-size: .85rem; letter-spacing: .01em;
+  padding: .62em 1em;
+  border-radius: 100px; border: 1.5px solid transparent;
+  cursor: pointer; white-space: nowrap;
+  transition: transform .3s var(--cc-ease), box-shadow .3s var(--cc-ease),
+    background .25s, color .25s, border-color .25s;
+}
+.cookie-consent__btn:active { transform: translateY(1px); }
+.cookie-consent__btn:focus-visible { outline: 2px solid var(--cc-peri); outline-offset: 2px; }
+.cookie-consent__btn--ghost {
+  background: transparent; border-color: rgba(0, 13, 110, .18); color: var(--cc-navy);
+}
+.cookie-consent__btn--ghost:hover { background: var(--cc-navy); color: #fff; border-color: var(--cc-navy); }
+.cookie-consent__btn--accept {
+  background: linear-gradient(135deg, var(--cc-peri), var(--cc-peri-2)); color: #fff;
+  box-shadow: 0 10px 24px -10px rgba(77, 75, 217, .6);
+}
+.cookie-consent__btn--accept:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px -12px rgba(77, 75, 217, .72);
+}
+
+@media (max-width: 480px) {
+  .cookie-consent { left: .75rem; right: .75rem; bottom: .75rem; width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cookie-consent { transition: opacity .2s linear; transform: none; }
+  .cookie-consent.is-in { transform: none; }
+  .cookie-consent__btn:hover, .cookie-consent__btn:active,
+  .cookie-consent__btn--accept:hover { transform: none; }
+}

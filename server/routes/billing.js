@@ -50,13 +50,26 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
     // Ask Stripe directly whether this shop has an active subscription (no
     // webhooks needed). Determines whether the "subscribe to enable booking"
     // prompt shows and whether online booking is turned on.
-    let subscribed = false, planId = null, status = null;
+    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, trialing = false;
     const stripe = stripeClient();
     if (stripe && shop?.stripeCustomerId) {
       try {
-        const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5 });
+        const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5, expand: ["data.discounts"] });
         const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
-        if (active) { subscribed = true; status = active.status; planId = active.metadata?.planId || null; }
+        if (active) {
+          subscribed = true;
+          status = active.status;
+          planId = active.metadata?.planId || null;
+          trialing = active.status === "trialing";
+          // Renewal date: recent Stripe API versions keep current_period_end on
+          // the subscription item, not the subscription itself.
+          const item = active.items?.data?.[0];
+          const secs = item?.current_period_end || active.current_period_end || null;
+          renewsAt = secs ? secs * 1000 : null;
+          // 100%-off discount == the operator comped their next month.
+          const ds = Array.isArray(active.discounts) ? active.discounts : [];
+          freeMonthActive = ds.some((d) => d && typeof d === "object" && d.coupon && d.coupon.percent_off === 100);
+        }
       } catch { /* treat as not subscribed */ }
       // Cache the result on the shop so the public booking widget can gate its
       // CTAs without a Stripe call on every page load.
@@ -71,6 +84,10 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       subscribed,
       planId,
       status,
+      renewsAt,          // next payment date (ms), or when the trial's first charge lands
+      trialing,          // subscription is in its free-trial window
+      freeMonthActive,   // operator comped the next invoice (100%-off once)
+      firstMonthFree: shop?.firstMonthFree === true, // new signups start with a free month
       assignedPlanId: assignedPlan.id,
       assignedPlan,
       freeForLife: shop?.freeForLife === true, // comped account → hide all billing UI
@@ -101,7 +118,9 @@ router.post("/checkout", requireAuth, requireOwner, async (req, res) => {
 
     const customerId = await ensureCustomer(stripe, db, shop);
     const origin = req.headers.origin || "http://localhost:5173";
-    const session = await stripe.checkout.sessions.create({
+
+    const subscription_data = { metadata: { shopId: req.auth.shopId, planId: plan.id } };
+    const sessionParams = {
       mode: "subscription",
       customer: customerId,
       line_items: [{
@@ -114,10 +133,20 @@ router.post("/checkout", requireAuth, requireOwner, async (req, res) => {
         },
       }],
       metadata: { shopId: req.auth.shopId, planId: plan.id },
-      subscription_data: { metadata: { shopId: req.auth.shopId, planId: plan.id } },
+      subscription_data,
       success_url: `${origin}/?billing=success`,
       cancel_url: `${origin}/?billing=cancelled`,
-    });
+    };
+
+    // First month free: give a 30-day trial and still capture the card now
+    // (Checkout skips card collection during a trial unless we force it), so the
+    // first real charge lands automatically after the trial.
+    if (shop.firstMonthFree === true) {
+      subscription_data.trial_period_days = 30;
+      sessionParams.payment_method_collection = "always";
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
     res.json({ url: session.url });
   } catch (err) {
     res.status(500).json({ error: err.message });

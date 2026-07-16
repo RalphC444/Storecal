@@ -22,14 +22,59 @@ function stripeClient() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
   try { return require("stripe")(process.env.STRIPE_SECRET_KEY); } catch { return null; }
 }
-// Live subscription status + renewal date for a Stripe customer.
-async function subInfo(stripe, customerId) {
+
+// The reusable "give a month free" comp: a 100%-off coupon that applies to the
+// NEXT invoice only (duration: once). Same fixed id every time so we don't pile
+// up duplicate coupons in Stripe.
+const FREE_MONTH_COUPON_ID = "storecal-free-month";
+async function freeMonthCoupon(stripe) {
   try {
-    const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5 });
+    return await stripe.coupons.retrieve(FREE_MONTH_COUPON_ID);
+  } catch (e) {
+    if (e && e.code === "resource_missing") {
+      return await stripe.coupons.create({ id: FREE_MONTH_COUPON_ID, percent_off: 100, duration: "once", name: "Free month (StoreCal)" });
+    }
+    throw e;
+  }
+}
+// True when a subscription has a 100%-off discount applied (its next invoice is
+// comped). Reads the expanded `discounts` array (Stripe moved off the singular
+// `discount` field in recent API versions).
+function hasFreeMonth(sub) {
+  const ds = Array.isArray(sub?.discounts) ? sub.discounts : [];
+  return ds.some((d) => d && typeof d === "object" && d.coupon && d.coupon.percent_off === 100);
+}
+// The renewal timestamp (ms). Recent Stripe API versions moved
+// current_period_end off the Subscription onto each subscription item, so read
+// the item first and fall back to the legacy field for older library pins.
+function renewsAtMs(sub) {
+  const item = sub?.items?.data?.[0];
+  const secs = item?.current_period_end || sub?.current_period_end || null;
+  return secs ? secs * 1000 : null;
+}
+
+// Live subscription status, renewal date, payments made, and comp state.
+async function subInfo(stripe, customerId) {
+  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false };
+  try {
+    const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5, expand: ["data.discounts"] });
     const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
-    if (!active) return { subscribed: false, renewsAt: null, status: null };
-    return { subscribed: true, status: active.status, renewsAt: active.current_period_end ? active.current_period_end * 1000 : null };
-  } catch { return { subscribed: false, renewsAt: null, status: null }; }
+    if (!active) return empty;
+    // Count real payments (paid invoices with a non-zero amount — a comped $0
+    // invoice is still "paid" in Stripe but isn't a payment the client made).
+    let paymentsCompleted = 0;
+    try {
+      const invoices = await stripe.invoices.list({ customer: customerId, status: "paid", limit: 100 });
+      paymentsCompleted = invoices.data.filter((inv) => (inv.amount_paid || 0) > 0).length;
+    } catch { /* leave 0 */ }
+    return {
+      subscribed: true,
+      status: active.status,
+      renewsAt: renewsAtMs(active),
+      paymentsCompleted,
+      freeMonthActive: hasFreeMonth(active),
+    };
+  } catch { return empty; }
 }
 
 router.use(requireAuth, requireSuperAdmin);
@@ -107,7 +152,15 @@ router.get("/shops", async (_req, res) => {
     const owners = await db.collection("users").find({ role: "owner", shopId: { $in: ids } }).toArray();
     const ownerBy = {}; owners.forEach((u) => { ownerBy[u.shopId] = u.email; });
 
-    const [svc, staff] = await Promise.all([countBy("services"), countBy("providers", { active: true })]);
+    // Usage: services, active staff, and appointments booked (all-time + this
+    // calendar month) — so the operator can see how much each client uses.
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const [svc, staff, apptTotal, apptMonth] = await Promise.all([
+      countBy("services"),
+      countBy("providers", { active: true }),
+      countBy("appointments"),
+      countBy("appointments", { createdAt: { $gte: monthStart } }),
+    ]);
 
     // Live subscription + renewal per shop that has a Stripe customer.
     const stripe = stripeClient();
@@ -138,12 +191,18 @@ router.get("/shops", async (_req, res) => {
 
         subscribed: sub ? sub.subscribed : (s.subscribed === true),
         renewsAt: sub ? sub.renewsAt : null,
+        paymentsCompleted: sub ? sub.paymentsCompleted : 0,
+        freeMonthActive: sub ? sub.freeMonthActive : false,
+        firstMonthFree: s.firstMonthFree === true, // new signups start with a 30-day free trial
         promptBilling: s.promptBilling === true,
         ownerEmail: ownerBy[id] || "",
         phone: s.phone || "",
         website: s.website || "",
         services: svc[id] || 0,
         staff: staff[id] || 0,
+        appointments: apptTotal[id] || 0,
+        appointmentsThisMonth: apptMonth[id] || 0,
+        emailsSent: s.usage?.emailsSent || 0,
         createdAt: s.createdAt || null,
       };
     }));
@@ -170,6 +229,7 @@ router.patch("/shops/:id", async (req, res) => {
     if (req.body.website !== undefined) set.website = String(req.body.website).trim();
     if (req.body.demo !== undefined) set.demo = !!req.body.demo;
     if (req.body.freeForLife !== undefined) set.freeForLife = !!req.body.freeForLife;
+    if (req.body.firstMonthFree !== undefined) set.firstMonthFree = !!req.body.firstMonthFree;
     if (req.body.showStaff !== undefined) set.showStaff = !!req.body.showStaff;
     if (req.body.showGallery !== undefined) set.showGallery = !!req.body.showGallery;
     if (req.body.showStaffGalleries !== undefined) set.showStaffGalleries = !!req.body.showStaffGalleries;
@@ -186,6 +246,37 @@ router.patch("/shops/:id", async (req, res) => {
     const r = await db.collection("shops").updateOne(query, ops);
     if (!r.matchedCount) return res.status(404).json({ error: "Shop not found" });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/shops/:id/free-month — comp (or un-comp) the client's NEXT
+// invoice. Body: { on: boolean }. Applies a 100%-off one-time coupon to their
+// active subscription so the next renewal is $0, then billing resumes as normal.
+// The owner sees a "next month is on us" notice in their billing screen.
+router.post("/shops/:id/free-month", async (req, res) => {
+  const stripe = stripeClient();
+  if (!stripe) return res.status(400).json({ error: "Billing isn't connected yet." });
+  try {
+    const db = await getDb();
+    let _id; try { _id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: "Bad id" }); }
+    const shop = await db.collection("shops").findOne({ _id });
+    if (!shop) return res.status(404).json({ error: "Shop not found" });
+    if (!shop.stripeCustomerId) return res.status(400).json({ error: "This client has no billing set up yet." });
+
+    const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5 });
+    const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
+    if (!active) return res.status(400).json({ error: "This client has no active subscription to comp." });
+
+    const on = req.body.on !== false; // default to turning it on
+    if (on) {
+      const coupon = await freeMonthCoupon(stripe);
+      await stripe.subscriptions.update(active.id, { discounts: [{ coupon: coupon.id }] });
+    } else {
+      await stripe.subscriptions.update(active.id, { discounts: [] }); // clear any comp
+    }
+    res.json({ success: true, freeMonthActive: on });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
