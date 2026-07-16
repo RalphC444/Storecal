@@ -29,6 +29,14 @@ const OnboardingHours = lazy(() =>
 
 const Splash = <div className="authwrap"><LoadingSpinner /></div>;
 
+// The demo is a throwaway sandbox. We keep a per-TAB flag (sessionStorage, which
+// survives reloads but not a closed tab) so a reload keeps the visitor in the
+// demo, while a fresh visit — new tab or reopened browser — lands on marketing
+// instead of auto-resuming the demo session.
+const DEMO_TAB_KEY = "storecal_demo";
+const demoTabActive = () => { try { return sessionStorage.getItem(DEMO_TAB_KEY) === "1"; } catch { return false; } };
+const markDemoTab = (on) => { try { on ? sessionStorage.setItem(DEMO_TAB_KEY, "1") : sessionStorage.removeItem(DEMO_TAB_KEY); } catch { /* private mode */ } };
+
 // ── Auth gate ────────────────────────────────────────────────────────────────
 // Decides which top-level screen to show based on the auth/session state.
 
@@ -70,6 +78,10 @@ export default function App() {
     fetch("/api/auth/me")
       .then(r => (r.ok ? r.json() : null))
       .then(d => {
+        // A FRESH visit to the demo (new tab / reopened browser) lands on the
+        // marketing site rather than auto-resuming; a reload within the same tab
+        // keeps the visitor in the demo. Re-enter anytime via "Try the live demo".
+        if (d?.user?.demo && !demoTabActive()) { setPhase("landing"); return; }
         if (d?.user) { setUser(d.user); setPhase(d.user.mustChangePassword ? "changepw" : "app"); }
         else setPhase("landing");
       })
@@ -78,6 +90,7 @@ export default function App() {
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    markDemoTab(false); // exiting the demo ends this tab's demo session
     setUser(null); setPhase("landing");
   }
 
@@ -91,7 +104,7 @@ export default function App() {
         body: JSON.stringify({ email: "demo@storecal.com", password: "demo1234" }),
       });
       const d = await res.json();
-      if (res.ok && d.user) { setUser(d.user); setPhase(d.user.mustChangePassword ? "changepw" : "app"); }
+      if (res.ok && d.user) { markDemoTab(true); setUser(d.user); setPhase(d.user.mustChangePassword ? "changepw" : "app"); }
       else setPhase("login");
     } catch { setPhase("login"); }
   }

@@ -10,6 +10,10 @@ const { generatePublicKey } = require("../lib/shopScope");
 
 const router = Router();
 
+// The shared public demo account. The client treats this account as a throwaway
+// sandbox: no settings, an obvious way out, and no auto-resume on return.
+const DEMO_EMAIL = "demo@storecal.com";
+
 function publicUser(u) {
   return {
     _id: u._id.toString(),
@@ -19,6 +23,7 @@ function publicUser(u) {
     shopId: u.shopId,
     providerId: u.providerId || null,
     mustChangePassword: !!u.mustChangePassword,
+    demo: u.email === DEMO_EMAIL,
   };
 }
 

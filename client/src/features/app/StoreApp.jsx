@@ -23,6 +23,9 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const [showStaff, setShowStaff] = useState(true);
   const [showGallery, setShowGallery] = useState(true);
   const isProvider = user.role === "provider";
+  // The public demo is a throwaway sandbox: no Settings tab (no billing/account
+  // to manage) and a prominent "Exit demo" button instead of a buried icon.
+  const isDemo = user.demo === true;
   // At auto shops, "staff" are administrators — not bookable service providers.
   // They manage the store's whole calendar and have no personal schedule, so an
   // auto provider-role user behaves like a limited admin rather than a stylist.
@@ -208,7 +211,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
       .then(d => { setSubscribed(!!d.subscribed); setPromptBilling(!!d.promptBilling); })
       .catch(() => {});
   }, [user.role]);
-  const needsSubscribe = user.role === "owner" && !hoursNeeded && !subscribed && promptBilling;
+  const needsSubscribe = user.role === "owner" && !isDemo && !hoursNeeded && !subscribed && promptBilling;
   async function startCheckout() {
     setSubBusy(true);
     const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -244,6 +247,8 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
     ...(showTeamTab ? [{ key: "providers", label: teamLabel, icon: "scissors" }] : []),
     { key: "settings", label: "Settings", icon: "settings" },
   ];
+  // Demo visitors don't get Settings (no real account/billing to manage).
+  const nav = isDemo ? NAV.filter(n => n.key !== "settings") : NAV;
   const go = (v) => { setView(v); setMobileOpen(false); };
 
   // Context action shown fixed in the mobile top nav, per active tab.
@@ -286,7 +291,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         </div>
 
         <nav className="navlist">
-          {NAV.map(n => (
+          {nav.map(n => (
             <button
               key={n.key}
               className={`navlink${view === n.key ? " navlink--on" : ""}`}
@@ -306,20 +311,30 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
           <Icon name="plus" /><span className="navlink__txt">New appointment</span>
         </button>
 
-        <div className="userprofile">
-          {/* Account link disabled for now — Settings lives in the nav above.
-              The store name + sign-out stay here. */}
-          <div className="userprofile__acct userprofile__acct--static">
-            <span className="userprofile__av">{(user.name || user.email).slice(0, 1).toUpperCase()}<span className="userprofile__dot" /></span>
-            <span className="userprofile__meta">
-              <span className="userprofile__name">{user.name || user.email}</span>
-              <span className="userprofile__role">{user.role === "owner" ? "Owner" : "Staff"}</span>
-            </span>
+        {isDemo ? (
+          // Demo sandbox: a clear, full-width way out instead of a tiny icon.
+          <div className="userprofile userprofile--demo">
+            <span className="userprofile__demotag">You're exploring the demo</span>
+            <button className="demoexit" onClick={onSignOut}>
+              <Icon name="signout" /><span>Exit demo</span>
+            </button>
           </div>
-          <button className="userprofile__out" onClick={onSignOut} title="Sign out" aria-label="Sign out">
-            <Icon name="signout" />
-          </button>
-        </div>
+        ) : (
+          <div className="userprofile">
+            {/* Account link disabled for now — Settings lives in the nav above.
+                The store name + sign-out stay here. */}
+            <div className="userprofile__acct userprofile__acct--static">
+              <span className="userprofile__av">{(user.name || user.email).slice(0, 1).toUpperCase()}<span className="userprofile__dot" /></span>
+              <span className="userprofile__meta">
+                <span className="userprofile__name">{user.name || user.email}</span>
+                <span className="userprofile__role">{user.role === "owner" ? "Owner" : "Staff"}</span>
+              </span>
+            </div>
+            <button className="userprofile__out" onClick={onSignOut} title="Sign out" aria-label="Sign out">
+              <Icon name="signout" />
+            </button>
+          </div>
+        )}
       </aside>
 
       <main className="content">
@@ -366,7 +381,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
           <GalleryView addReq={addReq} />
         ) : view === "mygallery" ? (
           <StaffGallery providerId={myProvider?._id} addReq={addReq} standalone />
-        ) : view === "settings" ? (
+        ) : view === "settings" && !isDemo ? (
           <SettingsView user={user} onUserChange={onUserChange} onSignOut={onSignOut} />
         ) : (
           <ClientsView providers={providers} services={services} durationOf={durationOf} onApptSaved={loadAppts} addReq={addReq} businessType={businessType} />
