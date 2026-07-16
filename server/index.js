@@ -86,6 +86,14 @@ app.use((req, res, next) => {
 // customer sites load with <script src="…/embed.js" data-store="KEY">.
 app.use(express.static(path.resolve(__dirname, "public"), { extensions: ["html"] }));
 
+// Hosted booking page addressed by the store's slug: /book/<store-name-slug>.
+// The page reads the slug from its own path and loads that store's config +
+// booking widget. (The legacy /book?key=<publicKey> form still works via the
+// static file above, so existing shared links keep resolving.)
+app.get("/book/:slug", (_req, res) => {
+  res.sendFile(path.resolve(__dirname, "public", "book.html"));
+});
+
 // Health check for uptime monitors / load balancers.
 app.get("/api/health", (_req, res) => res.json({ ok: true, uptime: process.uptime() }));
 

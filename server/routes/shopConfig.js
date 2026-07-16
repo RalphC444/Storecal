@@ -103,6 +103,10 @@ router.get("/", async (req, res) => {
         phone: shop.phone || "",
         businessType: shop.businessType || "generic",
         booking: shop.booking || DEFAULT_BOOKING,
+        // Branding for the hosted booking page (owner-configurable).
+        accent: shop.accent || "",
+        logo: shop.logo || "",
+        tagline: shop.tagline || "",
       },
       addons: shop.addons || [],
       services: services.map((s) => ({
@@ -130,21 +134,53 @@ router.get("/", async (req, res) => {
   }
 });
 
-// PATCH /api/shop-config — owner updates their own website banner message.
-// Body: { announcement }. Empty string clears it (no banner).
+// PATCH /api/shop-config — owner updates their storefront: the announcement
+// banner and/or the hosted booking page branding. Every field is optional; only
+// the keys present in the body are touched.
+//  • announcement (+ announcementUntil): banner message and auto-hide date
+//  • accent: hex color for the booking page + widget (e.g. "#4d4bd9"); "" clears
+//  • logo:   image data-URL shown in the page header; "" clears
+//  • tagline: short subtitle under the store name; "" clears
 router.patch("/", requireAuth, requireOwner, async (req, res) => {
   try {
     const db = await getDb();
-    const announcement = String(req.body.announcement || "").trim().slice(0, 250);
-    // Optional auto-hide date (YYYY-MM-DD). Anything else clears the schedule.
-    // Clearing the message also clears any schedule.
-    let announcementUntil = String(req.body.announcementUntil || "").trim();
-    if (!announcement || !/^\d{4}-\d{2}-\d{2}$/.test(announcementUntil)) announcementUntil = "";
-    await db.collection("shops").updateOne(
-      { _id: new ObjectId(req.auth.shopId) },
-      { $set: { announcement, announcementUntil, updatedAt: new Date() } }
-    );
-    res.json({ success: true, announcement, announcementUntil });
+    const set = { updatedAt: new Date() };
+
+    // Announcement banner (only when the caller sends it, so a branding-only
+    // save doesn't wipe an existing banner).
+    if (req.body.announcement !== undefined) {
+      const announcement = String(req.body.announcement || "").trim().slice(0, 250);
+      let announcementUntil = String(req.body.announcementUntil || "").trim();
+      if (!announcement || !/^\d{4}-\d{2}-\d{2}$/.test(announcementUntil)) announcementUntil = "";
+      set.announcement = announcement;
+      set.announcementUntil = announcementUntil;
+    }
+
+    // Branding.
+    if (req.body.accent !== undefined) {
+      const a = String(req.body.accent || "").trim();
+      // Accept a #rgb / #rrggbb hex color, else clear.
+      set.accent = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(a) ? a : "";
+    }
+    if (req.body.logo !== undefined) {
+      const l = String(req.body.logo || "").trim();
+      // Only store a small inline image (data-URL) or clear it. Cap the size so
+      // a huge upload can't bloat the shop doc / public config response.
+      set.logo = /^data:image\//i.test(l) && l.length <= 400_000 ? l : "";
+    }
+    if (req.body.tagline !== undefined) {
+      set.tagline = String(req.body.tagline || "").trim().slice(0, 120);
+    }
+
+    await db.collection("shops").updateOne({ _id: new ObjectId(req.auth.shopId) }, { $set: set });
+    res.json({
+      success: true,
+      announcement: set.announcement,
+      announcementUntil: set.announcementUntil,
+      accent: set.accent,
+      logo: set.logo,
+      tagline: set.tagline,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

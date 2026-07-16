@@ -7,43 +7,112 @@
   <style>
     :root { --accent: #2563eb; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(160deg, #eef2fb 0%, #f6f7f9 100%); color: #111;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; }
-    .bio { text-align: center; max-width: 520px; width: 100%; }
-    .bio__name { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
-    .bio__sub { font-size: 15px; color: #5a6069; margin: 0 0 26px; }
+    body {
+      margin: 0; min-height: 100vh; color: #111;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(160deg, #eef2fb 0%, #f6f7f9 100%);
+      padding: 40px 20px 56px;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    .hero { text-align: center; margin-bottom: 8px; }
+    .hero__logo { max-height: 84px; max-width: 220px; margin: 0 auto 16px; display: block; border-radius: 14px; }
+    .hero__name { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
+    .hero__tag { font-size: 15.5px; color: #5a6069; margin: 0 auto 22px; max-width: 480px; line-height: 1.5; }
+    #book-cta { display: flex; justify-content: center; margin-bottom: 8px; }
+    .sect { margin-top: 34px; }
+    .sect__title {
+      font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+      color: #6b7280; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid #e6e8ec;
+    }
+    .foot { margin-top: 40px; text-align: center; font-size: 12px; color: #aab0b8; }
+    .err { text-align: center; font-size: 14.5px; color: #c0392b; margin-top: 24px; }
+
+    /* Tune the shared storecal-data.js widgets to sit nicely on this page. */
     .storecal-widget { display: flex; justify-content: center; }
-    .bio__foot { margin-top: 28px; font-size: 12px; color: #aab0b8; }
-    .bio__err { font-size: 14px; color: #c0392b; }
+    [data-storecal="services"].scd-grid,
+    [data-storecal="staff"].scd-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 520px) {
+      [data-storecal="staff"].scd-grid { grid-template-columns: 1fr 1fr; }
+    }
+    /* Theme the per-service Book buttons with the shop's accent (the data script
+       hardcodes blue; this scoped rule outranks it without !important). */
+    [data-storecal="services"] .scd-card__book { background: var(--accent); }
   </style>
 </head>
 <body>
-  <div class="bio">
-    <h1 class="bio__name" id="name">Book an appointment</h1>
-    <p class="bio__sub" id="sub">Choose a time that works for you.</p>
-    <div id="mount"></div>
-    <p class="bio__foot">Powered by StoreCal</p>
-  </div>
+  <main class="wrap">
+    <header class="hero">
+      <img id="logo" class="hero__logo" alt="" hidden />
+      <h1 id="name" class="hero__name">Book an appointment</h1>
+      <p id="tag" class="hero__tag"></p>
+      <div id="book-cta"></div>
+    </header>
+    <div id="sections"></div>
+    <p class="foot">Powered by StoreCal</p>
+  </main>
+
   <script>
     (function () {
+      // Resolve the store from the slug in the path (/book/<slug>) or the legacy
+      // ?key= form, so old shared links keep working.
+      var m = location.pathname.replace(/\/+$/, "").match(/\/book\/([^/]+)/);
+      var slug = m ? decodeURIComponent(m[1]) : null;
       var key = new URLSearchParams(location.search).get("key");
-      var mount = document.getElementById("mount");
-      if (!key) { mount.innerHTML = '<p class="bio__err">This booking link is missing its store key.</p>'; return; }
+      var sections = document.getElementById("sections");
+      var fail = function (msg) { sections.innerHTML = '<p class="err">' + msg + "</p>"; };
 
-      // Show the shop's name once we can load its public config.
-      fetch("/api/shop-config?key=" + encodeURIComponent(key))
-        .then(function (r) { return r.json(); })
-        .then(function (d) { if (d && d.shop && d.shop.name) document.getElementById("name").textContent = d.shop.name; })
-        .catch(function () {});
+      if (!slug && !key) { fail("This booking link is missing its store."); return; }
+      var q = slug ? "slug=" + encodeURIComponent(slug) : "key=" + encodeURIComponent(key);
 
-      // Load the booking widget and auto-open it.
-      var s = document.createElement("script");
-      s.src = "/embed.js";
-      s.setAttribute("data-store", key);
-      s.setAttribute("data-auto", "open");
-      s.setAttribute("data-button-text", "Book an appointment");
-      mount.appendChild(s);
+      fetch("/api/shop-config?" + q)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !d.shop) { fail("Sorry, we couldn’t find this store."); return; }
+          var shop = d.shop;
+          var accent = shop.accent || "#2563eb";
+          var storeKey = shop.publicKey;
+
+          // Branding.
+          document.documentElement.style.setProperty("--accent", accent);
+          document.title = "Book · " + (shop.name || "StoreCal");
+          document.getElementById("name").textContent = shop.name || "Book an appointment";
+          if (shop.tagline) document.getElementById("tag").textContent = shop.tagline;
+          if (shop.logo) { var lg = document.getElementById("logo"); lg.src = shop.logo; lg.hidden = false; }
+
+          if (!storeKey) { fail("This store isn’t set up for online booking yet."); return; }
+
+          // Only build sections that will actually have content.
+          var html = "";
+          if ((d.services || []).length)
+            html += '<section class="sect"><h2 class="sect__title">Services</h2><div data-storecal="services"></div></section>';
+          if (d.showStaff !== false && (d.providers || []).length)
+            html += '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff"></div></section>';
+          var galleryOn = d.showGallery !== false;
+          if (galleryOn)
+            html += '<section class="sect" id="sect-gallery"><h2 class="sect__title">Our work</h2><div data-storecal="gallery"></div></section>';
+          sections.innerHTML = html;
+
+          // storecal-data.js fills the service/staff/gallery containers; embed.js
+          // renders the accent Book button into #book-cta and wires every Book CTA
+          // (including the per-service buttons the data script renders).
+          function addScript(src, attrs) {
+            var s = document.createElement("script");
+            s.src = src;
+            Object.keys(attrs).forEach(function (k) { s.setAttribute(k, attrs[k]); });
+            document.body.appendChild(s);
+          }
+          addScript("/storecal-data.js", { "data-store": storeKey, "data-accent": accent });
+          addScript("/embed.js", { "data-store": storeKey, "data-accent": accent, "data-button-text": "Book an appointment", "data-target": "#book-cta" });
+
+          // The gallery may be empty (no photos yet) — hide its heading if so.
+          if (galleryOn) {
+            var sect = document.getElementById("sect-gallery");
+            var g = sect && sect.querySelector('[data-storecal="gallery"]');
+            var check = function () { if (sect) sect.style.display = g && g.children.length ? "" : "none"; };
+            if (g) { var obs = new MutationObserver(check); obs.observe(g, { childList: true }); setTimeout(function () { check(); obs.disconnect(); }, 4000); }
+          }
+        })
+        .catch(function () { fail("Something went wrong loading this store."); });
     })();
   </script>
 </body>

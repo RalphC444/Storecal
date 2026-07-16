@@ -128,7 +128,7 @@ router.post("/shops", async (req, res) => {
     res.status(201).json({
       _id: shopId, publicKey: shop.publicKey, slug,
       ownerEmail: em, tempPassword: NEW_CLIENT_PASSWORD,
-      bookingUrl: origin ? `${origin}/book?key=${shop.publicKey}` : null,
+      bookingUrl: origin ? `${origin}/book/${slug}` : null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

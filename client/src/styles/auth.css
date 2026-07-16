@@ -138,6 +138,16 @@
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   border: 1px solid var(--line); border-radius: 12px; padding: 16px; max-width: 520px; margin-bottom: 14px;
 }
+/* Booking-page branding card */
+.brand__logo { display: flex; align-items: center; gap: 14px; }
+.brand__logo-img { height: 56px; max-width: 160px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); background: #fff; padding: 4px; }
+.brand__logo-ph { height: 56px; width: 96px; display: grid; place-items: center; border: 1px dashed var(--line-2); border-radius: 10px; font-size: 12px; color: var(--ink-3); }
+.brand__logo-actions { display: flex; align-items: center; gap: 10px; }
+.btn--file { cursor: pointer; }
+.brand__color { display: flex; align-items: center; gap: 10px; }
+.brand__color input[type="color"] { width: 44px; height: 36px; padding: 0; border: 1px solid var(--line-2); border-radius: 8px; background: none; cursor: pointer; }
+.brand__hex { width: 110px; text-transform: lowercase; }
+
 .billing__gift {
   max-width: 520px; margin: 0 0 14px; padding: 12px 15px; border-radius: 12px;
   background: var(--accent-soft); border: 1px solid #cdddfb; color: #1e3a8a;

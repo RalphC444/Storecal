@@ -12,7 +12,7 @@ const { ObjectId } = require("mongodb");
 async function bookingFields(db, shopId, doc, origin) {
   const shop = await db.collection("shops").findOne(
     { _id: new ObjectId(shopId) },
-    { projection: { name: 1, phone: 1, website: 1, businessType: 1, publicKey: 1 } }
+    { projection: { name: 1, phone: 1, website: 1, businessType: 1, publicKey: 1, slug: 1 } }
   );
   const [h, m] = String(doc.timeValue || "").split(":").map(Number);
   const timeLabel = Number.isFinite(h) ? `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
@@ -45,11 +45,11 @@ function buildRebookUrl(shop, doc, origin) {
   if (shop.website) {
     // The embed lives on the shop's own site — send them straight there.
     base = /^https?:\/\//i.test(shop.website) ? shop.website : `https://${shop.website}`;
-  } else if (shop.publicKey) {
-    // No own website → the StoreCal-hosted /book page. Prefer an explicit
+  } else if (shop.slug) {
+    // No own website → the StoreCal-hosted /book/<slug> page. Prefer an explicit
     // PUBLIC_URL, else the app origin the request came from (same-origin in prod).
     const host = (process.env.PUBLIC_URL || origin || "").replace(/\/$/, "");
-    if (host) base = `${host}/book?key=${encodeURIComponent(shop.publicKey)}`;
+    if (host) base = `${host}/book/${encodeURIComponent(shop.slug)}`;
   }
   if (!base) return "";
   try {

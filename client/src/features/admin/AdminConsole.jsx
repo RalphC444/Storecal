@@ -160,16 +160,54 @@ export function AdminConsole({ user, onSignOut }) {
   );
 }
 
-// Full CRM-style profile for one client (opened from the clients table).
+// Section header + card, mirroring the owner Settings look so the in-org view
+// reads like a settings page.
+function AdCatHead({ title, desc }) {
+  return (
+    <header className="settings__cathead">
+      <h2 className="settings__cattitle">{title}</h2>
+      {desc && <p className="settings__catdesc">{desc}</p>}
+    </header>
+  );
+}
+function AdCard({ title, desc, children, className = "" }) {
+  return (
+    <section className={"settings__card " + className}>
+      {(title || desc) && (
+        <div className="settings__cardhead">
+          {title && <h3 className="settings__cardtitle">{title}</h3>}
+          {desc && <p className="settings__carddesc">{desc}</p>}
+        </div>
+      )}
+      <div className="settings__cardbody">{children}</div>
+    </section>
+  );
+}
+function AdRow({ label, children }) {
+  return <div className="acd__row"><span className="acd__row-l">{label}</span><span className="acd__row-v">{children}</span></div>;
+}
+
+// One client, managed like a settings page: a category rail on the left and the
+// selected section's cards on the right. Same two-pane pattern as the owner app.
+const ADMIN_SECTIONS = [
+  { id: "overview", label: "Overview", icon: "clients" },
+  { id: "plan", label: "Plan & billing", icon: "card" },
+  { id: "booking", label: "Booking access", icon: "calendar" },
+  { id: "features", label: "Features", icon: "settings" },
+  { id: "contact", label: "Contact", icon: "user" },
+  { id: "install", label: "Links & embed", icon: "globe" },
+];
+
 function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDelete, onBack }) {
   const [phone, setPhone] = useState(s.phone || "");
   const [website, setWebsite] = useState(s.website || "");
   const [copied, setCopied] = useState("");
-  const bookingUrl = `${origin}/book?key=${s.publicKey}`;
+  const [active, setActive] = useState("overview");
+
+  const bookingUrl = `${origin}/book/${s.slug}`;
   const embedCode =
     `<!-- StoreCal booking widget -->\n<script src="${origin}/embed.js" data-store="${s.publicKey}"></script>\n` +
     `<!-- Live content (services, staff, gallery) -->\n<script src="${origin}/storecal-data.js" data-store="${s.publicKey}"></script>`;
-  // Content-block containers to drop on the site — only the enabled sections.
   const contentBlocks = [
     '<div data-storecal="services"></div>',
     s.showStaff !== false ? '<div data-storecal="staff"></div>' : null,
@@ -177,6 +215,15 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
   ].filter(Boolean).join("\n");
   const copy = (t, id) => navigator.clipboard?.writeText(t).then(() => { setCopied(id); setTimeout(() => setCopied(""), 1500); }).catch(() => {});
   const saveContact = (field, val) => { if ((s[field] || "") !== val.trim()) onPatch({ [field]: val.trim() }, "Contact updated"); };
+
+  const statusText = s.freeForLife ? "Free for life" : s.subscribed ? "Subscribed" : "Not subscribed";
+  const bookingLink = (
+    <div className="invite__row">
+      <input className="invite__link" readOnly value={bookingUrl} onFocus={e => e.target.select()} />
+      <a className="action" href={bookingUrl} target="_blank" rel="noreferrer">Open</a>
+      <button className="btn" onClick={() => copy(bookingUrl, "book")}>{copied === "book" ? "Copied!" : "Copy"}</button>
+    </div>
+  );
 
   return (
     <div className="acd">
@@ -186,146 +233,159 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
           <h1 className="clientdetail__name">{s.name}</h1>
           <span className="clientdetail__meta">{s.businessType} · {s.services} services · {s.staff} staff · {s.appointments} appts · <code>{s.publicKey}</code></span>
         </div>
-        <span className={"adminconsole__badge" + (s.subscribed || s.freeForLife ? " adminconsole__badge--on" : "")}>{s.freeForLife ? "Free for life" : s.subscribed ? "Subscribed" : "Not subscribed"}</span>
+        <span className={"adminconsole__badge" + (s.subscribed || s.freeForLife ? " adminconsole__badge--on" : "")}>{statusText}</span>
       </div>
 
-      <div className="clientdetail__grid">
-        <section className="clientdetail__card">
-          <h3 className="schedule__label">Plan &amp; booking</h3>
-          <label className="field"><span className="field__label">Plan</span>
-            <select value={s.planId} disabled={saving} onChange={e => onPatch({ planId: e.target.value }, "Plan updated")}>
-              <option value="booking">Booking access — $35/mo</option>
-              <option value="booking-reduced">Booking access (reduced) — $25/mo</option>
-              <option value="website">Website + Booking — $99/mo</option>
-            </select>
-          </label>
-          <label className="field"><span className="field__label">Booking access</span>
-            <select value={bookingValueOf(s)} disabled={saving} onChange={e => onPatch(bookingPatchFor(e.target.value), "Booking updated")}>
-              <option value="demo">Demo — on until delivered</option>
-              <option value="auto">Auto — follows payment</option>
-              <option value="on">On — always</option>
-              <option value="off">Off — “Call us”</option>
-              <option value="free">Free for life — comped (no billing)</option>
-            </select>
-          </label>
+      <div className="settings acd__settings">
+        <nav className="settings__rail" aria-label="Client settings">
+          <div className="settings__railgroup">
+            {ADMIN_SECTIONS.map(sec => (
+              <button key={sec.id}
+                className={"settings__navitem" + (active === sec.id ? " is-active" : "")}
+                onClick={() => setActive(sec.id)} aria-current={active === sec.id ? "true" : undefined}>
+                <span className="settings__navicon"><Icon name={sec.icon} /></span>
+                <span className="settings__navtext"><span className="settings__navlabel">{sec.label}</span></span>
+              </button>
+            ))}
+          </div>
+          <button className={"settings__navitem settings__navitem--danger" + (active === "danger" ? " is-active" : "")}
+            onClick={() => setActive("danger")} aria-current={active === "danger" ? "true" : undefined}>
+            <span className="settings__navicon"><Icon name="trash" /></span>
+            <span className="settings__navtext"><span className="settings__navlabel">Danger zone</span></span>
+          </button>
+        </nav>
 
-          {/* Live subscription summary: renewal date + payments made. */}
-          {!s.freeForLife && (
-            <div className="clientdetail__subsummary">
-              {s.subscribed ? (<>
-                <div className="clientdetail__stat">
-                  <span className="clientdetail__stat-l">{s.freeMonthActive ? "Next payment (free)" : "Next payment"}</span>
-                  <span className="clientdetail__stat-v">{fmtRenewDate(s.renewsAt) || (s.freeMonthActive ? "$0" : "—")}</span>
-                </div>
-                <div className="clientdetail__stat">
-                  <span className="clientdetail__stat-l">Payments made</span>
-                  <span className="clientdetail__stat-v">{s.paymentsCompleted}</span>
-                </div>
-              </>) : (
-                <p className="panel__hint" style={{ margin: 0 }}>No active subscription.</p>
-              )}
-            </div>
-          )}
-
-          {/* Comp the next invoice (100%-off once). Only meaningful for a live sub. */}
-          {!s.freeForLife && s.subscribed && (<>
-            <div className="clientdetail__toggles" style={{ marginTop: 14 }}>
-              <Toggle checked={!!s.freeMonthActive} disabled={saving} label="Give next month free"
-                onChange={v => onFreeMonth(v)} />
-            </div>
-            <p className="panel__hint" style={{ marginTop: 8 }}>{s.freeMonthActive
-              ? `Next invoice is comped — they’ll be charged $0${fmtRenewDate(s.renewsAt) ? ` on ${fmtRenewDate(s.renewsAt)}` : ""}, then billing resumes. They’ll see a “next month is on us” note in their account.`
-              : "Waives their next invoice (100% off, one time). Billing resumes automatically the month after."}</p>
+        <div className="settings__content">
+          {active === "overview" && (<>
+            <AdCatHead title="Overview" desc="A snapshot of this client." />
+            <AdCard title="Status">
+              <div className="acd__deflist">
+                <AdRow label="Subscription">{s.freeMonthActive ? "Subscribed · next month free" : statusText}</AdRow>
+                <AdRow label="Plan">{planLabelOf(s)}</AdRow>
+                <AdRow label="Booking access">{BOOKING_LABEL[bookingValueOf(s)]}</AdRow>
+                {!s.freeForLife && s.subscribed && (
+                  <AdRow label="Next payment">{fmtRenewDate(s.renewsAt) || (s.freeMonthActive ? "$0" : "—")}</AdRow>
+                )}
+                {!s.freeForLife && s.subscribed && <AdRow label="Payments made">{s.paymentsCompleted}</AdRow>}
+              </div>
+            </AdCard>
+            <AdCard title="Usage" desc="Email count is tracked from when tracking was added — earlier sends aren’t included.">
+              <div className="clientdetail__usage">
+                <div className="clientdetail__stat"><span className="clientdetail__stat-l">Appointments (all-time)</span><span className="clientdetail__stat-v">{s.appointments}</span></div>
+                <div className="clientdetail__stat"><span className="clientdetail__stat-l">This month</span><span className="clientdetail__stat-v">{s.appointmentsThisMonth}</span></div>
+                <div className="clientdetail__stat"><span className="clientdetail__stat-l">Emails sent</span><span className="clientdetail__stat-v">{s.emailsSent}</span></div>
+              </div>
+            </AdCard>
+            <AdCard title="Booking page" desc="The client’s hosted booking link.">{bookingLink}</AdCard>
           </>)}
 
-          {/* First-month-free trial for a client who hasn't subscribed yet. */}
-          {!s.freeForLife && !s.subscribed && (<>
-            <div className="clientdetail__toggles" style={{ marginTop: 14 }}>
-              <Toggle checked={!!s.firstMonthFree} disabled={saving} label="First month free (new signup)"
-                onChange={v => onPatch({ firstMonthFree: v }, v ? "First month free on" : "First month free off")} />
-            </div>
-            <p className="panel__hint" style={{ marginTop: 8 }}>When on, their subscribe checkout saves the card now, charges $0 today, and starts billing after a 30-day free month.</p>
-          </>)}
-        </section>
+          {active === "plan" && (<>
+            <AdCatHead title="Plan & billing" desc="What this client is charged and their subscription state." />
+            <AdCard title="Plan">
+              <label className="field"><span className="field__label">Monthly plan</span>
+                <select value={s.planId} disabled={saving} onChange={e => onPatch({ planId: e.target.value }, "Plan updated")}>
+                  <option value="booking">Booking access — $35/mo</option>
+                  <option value="booking-reduced">Booking access (reduced) — $25/mo</option>
+                  <option value="website">Website + Booking — $99/mo</option>
+                </select>
+              </label>
+            </AdCard>
 
-        <section className="clientdetail__card">
-          <h3 className="schedule__label">Contact</h3>
-          <label className="field"><span className="field__label">Owner email (login)</span>
-            <input type="email" value={s.ownerEmail || ""} readOnly disabled /></label>
-          <label className="field"><span className="field__label">Phone</span>
-            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => saveContact("phone", phone)} placeholder="(555) 000-0000" /></label>
-          <label className="field"><span className="field__label">Website</span>
-            <input type="url" value={website} onChange={e => setWebsite(e.target.value)} onBlur={() => saveContact("website", website)} placeholder="https://theirsite.com" /></label>
-        </section>
+            {s.freeForLife ? (
+              <AdCard title="Subscription">
+                <p className="panel__hint" style={{ margin: 0 }}>Comped for life — booking is always on and no billing shows in their account. Change this under <b>Booking access</b>.</p>
+              </AdCard>
+            ) : s.subscribed ? (
+              <AdCard title="Subscription">
+                <div className="clientdetail__subsummary">
+                  <div className="clientdetail__stat"><span className="clientdetail__stat-l">{s.freeMonthActive ? "Next payment (free)" : "Next payment"}</span><span className="clientdetail__stat-v">{fmtRenewDate(s.renewsAt) || (s.freeMonthActive ? "$0" : "—")}</span></div>
+                  <div className="clientdetail__stat"><span className="clientdetail__stat-l">Payments made</span><span className="clientdetail__stat-v">{s.paymentsCompleted}</span></div>
+                </div>
+                <div className="clientdetail__toggles" style={{ marginTop: 16 }}>
+                  <Toggle checked={!!s.freeMonthActive} disabled={saving} label="Give next month free" onChange={v => onFreeMonth(v)} />
+                </div>
+                <p className="panel__hint" style={{ marginTop: 8 }}>{s.freeMonthActive
+                  ? `Next invoice is comped — they’ll be charged $0${fmtRenewDate(s.renewsAt) ? ` on ${fmtRenewDate(s.renewsAt)}` : ""}, then billing resumes. They see a “next month is on us” note in their account.`
+                  : "Waives their next invoice (100% off, one time). Billing resumes automatically the month after."}</p>
+              </AdCard>
+            ) : (
+              <AdCard title="Subscription" desc="This client hasn’t subscribed yet.">
+                <div className="clientdetail__toggles">
+                  <Toggle checked={!!s.firstMonthFree} disabled={saving} label="First month free (new signup)"
+                    onChange={v => onPatch({ firstMonthFree: v }, v ? "First month free on" : "First month free off")} />
+                </div>
+                <p className="panel__hint" style={{ marginTop: 8 }}>When on, their subscribe checkout saves the card now, charges $0 today, and starts billing after a 30-day free month.</p>
+              </AdCard>
+            )}
+          </>)}
+
+          {active === "booking" && (<>
+            <AdCatHead title="Booking access" desc="Whether online booking is on, and how it’s gated." />
+            <AdCard title="Access mode">
+              <label className="field"><span className="field__label">Booking access</span>
+                <select value={bookingValueOf(s)} disabled={saving} onChange={e => onPatch(bookingPatchFor(e.target.value), "Booking updated")}>
+                  <option value="demo">Demo — on until delivered</option>
+                  <option value="auto">Auto — follows payment</option>
+                  <option value="on">On — always</option>
+                  <option value="off">Off — “Call us”</option>
+                  <option value="free">Free for life — comped (no billing)</option>
+                </select>
+              </label>
+              <p className="panel__hint" style={{ marginTop: 4 }}>
+                <b>Demo</b> keeps booking on while you build/deliver. <b>Auto</b> follows their Stripe subscription. <b>On</b>/<b>Off</b> force it regardless of payment. <b>Free for life</b> comps them and hides all billing in their account.
+              </p>
+            </AdCard>
+          </>)}
+
+          {active === "features" && (<>
+            <AdCatHead title="Features" desc="Turn sections and notifications on or off for this client." />
+            <AdCard title="Content" desc="Off hides these in their dashboard and on their website. Auto shops usually have no staff or gallery.">
+              <div className="clientdetail__toggles">
+                <Toggle checked={s.showStaff !== false} disabled={saving} label="Staff / team" onChange={v => onPatch({ showStaff: v }, v ? "Staff enabled" : "Staff disabled")} />
+                <Toggle checked={s.showGallery !== false} disabled={saving} label="Photo gallery" onChange={v => onPatch({ showGallery: v }, v ? "Gallery enabled" : "Gallery disabled")} />
+                <Toggle checked={s.showStaffGalleries !== false} disabled={saving} label="Per-staff galleries" onChange={v => onPatch({ showStaffGalleries: v }, v ? "Staff galleries on" : "Staff galleries off")} />
+              </div>
+            </AdCard>
+            <AdCard title="Booking emails" desc="When on, a booking emails the customer a confirmation and notifies the owner & assigned staff. Off sends no booking emails at all — bookings still work.">
+              <div className="clientdetail__toggles">
+                <Toggle checked={!s.bookingEmailsOff} disabled={saving} label="Booking emails" onChange={v => onPatch({ bookingEmailsOff: !v }, v ? "Booking emails on" : "Booking emails off")} />
+              </div>
+            </AdCard>
+          </>)}
+
+          {active === "contact" && (<>
+            <AdCatHead title="Contact" desc="How to reach the owner. The email is their login and can’t be changed here." />
+            <AdCard>
+              <label className="field"><span className="field__label">Owner email (login)</span>
+                <input type="email" value={s.ownerEmail || ""} readOnly disabled /></label>
+              <label className="field"><span className="field__label">Phone</span>
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => saveContact("phone", phone)} placeholder="(555) 000-0000" /></label>
+              <label className="field"><span className="field__label">Website</span>
+                <input type="url" value={website} onChange={e => setWebsite(e.target.value)} onBlur={() => saveContact("website", website)} placeholder="https://theirsite.com" /></label>
+            </AdCard>
+          </>)}
+
+          {active === "install" && (<>
+            <AdCatHead title="Links & embed" desc="The hosted booking link and the code for the client’s own website." />
+            <AdCard title="Hosted booking page">{bookingLink}</AdCard>
+            <AdCard title="Website embed" desc="Add once, before the closing body tag.">
+              <pre className="adminconsole__code">{embedCode}</pre>
+              <button className="btn" onClick={() => copy(embedCode, "emb")}>{copied === "emb" ? "Copied!" : "Copy code"}</button>
+            </AdCard>
+            <AdCard title="Content blocks" desc="Place where each section should appear on their site.">
+              <pre className="adminconsole__code">{contentBlocks}</pre>
+              <button className="btn" onClick={() => copy(contentBlocks, "blocks")}>{copied === "blocks" ? "Copied!" : "Copy blocks"}</button>
+            </AdCard>
+          </>)}
+
+          {active === "danger" && (<>
+            <AdCatHead title="Danger zone" desc="Irreversible actions." />
+            <AdCard title="Delete this client" desc={`Permanently removes ${s.name} — login, staff, services, appointments, and all booking data. This can’t be undone.`} className="acd__danger">
+              <button className="btn btn--danger" onClick={onDelete}>Delete client</button>
+            </AdCard>
+          </>)}
+        </div>
       </div>
-
-      <section className="clientdetail__card">
-        <h3 className="schedule__label">Usage</h3>
-        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 14 }}>How much this client uses StoreCal.</p>
-        <div className="clientdetail__usage">
-          <div className="clientdetail__stat">
-            <span className="clientdetail__stat-l">Appointments (all-time)</span>
-            <span className="clientdetail__stat-v">{s.appointments}</span>
-          </div>
-          <div className="clientdetail__stat">
-            <span className="clientdetail__stat-l">Appointments this month</span>
-            <span className="clientdetail__stat-v">{s.appointmentsThisMonth}</span>
-          </div>
-          <div className="clientdetail__stat">
-            <span className="clientdetail__stat-l">Emails sent</span>
-            <span className="clientdetail__stat-v">{s.emailsSent}</span>
-          </div>
-        </div>
-        <p className="panel__hint" style={{ marginTop: 12 }}>Email count is tracked from when tracking was added — earlier sends aren’t included.</p>
-      </section>
-
-      <section className="clientdetail__card">
-        <h3 className="schedule__label">Staff &amp; content</h3>
-        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 14 }}>Turn sections on or off for this client (e.g. auto shops usually have no staff or gallery). Off hides them in their dashboard and on their website.</p>
-        <div className="clientdetail__toggles">
-          <Toggle checked={s.showStaff !== false} disabled={saving} label="Staff / team"
-            onChange={v => onPatch({ showStaff: v }, v ? "Staff enabled" : "Staff disabled")} />
-          <Toggle checked={s.showGallery !== false} disabled={saving} label="Photo gallery"
-            onChange={v => onPatch({ showGallery: v }, v ? "Gallery enabled" : "Gallery disabled")} />
-          <Toggle checked={s.showStaffGalleries !== false} disabled={saving} label="Per-staff galleries"
-            onChange={v => onPatch({ showStaffGalleries: v }, v ? "Staff galleries on" : "Staff galleries off")} />
-        </div>
-      </section>
-
-      <section className="clientdetail__card">
-        <h3 className="schedule__label">Booking emails</h3>
-        <p className="panel__hint" style={{ marginTop: -4, marginBottom: 14 }}>
-          When on, a booking sends the customer a confirmation and notifies the store owner &amp; assigned staff. Turn off to send <b>no</b> booking emails for this client — to the customer, owner, or staff. Bookings still work; nothing is emailed.
-        </p>
-        <div className="clientdetail__toggles">
-          <Toggle checked={!s.bookingEmailsOff} disabled={saving} label="Booking emails"
-            onChange={v => onPatch({ bookingEmailsOff: !v }, v ? "Booking emails on" : "Booking emails off")} />
-        </div>
-      </section>
-
-      <section className="clientdetail__card">
-        <h3 className="schedule__label">Links &amp; embed</h3>
-        <p className="panel__hint">Hosted booking page:</p>
-        <div className="invite__row">
-          <input className="invite__link" readOnly value={bookingUrl} onFocus={e => e.target.select()} />
-          <a className="action" href={bookingUrl} target="_blank" rel="noreferrer">Open</a>
-          <button className="btn" onClick={() => copy(bookingUrl, "book")}>{copied === "book" ? "Copied!" : "Copy"}</button>
-        </div>
-        <p className="panel__hint" style={{ marginTop: 14 }}>1. Embed code (add once, before &lt;/body&gt;):</p>
-        <pre className="adminconsole__code">{embedCode}</pre>
-        <button className="btn" onClick={() => copy(embedCode, "emb")}>{copied === "emb" ? "Copied!" : "Copy code"}</button>
-        <p className="panel__hint" style={{ marginTop: 16 }}>2. Content blocks (place where each section should appear):</p>
-        <pre className="adminconsole__code">{contentBlocks}</pre>
-        <button className="btn" onClick={() => copy(contentBlocks, "blocks")}>{copied === "blocks" ? "Copied!" : "Copy blocks"}</button>
-      </section>
-
-      <section className="clientdetail__danger">
-        <div>
-          <h3 className="schedule__label">Delete client</h3>
-          <p className="panel__hint">Permanently removes this client and all its data.</p>
-        </div>
-        <button className="btn btn--danger" onClick={onDelete}>Delete client</button>
-      </section>
     </div>
   );
 }

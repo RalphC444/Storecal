@@ -3,6 +3,7 @@ import { Icon } from "../../components/Icon";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PasswordInput } from "../../components/PasswordInput";
 import { toast } from "../../components/Toast";
+import { resizeImageDataUrl } from "../../lib/images";
 
 // Settings is a two-pane console: a discoverable category rail on the left and
 // grouped cards on the right. Categories are role- and business-type aware, so
@@ -284,7 +285,98 @@ function WebsitePanel() {
           </button>
         </div>
       </SettingsCard>
+
+      <BrandingCard />
     </>
+  );
+}
+
+// Hosted booking-page branding: logo, accent color, and a tagline. Saved to the
+// shop and read by /book/<slug> (and the booking widget) via /api/shop-config.
+const DEFAULT_ACCENT = "#2563eb";
+function BrandingCard() {
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [accent, setAccent] = useState("");
+  const [logo, setLogo] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [saved, setSaved] = useState({ accent: "", logo: "", tagline: "" });
+
+  useEffect(() => {
+    fetch("/api/shop-config").then(r => r.json())
+      .then(d => {
+        const s = d?.shop || {};
+        setAccent(s.accent || ""); setLogo(s.logo || ""); setTagline(s.tagline || "");
+        setSaved({ accent: s.accent || "", logo: s.logo || "", tagline: s.tagline || "" });
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const dirty = accent !== saved.accent || logo !== saved.logo || tagline.trim() !== saved.tagline;
+
+  async function onLogoFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    try { setLogo(await resizeImageDataUrl(file, 400, 0.85)); }
+    catch { toast("Couldn’t read that image"); }
+  }
+
+  async function save() {
+    setSaving(true);
+    const res = await fetch("/api/shop-config", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accent, logo, tagline: tagline.trim() }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (res.ok) {
+      setAccent(d.accent || ""); setLogo(d.logo || ""); setTagline(d.tagline || "");
+      setSaved({ accent: d.accent || "", logo: d.logo || "", tagline: d.tagline || "" });
+      toast("Branding saved");
+    } else toast(d.error || "Couldn’t save branding");
+  }
+
+  return (
+    <SettingsCard title="Booking page branding" desc="Personalize your hosted booking page — the link you share in your bio.">
+      {!loaded ? <LoadingSpinner /> : (
+        <>
+          <div className="field">
+            <span className="field__label">Logo <span className="field__opt">— optional</span></span>
+            <div className="brand__logo">
+              {logo ? <img className="brand__logo-img" src={logo} alt="Logo preview" /> : <div className="brand__logo-ph">No logo</div>}
+              <div className="brand__logo-actions">
+                <label className="btn btn--file">
+                  {logo ? "Replace" : "Upload logo"}
+                  <input type="file" accept="image/*" hidden onChange={onLogoFile} />
+                </label>
+                {logo && <button type="button" className="action action--danger" onClick={() => setLogo("")}>Remove</button>}
+              </div>
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="field__label">Accent color</span>
+            <div className="brand__color">
+              <input type="color" value={accent || DEFAULT_ACCENT} onChange={e => setAccent(e.target.value)} aria-label="Accent color" />
+              <input type="text" className="brand__hex" value={accent} placeholder={DEFAULT_ACCENT} maxLength={7} onChange={e => setAccent(e.target.value)} />
+              {accent && <button type="button" className="linklike" onClick={() => setAccent("")}>Reset</button>}
+            </div>
+            <span className="banner__hint">Colors your Book buttons and the booking widget. Defaults to StoreCal blue.</span>
+          </div>
+
+          <label className="field">
+            <span className="field__label">Tagline <span className="field__opt">— optional</span></span>
+            <input type="text" value={tagline} maxLength={120} placeholder="e.g. Modern cuts & color in downtown Austin" onChange={e => setTagline(e.target.value)} />
+          </label>
+
+          <div className="banner__actions">
+            <button className="btn" onClick={save} disabled={saving || !dirty}>{saving ? "Saving…" : "Save branding"}</button>
+          </div>
+        </>
+      )}
+    </SettingsCard>
   );
 }
 
@@ -302,18 +394,21 @@ function BookingPanel({ isAuto }) {
 }
 
 function BookingLinkCard() {
-  const [publicKey, setPublicKey] = useState(null);
+  const [shop, setShop] = useState(null); // { slug, publicKey }
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetch("/api/shop-config").then(r => r.json())
-      .then(d => setPublicKey(d?.shop?.publicKey || null))
+      .then(d => setShop(d?.shop || null))
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
 
-  const bioUrl = publicKey ? `${window.location.origin}/book?key=${publicKey}` : "";
+  // A clean, shareable link built from the store's name (slug). Needs a public
+  // key behind the scenes for the page to load the booking widget.
+  const ready = shop?.slug && shop?.publicKey;
+  const bioUrl = ready ? `${window.location.origin}/book/${shop.slug}` : "";
 
   function copy() {
     if (navigator.clipboard) navigator.clipboard.writeText(bioUrl).catch(() => {});
@@ -323,7 +418,7 @@ function BookingLinkCard() {
   return (
     <SettingsCard title="Link in bio" desc="Share this anywhere — Instagram, Google, a text. It opens your booking page directly, no website needed.">
       {!loaded ? <LoadingSpinner />
-        : !publicKey ? <p className="panel__hint">No booking key yet for this store.</p>
+        : !ready ? <p className="panel__hint">No booking link yet for this store.</p>
         : (
           <>
             <div className="bl__row">
