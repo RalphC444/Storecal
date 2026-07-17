@@ -45,6 +45,25 @@
       [data-storecal="staff"].scd-grid { grid-template-columns: 1fr 1fr; }
     }
     [data-storecal="services"] .scd-card__book { background: var(--accent); }
+    /* Card components on white so they read clearly on the tinted page. */
+    [data-storecal="services"] .scd-card,
+    [data-storecal="staff"] .scd-person {
+      background: #fff; border: 1px solid #e6e8ec; border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(16, 18, 28, 0.04);
+    }
+    /* Cover photo in the hero. Hidden until storecal-data.js sets its src. */
+    .cover__img { display: none; width: 100%; max-height: 240px; object-fit: cover; border-radius: 16px; margin: 0 0 20px; }
+    .cover__img[src] { display: block; }
+    /* "Show all" toggle under the gallery preview. */
+    .showall { display: block; margin: 14px auto 0; padding: 10px 20px; border: 1px solid var(--accent);
+      background: #fff; color: var(--accent); border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .showall:hover { background: var(--accent); color: #fff; }
+    @media (max-width: 560px) {
+      body { padding: 24px 14px 48px; }
+      .hero__name { font-size: 26px; }
+      .sect { margin-top: 26px; }
+      .cover__img { max-height: 180px; }
+    }
 
     /* Skeleton loaders — shown until real content arrives. */
     .skel { position: relative; overflow: hidden; background: #e6e9f0; border-radius: 8px; }
@@ -66,6 +85,7 @@
 <body>
   <main class="wrap">
     <header class="hero">
+      <img data-storecal="cover" class="cover__img" alt="" />
       <img id="logo" class="hero__logo" alt="" hidden />
       <div id="hero-skel">
         <div class="skel skel-logo"></div>
@@ -142,14 +162,15 @@
           // Build only the sections that will have content; each gets skeleton
           // cards until storecal-data.js fills it.
           var skelCards = '<div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div>';
+          var galleryOn = d.showGallery !== false;
           var html = "";
           if ((d.services || []).length)
             html += '<section class="sect"><h2 class="sect__title">Services</h2><div data-storecal="services">' + skelCards + '</div></section>';
-          if (d.showStaff !== false && (d.providers || []).length)
-            html += '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff">' + skelCards + '</div></section>';
-          var galleryOn = d.showGallery !== false;
+          // Our work (gallery) always sits above Our team.
           if (galleryOn)
             html += '<section class="sect" id="sect-gallery"><h2 class="sect__title">Our work</h2><div data-storecal="gallery"></div></section>';
+          if (d.showStaff !== false && (d.providers || []).length)
+            html += '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff">' + skelCards + '</div></section>';
           sections.innerHTML = html;
 
           // storecal-data.js fills the containers (replacing the skeletons); embed.js
@@ -164,11 +185,27 @@
           addScript("/storecal-data.js", { "data-store": storeKey, "data-accent": accent });
           addScript("/embed.js", { "data-store": storeKey, "data-accent": accent, "data-button-text": "Book an appointment", "data-target": "#book-cta" });
 
-          // The gallery may be empty (no photos yet) — hide its heading if so.
+          // Gallery: hide the section if empty; otherwise preview 6 photos with a
+          // "Show all" toggle.
           if (galleryOn) {
             var sect = document.getElementById("sect-gallery");
             var g = sect && sect.querySelector('[data-storecal="gallery"]');
-            var check = function () { if (sect) sect.style.display = g && g.children.length ? "" : "none"; };
+            var check = function () {
+              if (!sect || !g) return;
+              var n = g.children.length;
+              sect.style.display = n ? "" : "none";
+              if (n > 6 && !sect.querySelector(".showall")) {
+                for (var i = 6; i < n; i++) g.children[i].style.display = "none";
+                var btn = document.createElement("button");
+                btn.className = "showall"; btn.type = "button";
+                btn.textContent = "Show all " + n + " photos";
+                btn.onclick = function () {
+                  for (var j = 0; j < g.children.length; j++) g.children[j].style.display = "";
+                  btn.remove();
+                };
+                sect.appendChild(btn);
+              }
+            };
             if (g) { var obs = new MutationObserver(check); obs.observe(g, { childList: true }); setTimeout(function () { check(); obs.disconnect(); }, 4000); }
           }
         })

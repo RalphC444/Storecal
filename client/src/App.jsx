@@ -90,9 +90,12 @@ export default function App() {
   }, []);
 
   async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* ignore */ }
     markDemoTab(false); // exiting the demo ends this tab's demo session
-    setUser(null); setPhase("landing");
+    // Hard-reload to the root: the cookie is now cleared, so a fresh mount lands
+    // on the marketing page. This avoids any stale-subtree white screen from
+    // swapping the logged-in app out via state alone.
+    window.location.assign("/");
   }
 
   // "Try the live demo" — sign into the shared demo store as its owner so
