@@ -14,6 +14,8 @@
       padding: 40px 20px 56px;
     }
     .wrap { max-width: 640px; margin: 0 auto; }
+    /* When the announcement banner is showing, give the store name breathing room. */
+    body.has-banner .wrap { padding-top: 100px; }
     .hero { text-align: center; margin-bottom: 8px; }
     .hero__logo { max-height: 84px; max-width: 220px; margin: 0 auto 16px; display: block; border-radius: 14px; }
     .hero__logo[hidden] { display: none; }
@@ -119,6 +121,10 @@
           if (unlocked && shop.tagline) { var t = document.getElementById("tag"); t.textContent = shop.tagline; t.hidden = false; }
           if (unlocked && shop.logo) { var lg = document.getElementById("logo"); lg.src = shop.logo; lg.hidden = false; }
           heroSkel.hidden = true;
+
+          // storecal-data.js drops an announcement banner at the top of the page.
+          // When one's active, pad the content down so the name isn't cramped.
+          if (d.announcement) document.body.classList.add("has-banner");
 
           // Optional external links (link-in-bio / linktree style).
           var links = Array.isArray(shop.links) ? shop.links : [];
