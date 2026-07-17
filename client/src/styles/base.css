@@ -472,14 +472,19 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
 .sidebar__spacer { flex: 1; min-height: 8px; }
 
-/* Sidebar "preview booking page" quick link */
-.navpreview { display: flex; align-items: center; gap: 12px; margin: 6px 12px 0; padding: 10px 12px; border-radius: 10px;
-  text-decoration: none; background: var(--nav-soft); color: var(--nav); border: 1px solid transparent; }
-.navpreview:hover { border-color: var(--nav); }
+/* Sidebar "preview booking page" quick link + edit shortcut */
+.navpreview { display: flex; align-items: stretch; gap: 6px; margin: 6px 12px 0; }
+.navpreview__main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 10px 12px;
+  border-radius: 10px; text-decoration: none; background: var(--nav-soft); color: var(--nav); border: 1px solid transparent; }
+.navpreview__main:hover { border-color: var(--nav); }
 .navpreview .ico { flex: none; width: 18px; height: 18px; }
 .navpreview__txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .navpreview__label { font-size: 13.5px; font-weight: 700; }
 .navpreview__sub { font-size: 11px; color: var(--ink-3); }
+.navpreview__edit { flex: none; width: 42px; border-radius: 10px; border: 1px solid transparent; cursor: pointer;
+  background: var(--nav-soft); color: var(--nav); display: grid; place-items: center; }
+.navpreview__edit:hover { border-color: var(--nav); }
+.navpreview__edit .ico { width: 17px; height: 17px; }
 
 /* Get-started quest card (home view) */
 .btn--sm { padding: 7px 14px; font-size: 13px; }

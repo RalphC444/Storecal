@@ -172,7 +172,7 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
       const l = String(req.body.logo || "").trim();
       // Only store a small inline image (data-URL) or clear it. Cap the size so
       // a huge upload can't bloat the shop doc / public config response.
-      set.logo = /^data:image\//i.test(l) && l.length <= 400_000 ? l : "";
+      set.logo = /^data:image\//i.test(l) && l.length <= 800_000 ? l : "";
     }
     if (req.body.tagline !== undefined) {
       set.tagline = String(req.body.tagline || "").trim().slice(0, 120);

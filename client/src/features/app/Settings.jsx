@@ -9,7 +9,7 @@ import { resizeImageDataUrl } from "../../lib/images";
 // grouped cards on the right. Categories are role- and business-type aware, so
 // a staff member sees only Profile + Security, and an auto shop never sees the
 // "bookable staff" card. Each category holds one or more self-contained cards.
-export function SettingsView({ user, onUserChange, onSignOut }) {
+export function SettingsView({ user, onUserChange, onSignOut, initialSection }) {
   const isOwner = user.role === "owner";
 
   // Load shop + billing meta once so category visibility never flashes.
@@ -37,7 +37,9 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
     return list;
   }, [isOwner, meta.freeForLife]);
 
-  const [active, setActive] = useState("profile");
+  const [active, setActive] = useState(initialSection || "profile");
+  // Deep-link support: jump to a section when asked (e.g. "Edit booking page").
+  useEffect(() => { if (initialSection) setActive(initialSection); }, [initialSection]);
   useEffect(() => {
     if (!categories.some((c) => c.id === active)) setActive(categories[0].id);
   }, [categories, active]);
@@ -298,6 +300,9 @@ function WebsitePanel() {
 // shop and read by /book/<slug> (and the booking widget) via /api/shop-config.
 const DEFAULT_ACCENT = "#2563eb";
 const fmtMoney = (cents) => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
+const readFileAsDataUrl = (file) => new Promise((res, rej) => {
+  const r = new FileReader(); r.onerror = rej; r.onload = (e) => res(e.target.result); r.readAsDataURL(file);
+});
 function BrandingCard() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -360,15 +365,29 @@ function BrandingCard() {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
     if (!file) return;
-    setLogoErr(""); setLogoBusy(true);
+    setLogoErr("");
+    const OK = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+    if (file.type && !OK.includes(file.type)) {
+      setLogoErr("That image type isn’t supported. Use a PNG, JPG, or WebP — iPhone HEIC photos won’t work, so export/screenshot as JPG first.");
+      return;
+    }
+    setLogoBusy(true);
     try {
-      const dataUrl = await resizeImageDataUrl(file, 400, 0.85);
+      let dataUrl;
+      // Preferred: resize to a small JPEG. Fallback: the raw file (small logos)
+      // so a canvas hiccup doesn't block the upload.
+      try { dataUrl = await resizeImageDataUrl(file, 400, 0.85); }
+      catch { dataUrl = await readFileAsDataUrl(file); }
+      if (!dataUrl || dataUrl.length > 700000) {
+        setLogoErr("That image is too large. Try one under ~500 KB or a simpler logo.");
+        return;
+      }
       const d = await patchBranding({ logo: dataUrl }); // save immediately — no separate step
-      setLogo(d.logo || "");
-      if (!d.logo) setLogoErr("That image was too large to save. Try a smaller one.");
-      else toast("Logo saved");
+      if (!d.logo) { setLogoErr("Couldn’t save that image — try a smaller PNG or JPG."); return; }
+      setLogo(d.logo);
+      toast("Logo saved");
     } catch {
-      setLogoErr("Couldn’t use that image. Please upload a JPG or PNG (not HEIC).");
+      setLogoErr("Couldn’t read that image. Please upload a PNG, JPG, or WebP.");
     } finally { setLogoBusy(false); }
   }
 

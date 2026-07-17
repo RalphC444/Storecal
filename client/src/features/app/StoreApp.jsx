@@ -25,6 +25,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const [showGallery, setShowGallery] = useState(true);
   const [shopMeta, setShopMeta] = useState({ slug: "", publicKey: "", accent: "", logo: "" });
   const [questDismissed, setQuestDismissed] = useState(false);
+  const [settingsSection, setSettingsSection] = useState(null); // deep-link a Settings tab
   const isProvider = user.role === "provider";
   const isOwner = user.role === "owner";
   // The public demo is a throwaway sandbox: no Settings tab (no billing/account
@@ -263,7 +264,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   ];
   // Demo visitors don't get Settings (no real account/billing to manage).
   const nav = isDemo ? NAV.filter(n => n.key !== "settings") : NAV;
-  const go = (v) => { setView(v); setMobileOpen(false); };
+  const go = (v, section = null) => { setView(v); setSettingsSection(section); setMobileOpen(false); };
 
   // Context action shown fixed in the mobile top nav, per active tab.
   const topAction =
@@ -332,10 +333,17 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         </nav>
 
         {bookingUrl && !isDemo && (
-          <a className="navpreview" href={bookingUrl} target="_blank" rel="noreferrer" title="Open your booking page in a new tab">
-            <Icon name="globe" />
-            <span className="navpreview__txt"><span className="navpreview__label">My booking page</span><span className="navpreview__sub">Preview &amp; share ↗</span></span>
-          </a>
+          <div className="navpreview">
+            <a className="navpreview__main" href={bookingUrl} target="_blank" rel="noreferrer" title="Open your booking page in a new tab">
+              <Icon name="globe" />
+              <span className="navpreview__txt"><span className="navpreview__label">My booking page</span><span className="navpreview__sub">Preview &amp; share ↗</span></span>
+            </a>
+            {isOwner && (
+              <button className="navpreview__edit" onClick={() => go("settings", "website")} title="Edit your booking page" aria-label="Edit booking page">
+                <Icon name="pencil" />
+              </button>
+            )}
+          </div>
         )}
 
         <div className="sidebar__spacer" />
@@ -419,7 +427,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         ) : view === "mygallery" ? (
           <StaffGallery providerId={myProvider?._id} addReq={addReq} standalone />
         ) : view === "settings" && !isDemo ? (
-          <SettingsView user={user} onUserChange={onUserChange} onSignOut={onSignOut} />
+          <SettingsView user={user} onUserChange={onUserChange} onSignOut={onSignOut} initialSection={settingsSection} />
         ) : (
           <ClientsView providers={providers} services={services} durationOf={durationOf} onApptSaved={loadAppts} addReq={addReq} businessType={businessType} />
         )}
