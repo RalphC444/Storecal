@@ -64,7 +64,7 @@ export function RegisterScreen({ onAuthed, onBack, onSignIn }) {
             <button className="btn btn--lg" type="button" onClick={startFreeMonth} disabled={busy}>
               {busy ? "Opening…" : "Start my first month free"}
             </button>
-            <p className="signup-done__fine">No charge today. We’ll save your card and your first payment is 30 days from now — cancel anytime before then and you won’t be billed.</p>
+            <p className="signup-done__fine">No charge today. We’ll save your card and your first payment ($35/month) is 30 days from now — cancel anytime before then and you won’t be billed.</p>
           </div>
 
           {err && <p className="form__error">{err}</p>}
@@ -111,7 +111,7 @@ export function RegisterScreen({ onAuthed, onBack, onSignIn }) {
         <button className="btn btn--lg authform__submit" type="submit" disabled={busy}>
           {busy ? "Creating…" : "Create my account"}
         </button>
-        <p className="authnote authnote--center">Free for 30 days, then your plan. Cancel anytime.</p>
+        <p className="authnote authnote--center">Free for 30 days, then $35/month. Cancel anytime.</p>
       </form>
     </AuthShell>
   );
