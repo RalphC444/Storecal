@@ -147,7 +147,9 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       brandingComped,                                  // operator granted it free
       brandingUnlocked: brandingActive || brandingComped, // controls unlocked either way
       freeForLife: shop?.freeForLife === true, // comped account → hide all billing UI
-      promptBilling: shop?.promptBilling === true && shop?.freeForLife !== true,
+      // Demo-mode accounts (operator "Booking access → Demo") aren't nagged to
+      // subscribe — booking is already on and they're not a paying customer yet.
+      promptBilling: shop?.promptBilling === true && shop?.freeForLife !== true && shop?.demo !== true,
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
       mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live") ? "live" : "test",
       plans: PLANS,

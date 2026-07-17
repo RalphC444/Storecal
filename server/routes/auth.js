@@ -64,7 +64,8 @@ router.post("/register", async (req, res) => {
       slug: shopSlug, name: businessName.trim(), businessType, booking: BOOKING_PRESETS[businessType],
       publicKey: generatePublicKey(), // stable public id baked into the embed
       phone, website,
-      demo: true,             // booking on out of the gate (usable before they subscribe)
+      bookingActive: true,    // booking on out of the gate (not demo mode, so the
+                              // subscribe nudge still shows to convert them)
       promptBilling: true,    // show the "subscribe to enable booking" nudge
       firstMonthFree: true,   // self-serve signups get a 30-day free trial at checkout
       createdAt: new Date(),
