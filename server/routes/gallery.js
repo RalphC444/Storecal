@@ -35,13 +35,23 @@ router.get("/", async (req, res) => {
     if (req.query.scope === "staff") filter = { shopId, providerId: { $ne: null } };
     else if (providerId) filter = { shopId, providerId };
     else filter = { shopId, providerId: null };
-    const imgs = await db.collection("gallery").find(filter).sort({ sortOrder: 1, createdAt: 1, _id: 1 }).toArray();
+    let imgs = await db.collection("gallery").find(filter).sort({ sortOrder: 1, createdAt: 1, _id: 1 }).toArray();
+    // Preview mode (booking widget team-picker thumbnails): cap the payload to a
+    // few photos so we don't ship every full-res image just to show 3 thumbs —
+    // up to 3 per staff member, or 3 for the shop gallery.
+    if (req.query.preview) {
+      if (req.query.scope === "staff") {
+        const per = {}; imgs = imgs.filter((i) => { const k = i.providerId || ""; per[k] = (per[k] || 0) + 1; return per[k] <= 3; });
+      } else {
+        imgs = imgs.slice(0, 3);
+      }
+    }
     // Public (embed, ?key=) URLs vary per shop → safe to share-cache. Signed-in
     // admin URLs are the same string for every account (differ only by cookie),
     // so a shared cache would serve the previous account's photos after a login
     // switch. Only cache the public case.
     if (req.auth?.shopId) { res.set("Cache-Control", "no-store, private"); res.set("Vary", "Cookie"); }
-    else res.set("Cache-Control", "public, max-age=60"); // photos change rarely
+    else res.set("Cache-Control", "public, max-age=600"); // photos change rarely
     res.json(imgs.map(publicImg));
   } catch (err) {
     res.status(500).json({ error: err.message });

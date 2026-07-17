@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 // Auth screens are tiny and shown eagerly during the sign-in flow.
 import { LoginScreen } from "./features/auth/LoginScreen";
@@ -30,6 +30,28 @@ const OnboardingHours = lazy(() =>
 
 const Splash = <div className="authwrap"><LoadingSpinner /></div>;
 
+// After a deploy, an already-open tab holds a stale index that references old
+// code-split chunk filenames; lazy-loading one then fails (404) and, without a
+// boundary, React renders nothing. This boundary reloads the page once to fetch
+// the fresh index + chunks, then shows a Splash if it still fails.
+class ChunkBoundary extends Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() {
+    try {
+      if (!sessionStorage.getItem("sc_chunk_reload")) {
+        sessionStorage.setItem("sc_chunk_reload", "1");
+        window.location.reload();
+      }
+    } catch { window.location.reload(); }
+  }
+  render() { return this.state.failed ? Splash : this.props.children; }
+}
+// Suspense + auto-recovering boundary for every code-split screen.
+const Lazy = ({ children }) => (
+  <ChunkBoundary><Suspense fallback={Splash}>{children}</Suspense></ChunkBoundary>
+);
+
 // The demo is a throwaway sandbox. We keep a per-TAB flag (sessionStorage, which
 // survives reloads but not a closed tab) so a reload keeps the visitor in the
 // demo, while a fresh visit — new tab or reopened browser — lands on marketing
@@ -51,6 +73,9 @@ export default function App() {
   const openLegal = (sec) => { setLegalSection(sec); setPhase("legal"); };
 
   useEffect(() => {
+    // App mounted OK → chunks are current; allow a future one-shot reload if a
+    // later deploy makes a chunk stale.
+    try { sessionStorage.removeItem("sc_chunk_reload"); } catch { /* ignore */ }
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
     const reset = params.get("reset");
@@ -116,7 +141,7 @@ export default function App() {
   if (phase === "loading") return Splash;
 
   if (phase === "landing")
-    return <Suspense fallback={Splash}><LandingPage onSignIn={() => setPhase("login")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} /><CookieConsent onLegal={openLegal} /></Suspense>;
+    return <Lazy><LandingPage onSignIn={() => setPhase("login")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} /><CookieConsent onLegal={openLegal} /></Lazy>;
 
   if (phase === "register")
     return <RegisterScreen
@@ -126,7 +151,7 @@ export default function App() {
     />;
 
   if (phase === "legal")
-    return <Suspense fallback={Splash}><PolicyPages section={legalSection} onBack={() => setPhase("landing")} /><CookieConsent onLegal={openLegal} /></Suspense>;
+    return <Lazy><PolicyPages section={legalSection} onBack={() => setPhase("landing")} /><CookieConsent onLegal={openLegal} /></Lazy>;
 
   if (phase === "login")
     return <LoginScreen onAuthed={u => { setUser(u); setPhase(u.mustChangePassword ? "changepw" : "app"); }} onForgot={() => setPhase("forgot")} onBack={() => setPhase("landing")} />;
@@ -147,11 +172,11 @@ export default function App() {
     }} />;
 
   if (phase === "onboard")
-    return <Suspense fallback={Splash}><OnboardingHours user={user} onDone={() => setPhase("app")} /></Suspense>;
+    return <Lazy><OnboardingHours user={user} onDone={() => setPhase("app")} /></Lazy>;
 
   // Platform operator gets the client-management console instead of a store view.
   if (user?.role === "superadmin")
-    return <Suspense fallback={Splash}><AdminConsole user={user} onSignOut={signOut} /></Suspense>;
+    return <Lazy><AdminConsole user={user} onSignOut={signOut} /></Lazy>;
 
-  return <Suspense fallback={Splash}><StoreApp user={user} onSignOut={signOut} onUserChange={setUser} /></Suspense>;
+  return <Lazy><StoreApp user={user} onSignOut={signOut} onUserChange={setUser} /></Lazy>;
 }

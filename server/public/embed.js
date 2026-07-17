@@ -321,8 +321,8 @@
     if (!cfg || cfg.showStaffGalleries === false) { galleries = { staff: {}, shop: [] }; cb(galleries); return; }
     var toJSON = function (r) { return r.json(); }, toEmpty = function () { return []; };
     Promise.all([
-      fetch(api("/api/gallery?scope=staff")).then(toJSON).catch(toEmpty),
-      fetch(api("/api/gallery")).then(toJSON).catch(toEmpty),
+      fetch(api("/api/gallery?scope=staff&preview=1")).then(toJSON).catch(toEmpty),
+      fetch(api("/api/gallery?preview=1")).then(toJSON).catch(toEmpty),
     ]).then(function (res) {
       var staff = {};
       (Array.isArray(res[0]) ? res[0] : []).forEach(function (g) { if (g.providerId) (staff[g.providerId] = staff[g.providerId] || []).push(g); });
