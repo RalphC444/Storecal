@@ -192,8 +192,8 @@ function AdRow({ label, children }) {
 const ADMIN_SECTIONS = [
   { id: "overview", label: "Overview", icon: "clients" },
   { id: "plan", label: "Plan & billing", icon: "card" },
-  { id: "booking", label: "Booking access", icon: "calendar" },
-  { id: "features", label: "Features", icon: "settings" },
+  { id: "booking", label: "Booking", icon: "calendar" },
+  { id: "features", label: "Content", icon: "settings" },
   { id: "contact", label: "Contact", icon: "user" },
   { id: "install", label: "Links & embed", icon: "globe" },
 ];
@@ -320,7 +320,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
           </>)}
 
           {active === "booking" && (<>
-            <AdCatHead title="Booking access" desc="Whether online booking is on, and how it’s gated." />
+            <AdCatHead title="Booking" desc="Whether online booking is on, and the emails it sends." />
             <AdCard title="Access mode">
               <label className="field"><span className="field__label">Booking access</span>
                 <select value={bookingValueOf(s)} disabled={saving} onChange={e => onPatch(bookingPatchFor(e.target.value), "Booking updated")}>
@@ -335,20 +335,20 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 <b>Demo</b> keeps booking on while you build/deliver. <b>Auto</b> follows their Stripe subscription. <b>On</b>/<b>Off</b> force it regardless of payment. <b>Free for life</b> comps them and hides all billing in their account.
               </p>
             </AdCard>
+            <AdCard title="Booking emails" desc="When on, a booking emails the customer a confirmation and notifies the owner & assigned staff. Off sends no booking emails at all — bookings still work.">
+              <div className="clientdetail__toggles">
+                <Toggle checked={!s.bookingEmailsOff} disabled={saving} label="Booking emails" onChange={v => onPatch({ bookingEmailsOff: !v }, v ? "Booking emails on" : "Booking emails off")} />
+              </div>
+            </AdCard>
           </>)}
 
           {active === "features" && (<>
-            <AdCatHead title="Features" desc="Turn sections and notifications on or off for this client." />
-            <AdCard title="Content" desc="Off hides these in their dashboard and on their website. Auto shops usually have no staff or gallery.">
+            <AdCatHead title="Content" desc="Turn website sections on or off for this client." />
+            <AdCard title="Sections" desc="Off hides these in their dashboard and on their website. Auto shops usually have no staff or gallery.">
               <div className="clientdetail__toggles">
                 <Toggle checked={s.showStaff !== false} disabled={saving} label="Staff / team" onChange={v => onPatch({ showStaff: v }, v ? "Staff enabled" : "Staff disabled")} />
                 <Toggle checked={s.showGallery !== false} disabled={saving} label="Photo gallery" onChange={v => onPatch({ showGallery: v }, v ? "Gallery enabled" : "Gallery disabled")} />
                 <Toggle checked={s.showStaffGalleries !== false} disabled={saving} label="Per-staff galleries" onChange={v => onPatch({ showStaffGalleries: v }, v ? "Staff galleries on" : "Staff galleries off")} />
-              </div>
-            </AdCard>
-            <AdCard title="Booking emails" desc="When on, a booking emails the customer a confirmation and notifies the owner & assigned staff. Off sends no booking emails at all — bookings still work.">
-              <div className="clientdetail__toggles">
-                <Toggle checked={!s.bookingEmailsOff} disabled={saving} label="Booking emails" onChange={v => onPatch({ bookingEmailsOff: !v }, v ? "Booking emails on" : "Booking emails off")} />
               </div>
             </AdCard>
           </>)}
