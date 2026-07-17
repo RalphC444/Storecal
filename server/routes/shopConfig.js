@@ -103,11 +103,14 @@ router.get("/", async (req, res) => {
         phone: shop.phone || "",
         businessType: shop.businessType || "generic",
         booking: shop.booking || DEFAULT_BOOKING,
-        // Branding for the hosted booking page (owner-configurable).
+        // Branding for the hosted booking page (owner-configurable). Values are
+        // always returned so the owner's editor can show them; the hosted page
+        // only *applies* logo/accent/tagline when the branding add-on is unlocked.
         accent: shop.accent || "",
         logo: shop.logo || "",
         tagline: shop.tagline || "",
-        // External link-in-bio buttons shown on the hosted page.
+        brandingUnlocked: shop.brandingAddon === true || shop.brandingAddonComp === true,
+        // External link-in-bio buttons shown on the hosted page (always free).
         links: Array.isArray(shop.links) ? shop.links : [],
       },
       addons: shop.addons || [],

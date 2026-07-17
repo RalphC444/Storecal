@@ -71,7 +71,7 @@ function addMonths(ms, n) {
 
 // Live subscription status, renewal date, payments made, and comp state.
 async function subInfo(stripe, customerId) {
-  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false, freeMonths: 0, freeResumesAt: null };
+  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false, freeMonths: 0, freeResumesAt: null, brandingActive: false };
   try {
     const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5, expand: ["data.discounts"] });
     const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
@@ -86,6 +86,7 @@ async function subInfo(stripe, customerId) {
     const renewsAt = renewsAtMs(active);
     const free = freeDiscountOf(active);
     const freeMonths = free ? free.months : 0;
+    const brandingActive = !!(active.items?.data || []).find((i) => i && i.metadata && i.metadata.addon === "branding");
     return {
       subscribed: true,
       status: active.status,
@@ -96,6 +97,7 @@ async function subInfo(stripe, customerId) {
       // Billing resumes after the free run: the next charge is at renewsAt, so
       // it resumes renewsAt + freeMonths months (null for a "forever" comp).
       freeResumesAt: freeMonths > 0 ? addMonths(renewsAt, freeMonths) : null,
+      brandingActive,
     };
   } catch { return empty; }
 }
@@ -219,6 +221,10 @@ router.get("/shops", async (_req, res) => {
         freeMonths: sub ? sub.freeMonths : 0,
         freeResumesAt: sub ? sub.freeResumesAt : null,
         firstMonthFree: s.firstMonthFree === true, // new signups start with a 30-day free trial
+        // Custom-branding add-on (operator-configurable price + comp).
+        brandingAddonPrice: Number.isInteger(s.brandingAddonPrice) ? s.brandingAddonPrice : 500,
+        brandingAddonComp: s.brandingAddonComp === true,
+        brandingActive: sub ? sub.brandingActive : false,
         promptBilling: s.promptBilling === true,
         ownerEmail: ownerBy[id] || "",
         phone: s.phone || "",
@@ -255,6 +261,16 @@ router.patch("/shops/:id", async (req, res) => {
     if (req.body.demo !== undefined) set.demo = !!req.body.demo;
     if (req.body.freeForLife !== undefined) set.freeForLife = !!req.body.freeForLife;
     if (req.body.firstMonthFree !== undefined) set.firstMonthFree = !!req.body.firstMonthFree;
+    // Custom-branding add-on price (sent in dollars → stored as cents) + comp grant.
+    if (req.body.brandingAddonPrice !== undefined) {
+      const dollars = Number(req.body.brandingAddonPrice);
+      if (!Number.isFinite(dollars) || dollars < 0 || dollars > 100) return res.status(400).json({ error: "Branding price must be $0–$100" });
+      set.brandingAddonPrice = Math.round(dollars * 100);
+    }
+    if (req.body.brandingAddonComp !== undefined) {
+      set.brandingAddonComp = !!req.body.brandingAddonComp;
+      set.brandingAddon = !!req.body.brandingAddonComp; // comp grants access immediately
+    }
     if (req.body.showStaff !== undefined) set.showStaff = !!req.body.showStaff;
     if (req.body.showGallery !== undefined) set.showGallery = !!req.body.showGallery;
     if (req.body.showStaffGalleries !== undefined) set.showStaffGalleries = !!req.body.showStaffGalleries;

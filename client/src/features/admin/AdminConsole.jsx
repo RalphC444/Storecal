@@ -29,6 +29,7 @@ const planLabelOf = (s) =>
   : s.planId === "booking-reduced" ? "$25 · Booking (reduced)"
   : "$35 · Booking";
 const fmtRenewDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
+const fmtMoneyCents = (cents) => `$${((cents || 0) / 100).toFixed((cents || 0) % 100 ? 2 : 0)}`;
 
 export function AdminConsole({ user, onSignOut }) {
   const [shops, setShops] = useState(null);
@@ -203,6 +204,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
   const [website, setWebsite] = useState(s.website || "");
   const [copied, setCopied] = useState("");
   const [active, setActive] = useState("overview");
+  const [brandPrice, setBrandPrice] = useState((((s.brandingAddonPrice ?? 500)) / 100).toString());
 
   const bookingUrl = `${origin}/book/${s.slug}`;
   const embedCode =
@@ -342,6 +344,23 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 <p className="panel__hint" style={{ marginTop: 8 }}>When on, their subscribe checkout saves the card now, charges $0 today, and starts billing after a 30-day free month.</p>
               </AdCard>
             )}
+
+            <AdCard title="Custom branding add-on" desc="Owners unlock a logo + brand color on their booking page for this monthly add-on, charged on top of their plan.">
+              <label className="field"><span className="field__label">Add-on price ($ / month)</span>
+                <input type="number" min="0" max="100" step="1" value={brandPrice}
+                  onChange={e => setBrandPrice(e.target.value)}
+                  onBlur={() => { const v = Number(brandPrice); if (Number.isFinite(v) && v >= 0 && Math.round(v * 100) !== (s.brandingAddonPrice ?? 500)) onPatch({ brandingAddonPrice: v }, "Branding price updated"); }} />
+              </label>
+              <div className="clientdetail__toggles" style={{ marginTop: 12 }}>
+                <Toggle checked={!!s.brandingAddonComp} disabled={saving} label="Include free (comp — no charge)"
+                  onChange={v => onPatch({ brandingAddonComp: v }, v ? "Branding comped" : "Branding comp removed")} />
+              </div>
+              <p className="panel__hint" style={{ marginTop: 8 }}>{s.brandingAddonComp
+                ? "Included free for this client — branding is unlocked at no charge."
+                : s.brandingActive
+                ? `Unlocked — the client is paying ${fmtMoneyCents(s.brandingAddonPrice ?? 500)}/mo for it.`
+                : "Locked — the owner can unlock it themselves from their Website settings."}</p>
+            </AdCard>
           </>)}
 
           {active === "booking" && (<>

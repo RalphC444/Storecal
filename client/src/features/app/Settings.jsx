@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Icon } from "../../components/Icon";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PasswordInput } from "../../components/PasswordInput";
@@ -296,6 +296,7 @@ function WebsitePanel() {
 // Hosted booking-page branding: logo, accent color, and a tagline. Saved to the
 // shop and read by /book/<slug> (and the booking widget) via /api/shop-config.
 const DEFAULT_ACCENT = "#2563eb";
+const fmtMoney = (cents) => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
 function BrandingCard() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -303,17 +304,38 @@ function BrandingCard() {
   const [logo, setLogo] = useState("");
   const [tagline, setTagline] = useState("");
   const [saved, setSaved] = useState({ accent: "", logo: "", tagline: "" });
+  // Add-on gate state (from /api/billing).
+  const [bill, setBill] = useState(null);
+  const [unlockBusy, setUnlockBusy] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/shop-config").then(r => r.json())
-      .then(d => {
-        const s = d?.shop || {};
-        setAccent(s.accent || ""); setLogo(s.logo || ""); setTagline(s.tagline || "");
-        setSaved({ accent: s.accent || "", logo: s.logo || "", tagline: s.tagline || "" });
-      })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
+  const loadAll = useCallback(() => {
+    Promise.all([
+      fetch("/api/shop-config").then(r => r.json()).catch(() => ({})),
+      fetch("/api/billing").then(r => r.json()).catch(() => ({})),
+    ]).then(([cfg, b]) => {
+      const s = cfg?.shop || {};
+      setAccent(s.accent || ""); setLogo(s.logo || ""); setTagline(s.tagline || "");
+      setSaved({ accent: s.accent || "", logo: s.logo || "", tagline: s.tagline || "" });
+      setBill(b || {});
+    }).finally(() => setLoaded(true));
   }, []);
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const unlocked = !!bill?.brandingUnlocked;
+  const comped = !!bill?.brandingComped;
+  const priceCents = bill?.brandingPrice || 500;
+  const planCents = bill?.assignedPlan?.amount || 0;
+
+  async function setAddon(on) {
+    setUnlockBusy(true);
+    const res = await fetch("/api/billing/branding", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setUnlockBusy(false);
+    if (res.ok) { toast(on ? "Custom branding unlocked" : "Custom branding removed"); loadAll(); }
+    else toast(d.error || "Couldn’t update the add-on");
+  }
 
   // Logo auto-saves on upload/remove; accent + tagline use the Save button.
   const dirty = accent !== saved.accent || tagline.trim() !== saved.tagline;
@@ -366,10 +388,34 @@ function BrandingCard() {
     finally { setSaving(false); }
   }
 
+  // Locked state: explain the add-on and show the exact new total before unlocking.
+  if (loaded && !unlocked) {
+    return (
+      <SettingsCard title="Booking page branding" desc="Add your logo and brand color to your hosted booking page.">
+        <div className="addon-lock">
+          <p className="addon-lock__body">Custom branding is an add-on. Turn it on to upload a <b>logo</b> and set your <b>brand color</b> on your booking page.</p>
+          <div className="addon-lock__price">
+            <span className="addon-lock__amt">+{fmtMoney(priceCents)}/mo</span>
+            {planCents > 0 && <span className="addon-lock__total">Your plan becomes <b>{fmtMoney(planCents + priceCents)}/mo</b> ({fmtMoney(planCents)} + {fmtMoney(priceCents)})</span>}
+          </div>
+          <button className="btn" disabled={unlockBusy} onClick={() => setAddon(true)}>
+            {unlockBusy ? "Unlocking…" : `Unlock custom branding — +${fmtMoney(priceCents)}/mo`}
+          </button>
+          <p className="addon-lock__fine">Added to your next invoice and every month after. Remove it anytime.</p>
+        </div>
+      </SettingsCard>
+    );
+  }
+
   return (
     <SettingsCard title="Booking page branding" desc="Personalize your hosted booking page — the link you share in your bio. Your logo saves as soon as you upload it.">
       {!loaded ? <LoadingSpinner /> : (
         <>
+          {comped
+            ? <div className="addon-status addon-status--comp">✓ Custom branding is included on your account.</div>
+            : <div className="addon-status">Custom branding add-on active — <b>{fmtMoney(priceCents)}/mo</b>.
+                <button className="linklike" disabled={unlockBusy} onClick={() => setAddon(false)} style={{ marginLeft: 8 }}>{unlockBusy ? "Removing…" : "Remove"}</button>
+              </div>}
           <div className="field">
             <span className="field__label">Logo <span className="field__opt">— optional</span></span>
             <div className="brand__logo">

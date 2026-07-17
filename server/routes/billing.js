@@ -20,6 +20,34 @@ function stripeClient() {
   return require("stripe")(process.env.STRIPE_SECRET_KEY);
 }
 
+// ── Custom-branding add-on ───────────────────────────────────────────────────
+// A recurring line item added ON TOP of the shop's plan that unlocks logo +
+// color on the hosted booking page. Price is operator-set per shop (cents);
+// default $5. The item is tagged metadata.addon="branding" so we can find it.
+const BRANDING_DEFAULT_CENTS = 500;
+const BRANDING_PRODUCT_ID = "storecal-branding";
+const brandingPriceOf = (shop) => Number.isInteger(shop?.brandingAddonPrice) ? shop.brandingAddonPrice : BRANDING_DEFAULT_CENTS;
+
+// Reuse a Product + a Price per amount (immutable prices → one per cents value),
+// keyed by a deterministic lookup_key so we never create duplicates.
+async function ensureBrandingPrice(stripe, cents) {
+  try { await stripe.products.retrieve(BRANDING_PRODUCT_ID); }
+  catch (e) {
+    if (e && e.code === "resource_missing") await stripe.products.create({ id: BRANDING_PRODUCT_ID, name: "StoreCal Custom Branding" });
+    else throw e;
+  }
+  const key = `storecal-branding-${cents}`;
+  const found = await stripe.prices.list({ lookup_keys: [key], limit: 1 });
+  if (found.data[0]) return found.data[0].id;
+  const price = await stripe.prices.create({
+    product: BRANDING_PRODUCT_ID, unit_amount: cents, currency: "usd",
+    recurring: { interval: "month" }, lookup_key: key,
+  });
+  return price.id;
+}
+// The branding line item on a subscription, if present.
+const brandingItemOf = (sub) => (sub?.items?.data || []).find((i) => i && i.metadata && i.metadata.addon === "branding") || null;
+
 // Ensure the shop has a Stripe customer, creating one on first use. If the
 // stored id doesn't exist in the current Stripe mode (e.g. after switching from
 // test to live keys — customers are mode-specific), create a fresh one.
@@ -50,7 +78,7 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
     // Ask Stripe directly whether this shop has an active subscription (no
     // webhooks needed). Determines whether the "subscribe to enable booking"
     // prompt shows and whether online booking is turned on.
-    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, freeMonths = 0, freeResumesAt = null, trialing = false;
+    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, freeMonths = 0, freeResumesAt = null, trialing = false, brandingActive = false;
     const stripe = stripeClient();
     if (stripe && shop?.stripeCustomerId) {
       try {
@@ -61,6 +89,7 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
           status = active.status;
           planId = active.metadata?.planId || null;
           trialing = active.status === "trialing";
+          brandingActive = !!brandingItemOf(active); // paid custom-branding add-on on the sub
           // Renewal date: recent Stripe API versions keep current_period_end on
           // the subscription item, not the subscription itself.
           const item = active.items?.data?.[0];
@@ -80,14 +109,20 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
           }
         }
       } catch { /* treat as not subscribed */ }
-      // Cache the result on the shop so the public booking widget can gate its
-      // CTAs without a Stripe call on every page load.
-      try { await db.collection("shops").updateOne({ _id: shop._id }, { $set: { subscribed } }); } catch { /* non-fatal */ }
+      // Cache results on the shop so the public booking page can gate without a
+      // Stripe call: `subscribed` (booking CTAs) and `brandingAddon` (whether the
+      // hosted page applies the custom logo/color).
+      const brandingUnlocked = brandingActive || shop?.brandingAddonComp === true;
+      try { await db.collection("shops").updateOne({ _id: shop._id }, { $set: { subscribed, brandingAddon: brandingUnlocked } }); } catch { /* non-fatal */ }
     }
 
     // The plan the operator assigned this shop (set via set-plan.js); the
     // Subscribe button charges this. Defaults to the first plan if unset.
     const assignedPlan = PLANS.find((p) => p.id === shop?.planId) || PLANS[0];
+
+    // Custom-branding add-on state for the owner's Settings gate.
+    const brandingComped = shop?.brandingAddonComp === true;
+    const brandingPrice = brandingPriceOf(shop);
 
     res.json({
       subscribed,
@@ -101,6 +136,11 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       firstMonthFree: shop?.firstMonthFree === true, // new signups start with a free month
       assignedPlanId: assignedPlan.id,
       assignedPlan,
+      // Custom-branding add-on:
+      brandingPrice,                                   // cents/mo added on top of the plan
+      brandingActive,                                  // paid add-on is on their subscription
+      brandingComped,                                  // operator granted it free
+      brandingUnlocked: brandingActive || brandingComped, // controls unlocked either way
       freeForLife: shop?.freeForLife === true, // comped account → hide all billing UI
       promptBilling: shop?.promptBilling === true && shop?.freeForLife !== true,
       stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
@@ -179,6 +219,45 @@ router.post("/portal", requireAuth, requireOwner, async (req, res) => {
       return_url: req.headers.origin || "http://localhost:5173",
     });
     res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/billing/branding — owner unlocks (or removes) the custom-branding
+// add-on. Body: { on }. Adds/removes a recurring line item on their live
+// subscription at the shop's configured price, on top of the plan.
+router.post("/branding", requireAuth, requireOwner, async (req, res) => {
+  const stripe = stripeClient();
+  if (!stripe) return res.status(400).json({ error: "Billing isn't connected yet." });
+  try {
+    const db = await getDb();
+    const shop = await db.collection("shops").findOne({ _id: new ObjectId(req.auth.shopId) });
+    if (!shop) return res.status(404).json({ error: "Shop not found" });
+    const on = req.body.on !== false;
+
+    // Comped shops don't get charged — just flip the access flag.
+    if (shop.brandingAddonComp === true) {
+      await db.collection("shops").updateOne({ _id: shop._id }, { $set: { brandingAddon: on } });
+      return res.json({ success: true, brandingUnlocked: on, brandingActive: false });
+    }
+
+    if (!shop.stripeCustomerId) return res.status(400).json({ error: "Start your subscription first, then add custom branding." });
+    const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5 });
+    const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
+    if (!active) return res.status(400).json({ error: "You need an active subscription before adding custom branding." });
+
+    const existing = brandingItemOf(active);
+    if (on) {
+      if (!existing) {
+        const price = await ensureBrandingPrice(stripe, brandingPriceOf(shop));
+        await stripe.subscriptionItems.create({ subscription: active.id, price, quantity: 1, metadata: { addon: "branding" } });
+      }
+    } else if (existing) {
+      await stripe.subscriptionItems.del(existing.id); // proration credited automatically
+    }
+    await db.collection("shops").updateOne({ _id: shop._id }, { $set: { brandingAddon: on } });
+    res.json({ success: true, brandingUnlocked: on, brandingActive: on });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

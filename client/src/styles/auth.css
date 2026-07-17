@@ -161,6 +161,16 @@
 .linkrow__btn--del:hover:not(:disabled) { border-color: #d66; color: #c0392b; }
 @media (max-width: 560px) { .linkrow { grid-template-columns: 1fr; } .linkrow__ctl { justify-content: flex-end; } }
 
+/* Add-on lock + status (custom branding) */
+.addon-lock { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.addon-lock__body { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.addon-lock__price { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; }
+.addon-lock__amt { display: block; font-size: 20px; font-weight: 800; color: var(--ink); }
+.addon-lock__total { display: block; font-size: 13px; color: var(--ink-2); margin-top: 3px; }
+.addon-lock__fine { margin: 0; font-size: 12px; color: var(--ink-3); }
+.addon-status { font-size: 13px; color: var(--ink-2); background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; }
+.addon-status--comp { background: var(--accent-soft); border-color: #cdddfb; color: #1e3a8a; }
+
 .billing__gift {
   max-width: 520px; margin: 0 0 14px; padding: 12px 15px; border-radius: 12px;
   background: var(--accent-soft); border: 1px solid #cdddfb; color: #1e3a8a;

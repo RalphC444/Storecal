@@ -105,7 +105,9 @@
         .then(function (d) {
           if (!d || !d.shop) { fail("Sorry, we couldn’t find this store."); return; }
           var shop = d.shop;
-          var accent = shop.accent || "#2563eb";
+          // Custom logo/color/tagline only apply when the branding add-on is unlocked.
+          var unlocked = shop.brandingUnlocked === true;
+          var accent = (unlocked && shop.accent) ? shop.accent : "#2563eb";
           var storeKey = shop.publicKey;
 
           // Branding — swap the hero skeleton for the real header.
@@ -114,8 +116,8 @@
           var nameEl = document.getElementById("name");
           nameEl.textContent = shop.name || "Book an appointment";
           nameEl.hidden = false;
-          if (shop.tagline) { var t = document.getElementById("tag"); t.textContent = shop.tagline; t.hidden = false; }
-          if (shop.logo) { var lg = document.getElementById("logo"); lg.src = shop.logo; lg.hidden = false; }
+          if (unlocked && shop.tagline) { var t = document.getElementById("tag"); t.textContent = shop.tagline; t.hidden = false; }
+          if (unlocked && shop.logo) { var lg = document.getElementById("logo"); lg.src = shop.logo; lg.hidden = false; }
           heroSkel.hidden = true;
 
           // Optional external links (link-in-bio / linktree style).
