@@ -255,7 +255,7 @@ function WebsitePanel() {
       <BookingLinkCard />
       <SettingsCard
         title="Announcement banner"
-        desc="Show a message on your booking page and across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
+        desc="Shows a banner at the top of your booking page (and any site using your StoreCal widget) — e.g. holiday hours or “We’re on vacation until Aug 5.”"
       >
         <label className="field">
           <span className="field__label">Message</span>
@@ -290,7 +290,6 @@ function WebsitePanel() {
         </div>
       </SettingsCard>
 
-      <ExternalLinksCard />
       <BrandingCard />
     </>
   );
@@ -574,20 +573,22 @@ function ExternalLinksCard() {
   );
 }
 
+// The full link-in-bio experience in one card: the shareable booking-page link
+// (copy / preview) plus the optional extra link buttons shown on that page.
 function BookingLinkCard() {
   const [shop, setShop] = useState(null); // { slug, publicKey }
+  const [links, setLinks] = useState(null); // [{ label, url }]
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/shop-config").then(r => r.json())
-      .then(d => setShop(d?.shop || null))
-      .catch(() => {})
+      .then(d => { setShop(d?.shop || null); setLinks(Array.isArray(d?.shop?.links) ? d.shop.links : []); })
+      .catch(() => setLinks([]))
       .finally(() => setLoaded(true));
   }, []);
 
-  // A clean, shareable link built from the store's name (slug). Needs a public
-  // key behind the scenes for the page to load the booking widget.
   const ready = shop?.slug && shop?.publicKey;
   const bioUrl = ready ? `${window.location.origin}/book/${shop.slug}` : "";
 
@@ -595,18 +596,53 @@ function BookingLinkCard() {
     if (navigator.clipboard) navigator.clipboard.writeText(bioUrl).catch(() => {});
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   }
+  const setL = (i, k, v) => setLinks(ls => ls.map((l, idx) => idx === i ? { ...l, [k]: v } : l));
+  const addL = () => setLinks(ls => [...ls, { label: "", url: "" }]);
+  const removeL = (i) => setLinks(ls => ls.filter((_, idx) => idx !== i));
+  const moveL = (i, dir) => setLinks(ls => { const j = i + dir; if (j < 0 || j >= ls.length) return ls; const c = ls.slice(); const [it] = c.splice(i, 1); c.splice(j, 0, it); return c; });
+  async function saveLinks() {
+    setSaving(true);
+    const clean = (links || []).map(l => ({ label: (l.label || "").trim(), url: (l.url || "").trim() })).filter(l => l.url);
+    const res = await fetch("/api/shop-config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ links: clean }) });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (res.ok) { setLinks(Array.isArray(d.links) ? d.links : clean); toast("Links saved"); }
+    else toast(d.error || "Couldn’t save links");
+  }
 
   return (
-    <SettingsCard title="Link in bio" desc="Share this anywhere — Instagram, Google, a text. It opens your booking page directly, no website needed.">
+    <SettingsCard title="Your booking page" desc="Your link-in-bio — share it anywhere (Instagram, Google, a text) and it opens your booking page directly, no website needed.">
       {!loaded ? <LoadingSpinner />
         : !ready ? <p className="panel__hint">No booking link yet for this store.</p>
         : (
           <>
-            <div className="bl__row">
-              <input className="bl__link" readOnly value={bioUrl} onFocus={(e) => e.target.select()} />
-              <a className="btn" href={bioUrl} target="_blank" rel="noreferrer">Open</a>
+            <div className="invite__row">
+              <input className="invite__link" readOnly value={bioUrl} onFocus={(e) => e.target.select()} />
+              <button className="btn" onClick={copy}>{copied ? "Copied!" : "Copy link"}</button>
+              <a className="action" href={bioUrl} target="_blank" rel="noreferrer">Preview Booking Page</a>
             </div>
-            <button className="btn" onClick={copy}>{copied ? "Copied!" : "Copy link"}</button>
+
+            <div className="bookingcard__links">
+              <span className="field__label">Extra links <span className="field__opt">— optional</span></span>
+              <p className="panel__hint" style={{ marginTop: 2 }}>Buttons shown on your booking page — Instagram, Google reviews, a menu, your other site.</p>
+              <div className="linkrows">
+                {links.map((l, i) => (
+                  <div className="linkrow" key={i}>
+                    <input className="linkrow__label" type="text" value={l.label} placeholder="Label (e.g. Instagram)" onChange={e => setL(i, "label", e.target.value)} />
+                    <input className="linkrow__url" type="url" value={l.url} placeholder="https://…" onChange={e => setL(i, "url", e.target.value)} />
+                    <div className="linkrow__ctl">
+                      <button type="button" className="linkrow__btn" onClick={() => moveL(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                      <button type="button" className="linkrow__btn" onClick={() => moveL(i, 1)} disabled={i === links.length - 1} aria-label="Move down">↓</button>
+                      <button type="button" className="linkrow__btn linkrow__btn--del" onClick={() => removeL(i)} aria-label="Remove">✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="banner__actions">
+                <button className="action" type="button" onClick={addL}>+ Add link</button>
+                <button className="btn" onClick={saveLinks} disabled={saving}>{saving ? "Saving…" : "Save links"}</button>
+              </div>
+            </div>
           </>
         )}
     </SettingsCard>

@@ -160,6 +160,9 @@
 .brand__color input[type="color"] { width: 44px; height: 36px; padding: 0; border: 1px solid var(--line-2); border-radius: 8px; background: none; cursor: pointer; }
 .brand__hex { width: 110px; text-transform: lowercase; }
 .btn--file.is-busy { opacity: .6; pointer-events: none; }
+/* Extra-links block inside the combined booking-page card */
+.bookingcard__links { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.bookingcard__links .field__label { display: block; }
 
 /* External links (link-in-bio) editor */
 .linkrows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
