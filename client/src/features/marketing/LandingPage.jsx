@@ -9,7 +9,7 @@ import { CONTACT_HREF, SUPPORT_EMAIL, MARKETING_FEATURES, MARKETING_PLANS } from
 // scroll-in reveals — dressed in StoreCal's navy + periwinkle branding. Our own
 // site has to look like the best site we'd build for a client, so it doubles as
 // a portfolio piece.
-export function LandingPage({ onSignIn, onDemo, onLegal }) {
+export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyPlan, setApplyPlan] = useState("");
   const [navOpen, setNavOpen] = useState(false);
@@ -100,7 +100,8 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
             <a className="marketing__link" href="#how" onClick={closeNav}>How it works</a>
             <a className="marketing__link" href="#pricing" onClick={closeNav}>Pricing</a>
             <button className="linklike marketing__link" onClick={() => { closeNav(); openApply(""); }}>Get a website</button>
-            <button className="mbtn mbtn--nav" onClick={() => { closeNav(); onSignIn(); }}>Sign in</button>
+            <button className="linklike marketing__link" onClick={() => { closeNav(); onSignIn(); }}>Sign in</button>
+            <button className="mbtn mbtn--nav" onClick={() => { closeNav(); onGetStarted(); }}>Start free</button>
           </nav>
           <button
             className="marketing__navtoggle"
@@ -132,7 +133,7 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
               onto any website.
             </p>
             <div className="marketing__cta" data-reveal>
-              <button className="mbtn mbtn--primary" onClick={onSignIn}>Sign in →</button>
+              <button className="mbtn mbtn--primary" onClick={onGetStarted}>Start free →</button>
               <button className="mbtn mbtn--ghost" onClick={onDemo }>Try the live demo →</button>
             </div>
           </div>
@@ -308,8 +309,11 @@ export function LandingPage({ onSignIn, onDemo, onLegal }) {
               <ul className="marketing__planpoints">
                 {p.points.map((pt) => <li key={pt}>{pt}</li>)}
               </ul>
-              <button className={"mbtn " + (p.featured ? "mbtn--primary" : "mbtn--ghost") + " marketing__plancta"} onClick={() => openApply(p.name)}>
-                Get started
+              {/* The done-for-you website plan is a sales conversation (apply);
+                  the self-serve booking plan signs up instantly. */}
+              <button className={"mbtn " + (p.featured ? "mbtn--primary" : "mbtn--ghost") + " marketing__plancta"}
+                onClick={() => p.featured ? openApply(p.name) : onGetStarted()}>
+                {p.featured ? "Apply for a website →" : "Start free →"}
               </button>
             </div>
           ))}

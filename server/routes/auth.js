@@ -27,13 +27,29 @@ function publicUser(u) {
   };
 }
 
-// POST /api/auth/register — owner onboarding: creates a shop + owner account.
+// Booking-form presets per vertical (kept in sync with admin.js / set-business-type.js).
+const BOOKING_PRESETS = {
+  salon: { vehicle: false, pet: false, providerPicker: true, providerLabel: "Choose your stylist", serviceLabel: "Select a service", notesLabel: "Anything we should know? (optional)", notesPlaceholder: "Allergies, preferences, inspiration photos, or anything else…" },
+  grooming: { vehicle: false, pet: true, providerPicker: true, providerLabel: "Choose your groomer", serviceLabel: "Select a service", notesLabel: "Anything we should know? (optional)", notesPlaceholder: "Temperament, matting, sensitivities, or special requests…" },
+  auto: { vehicle: true, pet: false, providerPicker: false, providerLabel: "", serviceLabel: "Select a service", notesLabel: "Describe the issue (optional)", notesPlaceholder: "What symptoms, noises, or concerns should we know about?" },
+  generic: { vehicle: false, pet: false, providerPicker: false, providerLabel: "", serviceLabel: "Select a service", notesLabel: "Notes (optional)", notesPlaceholder: "Anything we should know before your appointment?" },
+};
+
+// POST /api/auth/register — SELF-SERVE owner signup: creates a shop + owner
+// account, logs them in, and sets them up to start a first-month-free
+// subscription. Booking works immediately (demo mode) so the hosted page and
+// embed are usable out of the gate.
 router.post("/register", async (req, res) => {
   try {
-    const { businessName, email, password, slug } = req.body;
+    const { businessName, email, password } = req.body;
     if (!businessName?.trim()) return res.status(400).json({ error: "Business name is required" });
     if (!email?.trim()) return res.status(400).json({ error: "Email is required" });
     if (!password || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: "Enter a valid email address" });
+
+    const businessType = BOOKING_PRESETS[req.body.businessType] ? req.body.businessType : "salon";
+    const phone = String(req.body.phone || "").trim();
+    const website = String(req.body.website || "").trim();
 
     const db = await getDb();
     const em = email.trim().toLowerCase();
@@ -41,14 +57,20 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ error: "An account with that email already exists" });
     }
 
-    const shopSlug = (slug || businessName).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    let shopSlug = (req.body.slug || businessName).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "shop";
+    if (await db.collection("shops").findOne({ slug: shopSlug })) shopSlug += "-" + Math.random().toString(36).slice(2, 6);
+
     const shopRes = await db.collection("shops").insertOne({
-      slug: shopSlug, name: businessName.trim(), businessType: "salon",
+      slug: shopSlug, name: businessName.trim(), businessType, booking: BOOKING_PRESETS[businessType],
       publicKey: generatePublicKey(), // stable public id baked into the embed
-      promptBilling: true,            // new accounts see the "subscribe to enable booking" banner
+      phone, website,
+      demo: true,             // booking on out of the gate (usable before they subscribe)
+      promptBilling: true,    // show the "subscribe to enable booking" nudge
+      firstMonthFree: true,   // self-serve signups get a 30-day free trial at checkout
       createdAt: new Date(),
     });
     const shopId = shopRes.insertedId.toString();
+    const shop = await db.collection("shops").findOne({ _id: shopRes.insertedId });
 
     const userRes = await db.collection("users").insertOne({
       email: em, passwordHash: await hashPassword(password), name: businessName.trim(),
@@ -57,13 +79,20 @@ router.post("/register", async (req, res) => {
     const user = await db.collection("users").findOne({ _id: userRes.insertedId });
 
     // Owner is a bookable provider by default (they can turn this off in Settings).
+    // Auto shops don't do per-staff booking, so the owner rep stays inactive.
     await db.collection("providers").insertOne({
       shopId, name: businessName.trim(), email: em, bio: "", photo: "",
-      active: true, ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
+      active: businessType !== "auto", ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
     });
 
     setAuthCookie(res, signToken(user));
-    res.status(201).json({ user: publicUser(user) });
+    const origin = req.headers.origin || "";
+    res.status(201).json({
+      user: publicUser(user),
+      slug: shopSlug,
+      publicKey: shop.publicKey,
+      bookingUrl: origin ? `${origin}/book/${shopSlug}` : `/book/${shopSlug}`,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 // Auth screens are tiny and shown eagerly during the sign-in flow.
 import { LoginScreen } from "./features/auth/LoginScreen";
+import { RegisterScreen } from "./features/auth/RegisterScreen";
 import { ForgotPasswordScreen } from "./features/auth/ForgotPasswordScreen";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen";
 import { ChangePasswordScreen } from "./features/auth/ChangePasswordScreen";
@@ -112,7 +113,14 @@ export default function App() {
   if (phase === "loading") return Splash;
 
   if (phase === "landing")
-    return <Suspense fallback={Splash}><LandingPage onSignIn={() => setPhase("login")} onDemo={demoLogin} onLegal={openLegal} /><CookieConsent onLegal={openLegal} /></Suspense>;
+    return <Suspense fallback={Splash}><LandingPage onSignIn={() => setPhase("login")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} /><CookieConsent onLegal={openLegal} /></Suspense>;
+
+  if (phase === "register")
+    return <RegisterScreen
+      onAuthed={u => { setUser(u); if (u.role === "owner") { setFresh(true); setPhase("onboard"); } else setPhase("app"); }}
+      onBack={() => setPhase("landing")}
+      onSignIn={() => setPhase("login")}
+    />;
 
   if (phase === "legal")
     return <Suspense fallback={Splash}><PolicyPages section={legalSection} onBack={() => setPhase("landing")} /><CookieConsent onLegal={openLegal} /></Suspense>;
