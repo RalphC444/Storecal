@@ -250,6 +250,7 @@ function WebsitePanel() {
     <>
       <CategoryHead title="Website" desc="Your booking page, share link, external links, and branding." />
       <BookingLinkCard />
+      <WebsiteUrlCard />
       <SettingsCard
         title="Announcement banner"
         desc="Show a message on your booking page and across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
@@ -451,6 +452,38 @@ function BrandingCard() {
           </div>
         </>
       )}
+    </SettingsCard>
+  );
+}
+
+// Owner's existing website URL (optional) — used for the embed + rebooking links.
+function WebsiteUrlCard() {
+  const [website, setWebsite] = useState(null);
+  const [saved, setSaved] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/shop-config").then(r => r.json())
+      .then(d => { const w = d?.shop?.website || ""; setWebsite(w); setSaved(w); })
+      .catch(() => setWebsite(""));
+  }, []);
+  async function save() {
+    setSaving(true);
+    const res = await fetch("/api/shop-config", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ website: (website || "").trim() }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (res.ok) { setSaved(d.website || ""); setWebsite(d.website || ""); toast("Website saved"); }
+    else toast(d.error || "Couldn’t save");
+  }
+  if (website === null) return null;
+  return (
+    <SettingsCard title="Your website" desc="Already have a site? Add it here — it’s where your embedded booking widget lives. Optional.">
+      <label className="field"><span className="field__label">Website URL</span>
+        <input type="url" value={website} placeholder="https://yoursite.com" onChange={(e) => setWebsite(e.target.value)} /></label>
+      <div className="banner__actions">
+        <button className="btn" onClick={save} disabled={saving || (website || "").trim() === saved}>{saving ? "Saving…" : "Save"}</button>
+      </div>
     </SettingsCard>
   );
 }

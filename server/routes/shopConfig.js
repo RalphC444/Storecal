@@ -101,6 +101,7 @@ router.get("/", async (req, res) => {
         publicKey: shop.publicKey || null,
         address: shop.address || "",
         phone: shop.phone || "",
+        website: shop.website || "",
         businessType: shop.businessType || "generic",
         booking: shop.booking || DEFAULT_BOOKING,
         // Branding for the hosted booking page (owner-configurable). Values are
@@ -176,6 +177,9 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
     if (req.body.tagline !== undefined) {
       set.tagline = String(req.body.tagline || "").trim().slice(0, 120);
     }
+    if (req.body.website !== undefined) {
+      set.website = String(req.body.website || "").trim().slice(0, 300);
+    }
     // External links (link-in-bio buttons). Keep label + url, cap the count.
     if (req.body.links !== undefined) {
       const arr = Array.isArray(req.body.links) ? req.body.links : [];
@@ -196,6 +200,7 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
       logo: set.logo,
       tagline: set.tagline,
       links: set.links,
+      website: set.website,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

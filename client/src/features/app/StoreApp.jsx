@@ -13,6 +13,7 @@ import { ProvidersView, ProviderSelfView, ProviderHoursModal } from "./Staff";
 import { ServicesView } from "./Services";
 import { GalleryView, StaffGallery } from "./Gallery";
 import { SettingsView } from "./Settings";
+import { GetStartedQuest } from "./GetStarted";
 import { ScheduleEditor } from "./Scheduling";
 
 export function StoreApp({ user, onSignOut, onUserChange }) {
@@ -22,7 +23,10 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const [businessType, setBusinessType] = useState("salon");
   const [showStaff, setShowStaff] = useState(true);
   const [showGallery, setShowGallery] = useState(true);
+  const [shopMeta, setShopMeta] = useState({ slug: "", publicKey: "", accent: "", logo: "" });
+  const [questDismissed, setQuestDismissed] = useState(false);
   const isProvider = user.role === "provider";
+  const isOwner = user.role === "owner";
   // The public demo is a throwaway sandbox: no Settings tab (no billing/account
   // to manage) and a prominent "Exit demo" button instead of a buried icon.
   const isDemo = user.demo === true;
@@ -65,6 +69,10 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
         if (cfg.shop?.businessType) setBusinessType(cfg.shop.businessType);
         setShowStaff(cfg.showStaff !== false);
         setShowGallery(cfg.showGallery !== false);
+        setShopMeta({
+          slug: cfg.shop?.slug || "", publicKey: cfg.shop?.publicKey || "",
+          accent: cfg.shop?.accent || "", logo: cfg.shop?.logo || "",
+        });
       })
       .catch(() => {});
     // Re-key on the signed-in shop so switching accounts (without a full
@@ -269,6 +277,18 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
 
   const hoursLabel = user.role === "owner" ? "store hours" : "work hours";
 
+  // Get-started "quest": guides a new owner to a bookable page. Free essentials
+  // only (no paywalled steps); auto-hides once complete or dismissed.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const bookingUrl = shopMeta.slug ? `${origin}/book/${shopMeta.slug}` : "";
+  const questSteps = isOwner ? [
+    { label: "Add your services", desc: "List what you offer, with prices — this is what customers pick.", done: services.length > 0, actionLabel: "Add services", onAction: () => go("services") },
+    { label: "Set your hours", desc: "Tell customers when they can book.", done: !hoursNeeded, actionLabel: "Set hours", onAction: openHours },
+    ...(promptBilling ? [{ label: "Start your free month", desc: "Turn on online booking — first month free, then $35/mo.", done: subscribed, actionLabel: "Start free month", onAction: startCheckout }] : []),
+  ] : [];
+  const questComplete = questSteps.length > 0 && questSteps.every(s => s.done);
+  const showQuest = isOwner && !isDemo && !questDismissed && !questComplete && !!shopMeta.slug;
+
   return (
     <div className="viewport">
       <ToastHost />
@@ -310,6 +330,13 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
             </button>
           ))}
         </nav>
+
+        {bookingUrl && !isDemo && (
+          <a className="navpreview" href={bookingUrl} target="_blank" rel="noreferrer" title="Open your booking page in a new tab">
+            <Icon name="globe" />
+            <span className="navpreview__txt"><span className="navpreview__label">My booking page</span><span className="navpreview__sub">Preview &amp; share ↗</span></span>
+          </a>
+        )}
 
         <div className="sidebar__spacer" />
 
@@ -353,6 +380,10 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
             ? <button className="topbar__cta" onClick={topAction.onClick}>{topAction.label}</button>
             : <span className="topbar__cta-spacer" />}
         </div>
+
+        {showQuest && view === "calendar" && (
+          <GetStartedQuest shopName={shopName} steps={questSteps} bookingUrl={bookingUrl} onDismiss={() => setQuestDismissed(true)} />
+        )}
 
         {view === "calendar" ? (
           <WeekCalendar

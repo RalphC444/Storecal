@@ -103,10 +103,6 @@ export function RegisterScreen({ onAuthed, onBack, onSignIn }) {
           <span className="field__label">Password</span>
           <PasswordInput value={form.password} onChange={(e) => set("password", e.target.value)} autoComplete="new-password" placeholder="At least 8 characters" required />
         </label>
-        <label className="field">
-          <span className="field__label">Website <span className="field__opt">— optional</span></span>
-          <input type="url" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yoursite.com" />
-        </label>
         {err && <p className="form__error">{err}</p>}
         <button className="btn btn--lg authform__submit" type="submit" disabled={busy}>
           {busy ? "Creating…" : "Create my account"}
