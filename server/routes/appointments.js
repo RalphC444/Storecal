@@ -4,7 +4,7 @@ const { upsertClient } = require("../lib/clients");
 const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
 const { notifyAppointmentChange } = require("../lib/realtime");
-const { sendBookingConfirmation, sendBookingCancellation, sendOwnerBookingNotification, sendOwnerChangeNotification } = require("../lib/mailer");
+const { sendBookingConfirmation, sendBookingCancellation, sendOwnerBookingNotification } = require("../lib/mailer");
 const { sendSms } = require("../lib/sms");
 const { signManage } = require("../lib/auth");
 const { ObjectId } = require("mongodb");
@@ -168,22 +168,10 @@ function emailBookingCancellation(db, shopId, doc, message, origin) {
   })();
 }
 
-// Notify the shop owner + assigned staff that an appointment was cancelled (from
-// the dashboard). The customer gets their own notice via emailBookingCancellation.
-function emailOwnerCancellation(db, shopId, doc) {
-  (async () => {
-    try {
-      const f = await bookingFields(db, shopId, doc);
-      const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "https://www.storecal.com").replace(/\/$/, "");
-      const base = {
-        shopName: f.shopName, clientName: f.clientName, service: f.service,
-        dateLabel: f.dateLabel, timeLabel: f.timeLabel, providerName: f.providerName, action: "cancelled", appUrl,
-      };
-      const recips = await ownerStaffRecipients(db, shopId, doc, f.ownerNotifyEmail);
-      for (const to of recips) await sendOwnerChangeNotification({ ...base, to });
-    } catch (e) { console.error("Owner cancellation notice failed:", e.message); }
-  })();
-}
+// NOTE: the shop owner/staff are NOT emailed when THEY cancel from the dashboard
+// (they initiated it, and the calendar updates live). The owner/staff DO get a
+// heads-up when a CUSTOMER cancels via their manage link — that path lives in
+// routes/appt.js (notifyShopAndCustomer → sendOwnerChangeNotification).
 
 const router = Router();
 
@@ -447,12 +435,14 @@ router.patch("/:id", async (req, res) => {
     await db.collection("appointments").updateOne({ _id: new ObjectId(req.params.id), shopId }, { $set: set });
 
     notifyAppointmentChange(shopId, { action: "status", _id: req.params.id, status });
-    // On cancellation, notify the customer (branded notice + rebook link for
-    // grooming) AND the shop owner + assigned staff — unless booking emails are
-    // switched off for this shop.
+    // On cancellation, notify the CUSTOMER (branded notice + rebook link for
+    // grooming) — unless booking emails are switched off for this shop. The shop
+    // owner/staff are NOT emailed here: this is the dashboard path, so they
+    // initiated the cancellation themselves (the calendar already updated live).
+    // Customer-initiated cancellations (manage link) still notify the shop — see
+    // routes/appt.js.
     if (status === "cancelled" && !(await bookingEmailsOff(db, shopId))) {
-      emailBookingCancellation(db, shopId, appt, message, req.headers.origin); // customer
-      emailOwnerCancellation(db, shopId, appt);                                // owner + assigned staff
+      emailBookingCancellation(db, shopId, appt, message, req.headers.origin); // customer only
     }
     res.json({ success: true });
   } catch (err) {
