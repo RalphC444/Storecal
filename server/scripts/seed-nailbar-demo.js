@@ -34,6 +34,20 @@ async function undo(db, shopId) {
     if (r.deletedCount) console.log(`  removed ${r.deletedCount} from ${c}`);
     total += r.deletedCount;
   }
+  // Restore REAL docs we only modified (not tagged for deletion):
+  // gallery photos reassigned to staff, and the renamed owner provider.
+  const reassigned = await db.collection("gallery").find({ shopId, demoReassigned: true }).toArray();
+  for (const g of reassigned) {
+    await db.collection("gallery").updateOne({ _id: g._id },
+      { $set: { providerId: g.demoOrigProviderId ?? null }, $unset: { demoReassigned: "", demoOrigProviderId: "" } });
+  }
+  if (reassigned.length) console.log(`  restored ${reassigned.length} gallery photo(s) to shop-level`);
+  const renamed = await db.collection("providers").find({ shopId, demoRenamed: true }).toArray();
+  for (const p of renamed) {
+    await db.collection("providers").updateOne({ _id: p._id },
+      { $set: { name: p.demoOrigName }, $unset: { demoRenamed: "", demoOrigName: "" } });
+  }
+  if (renamed.length) console.log(`  restored ${renamed.length} provider name(s)`);
   return total;
 }
 
@@ -79,6 +93,30 @@ async function seed(db, shop) {
     await db.collection("scheduleMeta").insertOne({ providerId: pid, shopId, biweekly: false, anchorDate: sundayKeyLocal(), demoSeed: TAG, updatedAt: new Date() });
   }
   console.log(`  seeded ${provIds.length} staff (+ hours)`);
+
+  // Attribute some existing shop gallery photos to the seeded staff (per-staff
+  // galleries), keeping the cover + a few as shop-level "our work". Recorded so
+  // undo puts them back to shop-level.
+  const gallery = await db.collection("gallery")
+    .find({ shopId, providerId: null, cover: { $ne: true } }).sort({ sortOrder: 1, _id: 1 }).toArray();
+  const KEEP_SHOP = 3;
+  let gi = 0;
+  for (let i = KEEP_SHOP; i < gallery.length; i++) {
+    const pid = provIds[gi % provIds.length]; gi++;
+    await db.collection("gallery").updateOne({ _id: gallery[i]._id },
+      { $set: { providerId: pid, demoReassigned: true, demoOrigProviderId: gallery[i].providerId ?? null } });
+  }
+  if (gi) console.log(`  attributed ${gi} gallery photo(s) to staff`);
+
+  // Give the owner's provider a human name so it reads like a real team member
+  // (recorded so undo restores the original). Skip if already renamed.
+  const HUMAN = "Ava Rivera";
+  const owner = await db.collection("providers").findOne({ shopId, ownerUserId: { $exists: true }, demoSeed: { $ne: TAG } });
+  if (owner && !owner.demoRenamed && owner.name !== HUMAN) {
+    await db.collection("providers").updateOne({ _id: owner._id },
+      { $set: { name: HUMAN, demoRenamed: true, demoOrigName: owner.name } });
+    console.log(`  renamed owner provider "${owner.name}" → "${HUMAN}"`);
+  }
 
   // Customers.
   const clientDefs = [
