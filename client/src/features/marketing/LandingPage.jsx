@@ -100,8 +100,8 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
             <a className="marketing__link" href="#how" onClick={closeNav}>How it works</a>
             <a className="marketing__link" href="#pricing" onClick={closeNav}>Pricing</a>
             <button className="linklike marketing__link" onClick={() => { closeNav(); openApply(""); }}>Get a website</button>
-            <button className="linklike marketing__link" onClick={() => { closeNav(); onSignIn(); }}>Sign in</button>
-            <button className="mbtn mbtn--nav" onClick={() => { closeNav(); onGetStarted(); }}>Start free</button>
+            <button className="linklike marketing__link" onClick={() => { closeNav(); onGetStarted(); }}>Create account</button>
+            <button className="mbtn mbtn--nav" onClick={() => { closeNav(); onSignIn(); }}>Sign in</button>
           </nav>
           <button
             className="marketing__navtoggle"
