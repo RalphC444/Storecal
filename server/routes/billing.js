@@ -95,16 +95,21 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
           const item = active.items?.data?.[0];
           const secs = item?.current_period_end || active.current_period_end || null;
           renewsAt = secs ? secs * 1000 : null;
-          // A 100%-off discount == the operator comped upcoming month(s). How many
-          // whole months depends on the coupon's duration.
-          const ds = Array.isArray(active.discounts) ? active.discounts : [];
-          const d = ds.find((x) => x && typeof x === "object" && x.coupon && x.coupon.percent_off === 100);
-          if (d) {
-            const c = d.coupon;
-            freeMonths = c.duration === "once" ? 1 : c.duration === "repeating" ? (c.duration_in_months || 1) : 0;
-            freeMonthActive = true;
-            if (renewsAt && freeMonths > 0) {
-              const r = new Date(renewsAt); r.setMonth(r.getMonth() + freeMonths); freeResumesAt = r.getTime();
+          // Free-month comp: our coupons carry deterministic ids (storecal-free-<N>mo).
+          // In 2026-06-24.dahlia the coupon id lives at discount.source.coupon;
+          // older versions use discount.coupon — handle both.
+          const ds = Array.isArray(active.discounts) ? active.discounts : (active.discount ? [active.discount] : []);
+          for (const d of ds) {
+            const cid = d && typeof d === "object"
+              ? ((d.source && d.source.type === "coupon" && d.source.coupon) || d.coupon)
+              : null;
+            const id = typeof cid === "string" ? cid : (cid && cid.id);
+            const mm = id && /^storecal-free-(\d+)mo$/.exec(id);
+            if (mm) {
+              freeMonths = Number(mm[1]);
+              freeMonthActive = true;
+              if (renewsAt) { const r = new Date(renewsAt); r.setMonth(r.getMonth() + freeMonths); freeResumesAt = r.getTime(); }
+              break;
             }
           }
         }

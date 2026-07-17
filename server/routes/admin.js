@@ -42,16 +42,31 @@ async function ensureFreeCoupon(stripe, months) {
   }
 }
 
-// The 100%-off discount currently on a subscription, if any — with how many
-// whole months it covers. Reads the expanded `discounts` array (Stripe moved off
-// the singular `discount` field in recent API versions).
+// Extract the coupon id from a subscription discount across Stripe API shapes.
+// In 2026-06-24.dahlia the coupon lives at discount.source.coupon (an id);
+// older versions put it at discount.coupon (id or inline object).
+function couponIdOfDiscount(d) {
+  if (!d || typeof d !== "object") return null;
+  if (d.source && d.source.type === "coupon" && d.source.coupon) {
+    return typeof d.source.coupon === "string" ? d.source.coupon : d.source.coupon.id;
+  }
+  if (d.coupon) return typeof d.coupon === "string" ? d.coupon : d.coupon.id;
+  return null;
+}
+// Our free-month coupons are created with deterministic ids (storecal-free-<N>mo),
+// so we read the month count straight from the id — no need to fetch the coupon.
+function freeMonthsFromCouponId(id) {
+  const m = id && /^storecal-free-(\d+)mo$/.exec(id);
+  return m ? Number(m[1]) : 0;
+}
+// How many whole months of free comp are on a subscription (0 = none).
 function freeDiscountOf(sub) {
-  const ds = Array.isArray(sub?.discounts) ? sub.discounts : [];
-  const d = ds.find((x) => x && typeof x === "object" && x.coupon && x.coupon.percent_off === 100);
-  if (!d) return null;
-  const c = d.coupon;
-  const months = c.duration === "once" ? 1 : c.duration === "repeating" ? (c.duration_in_months || 1) : 0; // 0 = forever
-  return { months };
+  const ds = Array.isArray(sub?.discounts) ? sub.discounts : (sub?.discount ? [sub.discount] : []);
+  for (const d of ds) {
+    const months = freeMonthsFromCouponId(couponIdOfDiscount(d));
+    if (months) return { months };
+  }
+  return null;
 }
 // The renewal timestamp (ms). Recent Stripe API versions moved
 // current_period_end off the Subscription onto each subscription item, so read
