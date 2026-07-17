@@ -31,7 +31,7 @@ export function SettingsView({ user, onUserChange, onSignOut, initialSection }) 
       { id: "security", label: "Security", icon: "lock", desc: "Password" },
     ];
     if (isOwner) {
-      list.push({ id: "website", label: "Website", icon: "globe", desc: "Booking page, links & branding" });
+      list.push({ id: "website", label: "My Booking Page", icon: "globe", desc: "Page, links & branding" });
       if (!meta.freeForLife) list.push({ id: "billing", label: "Billing", icon: "card", desc: "Plan & payment" });
     }
     return list;
@@ -149,6 +149,7 @@ function ProfilePanel({ user, onUserChange, isOwner, isAuto }) {
       </SettingsCard>
       {/* Owners at staff-based shops can list themselves as bookable. */}
       {isOwner && !isAuto && <BookableSelfCard />}
+      {isOwner && <WebsiteUrlCard />}
     </>
   );
 }
@@ -250,9 +251,8 @@ function WebsitePanel() {
 
   return (
     <>
-      <CategoryHead title="Website" desc="Your booking page, share link, external links, and branding." />
+      <CategoryHead title="My Booking Page" desc="Your booking page, share link, external links, and branding." />
       <BookingLinkCard />
-      <WebsiteUrlCard />
       <SettingsCard
         title="Announcement banner"
         desc="Show a message on your booking page and across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
