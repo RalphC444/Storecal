@@ -4,7 +4,7 @@ const { upsertClient } = require("../lib/clients");
 const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
 const { notifyAppointmentChange } = require("../lib/realtime");
-const { sendBookingConfirmation, sendBookingCancellation, sendOwnerBookingNotification } = require("../lib/mailer");
+const { sendBookingConfirmation, sendBookingCancellation, sendOwnerBookingNotification, sendOwnerChangeNotification } = require("../lib/mailer");
 const { sendSms } = require("../lib/sms");
 const { signManage } = require("../lib/auth");
 const { ObjectId } = require("mongodb");
@@ -159,6 +159,29 @@ function emailBookingCancellation(db, shopId, doc, message, origin) {
   (async () => {
     try { if (await sendBookingCancellation({ ...(await bookingFields(db, shopId, doc, origin)), message: message || "" })) await bumpEmails(db, shopId, 1); }
     catch (e) { console.error("Booking cancellation email failed:", e.message); }
+  })();
+}
+
+// Notify the shop owner + assigned staff that an appointment was cancelled (from
+// the dashboard). The customer gets their own notice via emailBookingCancellation.
+function emailOwnerCancellation(db, shopId, doc) {
+  (async () => {
+    try {
+      const f = await bookingFields(db, shopId, doc);
+      const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "https://www.storecal.com").replace(/\/$/, "");
+      const base = {
+        shopName: f.shopName, clientName: f.clientName, service: f.service,
+        dateLabel: f.dateLabel, timeLabel: f.timeLabel, providerName: f.providerName, action: "cancelled", appUrl,
+      };
+      const owner = await db.collection("users").findOne({ shopId, role: "owner" }, { projection: { email: 1 } });
+      const recips = new Set();
+      if (owner?.email) recips.add(owner.email.toLowerCase());
+      if (doc.providerId) {
+        const prov = await db.collection("providers").findOne({ _id: new ObjectId(doc.providerId) }, { projection: { email: 1 } }).catch(() => null);
+        if (prov?.email) recips.add(prov.email.toLowerCase());
+      }
+      for (const to of recips) await sendOwnerChangeNotification({ ...base, to });
+    } catch (e) { console.error("Owner cancellation notice failed:", e.message); }
   })();
 }
 
@@ -424,9 +447,13 @@ router.patch("/:id", async (req, res) => {
     await db.collection("appointments").updateOne({ _id: new ObjectId(req.params.id), shopId }, { $set: set });
 
     notifyAppointmentChange(shopId, { action: "status", _id: req.params.id, status });
-    // Email the customer a branded cancellation with the staff message + shop
-    // phone, and a rebook link (grooming). origin backstops the hosted /book URL.
-    if (status === "cancelled") emailBookingCancellation(db, shopId, appt, message, req.headers.origin);
+    // On cancellation, notify the customer (branded notice + rebook link for
+    // grooming) AND the shop owner + assigned staff — unless booking emails are
+    // switched off for this shop.
+    if (status === "cancelled" && !(await bookingEmailsOff(db, shopId))) {
+      emailBookingCancellation(db, shopId, appt, message, req.headers.origin); // customer
+      emailOwnerCancellation(db, shopId, appt);                                // owner + assigned staff
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

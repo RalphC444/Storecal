@@ -3,6 +3,12 @@
 // copy-able invite link and manual reset flows stay as the fallback.
 
 const FROM = process.env.EMAIL_FROM || "StoreCal <onboarding@resend.dev>";
+// onboarding@resend.dev is Resend's sandbox sender: it ONLY delivers to your own
+// Resend account address, so customer confirmations/cancellations won't arrive.
+// Verify a domain in Resend and set EMAIL_FROM (e.g. "StoreCal <bookings@storecal.com>").
+if (process.env.RESEND_API_KEY && !process.env.EMAIL_FROM) {
+  console.warn("[mailer] EMAIL_FROM is unset — sending from onboarding@resend.dev, which only delivers to your own Resend address. Set EMAIL_FROM to a verified-domain sender so customers receive emails.");
+}
 // StoreCal's public support inbox. Resend can only SEND from a verified domain
 // (never a gmail address), so this is used as the Reply-To on every message —
 // anyone replying to a StoreCal email reaches support here.
@@ -220,14 +226,14 @@ async function sendOwnerChangeNotification(d) {
         `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:92px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
     )
     .join("");
-  const verb = cancelled ? "cancelled their appointment" : "rescheduled their appointment";
+  const who = d.clientName ? esc(d.clientName) + "’s" : "An";
   await resend.emails.send({
     from: FROM,
     replyTo: SUPPORT_EMAIL,
     to: d.to,
-    subject: `${d.clientName || "A customer"} ${cancelled ? "cancelled" : "rescheduled"} — ${d.shopName}`,
-    html: shell(cancelled ? "A booking was cancelled" : "A booking was rescheduled",
-      `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px"><b>${esc(d.clientName || "A customer")}</b> ${verb} online. Your calendar is already updated.</p>
+    subject: `Appointment ${cancelled ? "cancelled" : "rescheduled"}: ${d.clientName || d.service || d.shopName}`,
+    html: shell(cancelled ? "An appointment was cancelled" : "An appointment was rescheduled",
+      `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">${who} appointment was ${cancelled ? "cancelled" : "rescheduled"}. Your calendar is up to date — log in to view it.</p>
        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
        ${d.appUrl ? button(d.appUrl, "Open StoreCal") : ""}`),
   });

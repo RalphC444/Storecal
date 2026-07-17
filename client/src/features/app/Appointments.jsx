@@ -191,7 +191,7 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
   // Auto-open "more details" when editing a record that already has secondary
   // data, so nothing hidden is silently dropped or overlooked.
   const [moreOpen, setMoreOpen] = useState(
-    !!(appt.client?.phone || appt.issueDescription || (appt.addons?.length))
+    !!(appt.issueDescription || (appt.addons?.length))
   );
 
   // Client typeahead
@@ -312,10 +312,16 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
             )}
           </div>
 
-          <label className="field">
-            <span className="field__label">Email <span className="field__hint">— for confirmations &amp; reminders</span></span>
-            <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" />
-          </label>
+          <div className="form__row form__row--2">
+            <label className="field">
+              <span className="field__label">Email <span className="field__hint">— sends a confirmation</span></span>
+              <input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="name@email.com" />
+            </label>
+            <label className="field">
+              <span className="field__label">Phone</span>
+              <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 000-0000" />
+            </label>
+          </div>
 
           {isPet && (
             <div className="form__row form__row--2">
@@ -381,13 +387,8 @@ export function AppointmentEditor({ appt, providers, services, isExisting, busin
           )}
 
           <details className="disclosure" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}>
-            <summary className="disclosure__toggle">Add more details<span className="disclosure__hint"> — phone{addonOptions.length ? ", add-ons" : ""}, notes</span></summary>
+            <summary className="disclosure__toggle">Add more details<span className="disclosure__hint">{addonOptions.length ? " — add-ons, notes" : " — notes"}</span></summary>
             <div className="disclosure__body">
-              <label className="field">
-                <span className="field__label">Phone</span>
-                <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 000-0000" />
-              </label>
-
               {addonOptions.length > 0 && (
                 <div className="field">
                   <span className="field__label">Add-ons <span className="field__hint">— optional</span></span>
