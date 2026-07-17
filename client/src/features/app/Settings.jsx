@@ -252,7 +252,7 @@ function WebsitePanel() {
       <BookingLinkCard />
       <SettingsCard
         title="Announcement banner"
-        desc="Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
+        desc="Show a message on your booking page and across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
       >
         <label className="field">
           <span className="field__label">Message</span>
