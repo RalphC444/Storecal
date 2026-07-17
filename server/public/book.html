@@ -33,8 +33,6 @@
     }
     .foot { margin-top: 40px; text-align: center; font-size: 12px; color: #aab0b8; }
     .err { text-align: center; font-size: 14.5px; color: #c0392b; margin-top: 24px; }
-    .notice { background: #fff8e1; border: 1px solid #f3e2a9; color: #7a5c00; border-radius: 12px;
-      padding: 12px 16px; margin: 0 0 24px; font-size: 14px; line-height: 1.5; text-align: center; }
 
     /* Tune the shared storecal-data.js widgets to sit nicely on this page. */
     .storecal-widget { display: flex; justify-content: center; }
@@ -64,7 +62,6 @@
 </head>
 <body>
   <main class="wrap">
-    <div id="notice" class="notice" hidden></div>
     <header class="hero">
       <img id="logo" class="hero__logo" alt="" hidden />
       <div id="hero-skel">
@@ -122,9 +119,6 @@
           if (unlocked && shop.tagline) { var t = document.getElementById("tag"); t.textContent = shop.tagline; t.hidden = false; }
           if (unlocked && shop.logo) { var lg = document.getElementById("logo"); lg.src = shop.logo; lg.hidden = false; }
           heroSkel.hidden = true;
-
-          // Owner announcement banner (respects its auto-hide date server-side).
-          if (d.announcement) { var nt = document.getElementById("notice"); nt.textContent = d.announcement; nt.hidden = false; }
 
           // Optional external links (link-in-bio / linktree style).
           var links = Array.isArray(shop.links) ? shop.links : [];
