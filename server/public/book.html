@@ -44,15 +44,33 @@
     @media (min-width: 520px) {
       [data-storecal="staff"].scd-grid { grid-template-columns: 1fr 1fr; }
     }
-    [data-storecal="services"] .scd-card__book { background: var(--accent); }
-    /* Card components on white so they read clearly on the tinted page. */
-    [data-storecal="services"] .scd-card,
-    [data-storecal="staff"] .scd-person {
+    /* The whole service card is the booking target (per-service button hidden);
+       hover raises a border in the shop's accent + a "Book →" cue. */
+    [data-storecal="services"] .scd-card {
+      position: relative; cursor: pointer;
       background: #fff; border: 1px solid #e6e8ec; border-radius: 14px;
       box-shadow: 0 1px 2px rgba(16, 18, 28, 0.04);
+      transition: border-color .12s ease, box-shadow .12s ease;
     }
-    /* Cover photo in the hero. Hidden until storecal-data.js sets its src. */
-    .cover__img { display: none; width: 100%; max-height: 240px; object-fit: cover; border-radius: 16px; margin: 0 0 20px; }
+    [data-storecal="services"] .scd-card:hover { border-color: var(--accent); box-shadow: 0 8px 24px rgba(16, 18, 28, 0.10); }
+    [data-storecal="services"] .scd-card__book { display: none; } /* replaced by the whole-card click */
+    .scd-book-badge { position: absolute; top: 14px; right: 16px; color: var(--accent); font-weight: 700; font-size: 13px;
+      opacity: 0; transform: translateX(-4px); transition: opacity .12s ease, transform .12s ease; }
+    [data-storecal="services"] .scd-card:hover .scd-book-badge { opacity: 1; transform: none; }
+    /* Team cards stay flat (no background). */
+    [data-storecal="staff"] .scd-person { background: none; border: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
+    /* Our work: tabs (All + per staff) over a photo grid. */
+    .gtabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .gtab { padding: 7px 14px; border: 1px solid #e0e3ea; background: #fff; border-radius: 999px; font: inherit;
+      font-size: 13.5px; cursor: pointer; color: #444; }
+    .gtab.is-active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .ggrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .gshot { margin: 0; }
+    .gshot img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; display: block; }
+    @media (max-width: 520px) { .ggrid { grid-template-columns: repeat(2, 1fr); } }
+    /* Cover photo below the name + Book CTA, above the links. Shows at the
+       image's natural aspect (no crop). Hidden until storecal-data sets its src. */
+    .cover__img { display: none; width: 100%; height: auto; border-radius: 16px; margin: 4px 0 18px; }
     .cover__img[src] { display: block; }
     /* "Show all" toggle under the gallery preview. */
     .showall { display: block; margin: 14px auto 0; padding: 10px 20px; border: 1px solid var(--accent);
@@ -62,7 +80,6 @@
       body { padding: 24px 14px 48px; }
       .hero__name { font-size: 26px; }
       .sect { margin-top: 26px; }
-      .cover__img { max-height: 180px; }
     }
 
     /* Skeleton loaders — shown until real content arrives. */
@@ -85,7 +102,6 @@
 <body>
   <main class="wrap">
     <header class="hero">
-      <img data-storecal="cover" class="cover__img" alt="" />
       <img id="logo" class="hero__logo" alt="" hidden />
       <div id="hero-skel">
         <div class="skel skel-logo"></div>
@@ -96,6 +112,7 @@
       <h1 id="name" class="hero__name" hidden></h1>
       <p id="tag" class="hero__tag" hidden></p>
       <div id="book-cta"></div>
+      <img data-storecal="cover" class="cover__img" alt="" />
       <div id="links" class="links"></div>
     </header>
     <div id="sections">
@@ -159,57 +176,126 @@
 
           if (!storeKey) { fail("This store isn’t set up for online booking yet."); return; }
 
-          // Build only the sections that will have content; each gets skeleton
-          // cards until storecal-data.js fills it.
+          // Build sections, respecting the owner's chosen order (Services / Our
+          // work / Our team). Services + team are filled by storecal-data.js; Our
+          // work is a custom tabbed gallery (below).
           var skelCards = '<div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div>';
           var galleryOn = d.showGallery !== false;
-          var html = "";
-          if ((d.services || []).length)
-            html += '<section class="sect"><h2 class="sect__title">Services</h2><div data-storecal="services">' + skelCards + '</div></section>';
-          // Our work (gallery) always sits above Our team.
-          if (galleryOn)
-            html += '<section class="sect" id="sect-gallery"><h2 class="sect__title">Our work</h2><div data-storecal="gallery"></div></section>';
-          if (d.showStaff !== false && (d.providers || []).length)
-            html += '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff">' + skelCards + '</div></section>';
+          var blocks = {
+            services: (d.services || []).length
+              ? '<section class="sect"><h2 class="sect__title">Services</h2><div data-storecal="services">' + skelCards + '</div></section>' : "",
+            gallery: galleryOn
+              ? '<section class="sect" id="sect-gallery"><h2 class="sect__title">Our work</h2><div id="ourwork"></div></section>' : "",
+            team: (d.showStaff !== false && (d.providers || []).length)
+              ? '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff">' + skelCards + '</div></section>' : "",
+          };
+          var order = (Array.isArray(shop.sectionOrder) && shop.sectionOrder.length) ? shop.sectionOrder : ["services", "gallery", "team"];
+          var seen = {}, html = "";
+          order.forEach(function (k) { if (blocks[k] && !seen[k]) { html += blocks[k]; seen[k] = 1; } });
+          ["services", "gallery", "team"].forEach(function (k) { if (blocks[k] && !seen[k]) { html += blocks[k]; seen[k] = 1; } });
           sections.innerHTML = html;
 
-          // storecal-data.js fills the containers (replacing the skeletons); embed.js
+          // storecal-data.js fills the service/team containers + cover; embed.js
           // renders the accent Book button into #book-cta and wires every Book CTA.
-          function addScript(src, attrs, onload) {
+          function addScript(src, attrs) {
             var s = document.createElement("script");
             s.src = src;
             Object.keys(attrs).forEach(function (k) { s.setAttribute(k, attrs[k]); });
-            if (onload) s.onload = onload;
             document.body.appendChild(s);
           }
           addScript("/storecal-data.js", { "data-store": storeKey, "data-accent": accent });
           addScript("/embed.js", { "data-store": storeKey, "data-accent": accent, "data-button-text": "Book an appointment", "data-target": "#book-cta" });
 
-          // Gallery: hide the section if empty; otherwise preview 6 photos with a
-          // "Show all" toggle.
-          if (galleryOn) {
-            var sect = document.getElementById("sect-gallery");
-            var g = sect && sect.querySelector('[data-storecal="gallery"]');
-            var check = function () {
-              if (!sect || !g) return;
-              var n = g.children.length;
-              sect.style.display = n ? "" : "none";
-              if (n > 6 && !sect.querySelector(".showall")) {
-                for (var i = 6; i < n; i++) g.children[i].style.display = "none";
-                var btn = document.createElement("button");
-                btn.className = "showall"; btn.type = "button";
-                btn.textContent = "Show all " + n + " photos";
-                btn.onclick = function () {
-                  for (var j = 0; j < g.children.length; j++) g.children[j].style.display = "";
-                  btn.remove();
-                };
-                sect.appendChild(btn);
-              }
-            };
-            if (g) { var obs = new MutationObserver(check); obs.observe(g, { childList: true }); setTimeout(function () { check(); obs.disconnect(); }, 4000); }
-          }
+          if (galleryOn) buildOurWork(storeKey, d.providers || []);
+          enhanceServiceCards();
         })
         .catch(function () { fail("Something went wrong loading this store."); });
+
+      // Turn each rendered service card into the booking target: copy the service
+      // id onto the card (embed.js wires [data-storecal-book] clicks) and add the
+      // "Book →" hover cue. The per-service button is hidden via CSS.
+      function enhanceServiceCards() {
+        var host = document.querySelector('[data-storecal="services"]');
+        if (!host) return;
+        var apply = function () {
+          host.querySelectorAll(".scd-card").forEach(function (card) {
+            if (card.dataset.enhanced) return;
+            var btn = card.querySelector(".scd-card__book");
+            var svc = btn && btn.getAttribute("data-service");
+            if (!svc) return;
+            card.setAttribute("data-storecal-book", "");
+            card.setAttribute("data-service", svc);
+            card.dataset.enhanced = "1";
+            var badge = document.createElement("span");
+            badge.className = "scd-book-badge"; badge.textContent = "Book →";
+            card.appendChild(badge);
+          });
+        };
+        var obs = new MutationObserver(apply);
+        obs.observe(host, { childList: true });
+        setTimeout(function () { apply(); obs.disconnect(); }, 4000);
+      }
+
+      // "Our work": tabs for All + each staff member with photos; a 6-photo
+      // preview per tab with a "Show all" toggle.
+      function buildOurWork(key, providers) {
+        var host = document.getElementById("ourwork");
+        var sect = document.getElementById("sect-gallery");
+        if (!host) return;
+        Promise.all([
+          fetch("/api/gallery?key=" + encodeURIComponent(key)).then(function (r) { return r.json(); }).catch(function () { return []; }),
+          fetch("/api/gallery?scope=staff&key=" + encodeURIComponent(key)).then(function (r) { return r.json(); }).catch(function () { return []; }),
+        ]).then(function (res) {
+          var shopPhotos = (Array.isArray(res[0]) ? res[0] : []).filter(function (g) { return !g.cover; });
+          var staffPhotos = Array.isArray(res[1]) ? res[1] : [];
+          var byProv = {};
+          staffPhotos.forEach(function (g) { if (g.providerId) (byProv[g.providerId] = byProv[g.providerId] || []).push(g); });
+          var all = shopPhotos.concat(staffPhotos);
+          if (!all.length) { if (sect) sect.style.display = "none"; return; }
+          var groups = [{ label: "All", photos: all }];
+          providers.forEach(function (p) { var ph = byProv[p._id]; if (ph && ph.length) groups.push({ label: p.name, photos: ph }); });
+          if (groups.length <= 1) renderGrid(host, all);   // no per-staff photos → plain grid
+          else renderTabs(host, groups);
+        });
+      }
+      function renderGrid(container, photos) {
+        var showAll = false;
+        function paint() {
+          container.innerHTML = "";
+          var grid = document.createElement("div"); grid.className = "ggrid";
+          (showAll ? photos : photos.slice(0, 6)).forEach(function (g) {
+            var fig = document.createElement("figure"); fig.className = "gshot";
+            var img = document.createElement("img"); img.src = g.url; img.loading = "lazy"; img.alt = g.caption || "";
+            fig.appendChild(img); grid.appendChild(fig);
+          });
+          container.appendChild(grid);
+          if (photos.length > 6 && !showAll) {
+            var sa = document.createElement("button"); sa.className = "showall"; sa.type = "button";
+            sa.textContent = "Show all " + photos.length + " photos";
+            sa.onclick = function () { showAll = true; paint(); };
+            container.appendChild(sa);
+          }
+        }
+        paint();
+      }
+      function renderTabs(host, groups) {
+        var active = 0;
+        var bar = document.createElement("div"); bar.className = "gtabs";
+        var body = document.createElement("div");
+        host.innerHTML = ""; host.appendChild(bar); host.appendChild(body);
+        function paint() {
+          bar.innerHTML = "";
+          groups.forEach(function (g, i) {
+            var b = document.createElement("button");
+            b.type = "button"; b.className = "gtab" + (i === active ? " is-active" : "");
+            b.textContent = g.label;
+            b.onclick = function () { active = i; paint(); };
+            bar.appendChild(b);
+          });
+          renderGrid(body, groups[active].photos);
+        }
+        paint();
+      }
 
       function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
     })();

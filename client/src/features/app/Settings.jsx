@@ -290,8 +290,47 @@ function WebsitePanel() {
         </div>
       </SettingsCard>
 
+      <SectionOrderCard />
       <BrandingCard />
     </>
+  );
+}
+
+// Reorder the content sections shown on the hosted booking page.
+const SECTION_LABELS = { services: "Services", gallery: "Our work", team: "Our team" };
+function SectionOrderCard() {
+  const [order, setOrder] = useState(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/shop-config").then(r => r.json())
+      .then(d => setOrder(Array.isArray(d?.shop?.sectionOrder) && d.shop.sectionOrder.length ? d.shop.sectionOrder : ["services", "gallery", "team"]))
+      .catch(() => setOrder(["services", "gallery", "team"]));
+  }, []);
+  const move = (i, dir) => setOrder(o => { const j = i + dir; if (j < 0 || j >= o.length) return o; const c = o.slice(); const [it] = c.splice(i, 1); c.splice(j, 0, it); return c; });
+  async function save() {
+    setSaving(true);
+    const res = await fetch("/api/shop-config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionOrder: order }) });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (res.ok) { setOrder(Array.isArray(d.sectionOrder) ? d.sectionOrder : order); toast("Section order saved"); }
+    else toast(d.error || "Couldn’t save order");
+  }
+  if (!order) return null;
+  return (
+    <SettingsCard title="Page sections" desc="Choose the order your booking page shows Services, Our work, and Our team.">
+      <div className="secorder">
+        {order.map((k, i) => (
+          <div className="secorder__row" key={k}>
+            <span className="secorder__label">{i + 1}. {SECTION_LABELS[k] || k}</span>
+            <div className="linkrow__ctl">
+              <button type="button" className="linkrow__btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+              <button type="button" className="linkrow__btn" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label="Move down">↓</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="banner__actions"><button className="btn" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save order"}</button></div>
+    </SettingsCard>
   );
 }
 

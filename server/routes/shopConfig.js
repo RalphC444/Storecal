@@ -113,6 +113,8 @@ router.get("/", async (req, res) => {
         brandingUnlocked: shop.brandingAddon === true || shop.brandingAddonComp === true,
         // External link-in-bio buttons shown on the hosted page (always free).
         links: Array.isArray(shop.links) ? shop.links : [],
+        // Owner-chosen order of the booking page's content sections.
+        sectionOrder: Array.isArray(shop.sectionOrder) && shop.sectionOrder.length ? shop.sectionOrder : ["services", "gallery", "team"],
       },
       addons: shop.addons || [],
       services: services.map((s) => ({
@@ -190,6 +192,15 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
         }))
         .filter((l) => l.url);
     }
+    // Booking-page section order — keep only known keys, then ensure all present.
+    if (req.body.sectionOrder !== undefined) {
+      const allowed = ["services", "gallery", "team"];
+      const arr = Array.isArray(req.body.sectionOrder) ? req.body.sectionOrder : [];
+      const clean = [];
+      for (const k of arr) if (allowed.includes(k) && !clean.includes(k)) clean.push(k);
+      for (const k of allowed) if (!clean.includes(k)) clean.push(k);
+      set.sectionOrder = clean;
+    }
 
     await db.collection("shops").updateOne({ _id: new ObjectId(req.auth.shopId) }, { $set: set });
     res.json({
@@ -201,6 +212,7 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
       tagline: set.tagline,
       links: set.links,
       website: set.website,
+      sectionOrder: set.sectionOrder,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

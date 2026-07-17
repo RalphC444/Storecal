@@ -163,6 +163,11 @@
 /* Extra-links block inside the combined booking-page card */
 .bookingcard__links { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .bookingcard__links .field__label { display: block; }
+/* Section-order reorder rows */
+.secorder { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.secorder__row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--wash); }
+.secorder__label { font-size: 14px; font-weight: 600; }
 
 /* External links (link-in-bio) editor */
 .linkrows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
