@@ -79,6 +79,9 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
                 <div><dt>Weight</dt><dd>{a.pet?.weight || "—"}</dd></div>
               </>
             )}
+            {a.vehicle && (a.vehicle.year || a.vehicle.make || a.vehicle.model) && (
+              <div><dt>Vehicle</dt><dd>{[a.vehicle.year, a.vehicle.make, a.vehicle.model].filter(Boolean).join(" ")}</dd></div>
+            )}
             <div><dt>Service</dt><dd>{a.service || "—"}</dd></div>
             {a.addons?.length > 0 && <div><dt>Add-ons</dt><dd>{a.addons.map(x => x.name + (x.price ? ` (${x.price})` : "")).join(", ")}</dd></div>}
             {businessType !== "auto" && <div><dt>Staff</dt><dd>{a.providerName || "—"}</dd></div>}

@@ -843,8 +843,15 @@
           '<option>1–40 lbs</option><option>40–65 lbs</option>' +
           '<option>65–100 lbs</option><option>100+ lbs</option>' +
         "</select></label>" : "";
+    // Auto shops collect the vehicle (year / make / model) so the shop knows what
+    // they're servicing. Driven by the shop's booking config (vehicle: true).
+    var isVehicle = isAuto || !!booking.vehicle;
+    var vehicleFields = isVehicle ?
+      '<label class="sc__field"><span class="sc__label">Vehicle year</span><input class="sc__input" id="sc-veh-year" inputmode="numeric" placeholder="e.g. 2018"></label>' +
+      '<label class="sc__field"><span class="sc__label">Make</span><input class="sc__input" id="sc-veh-make" placeholder="e.g. Honda" required aria-required="true"></label>' +
+      '<label class="sc__field"><span class="sc__label">Model</span><input class="sc__input" id="sc-veh-model" placeholder="e.g. Civic" required aria-required="true"></label>' : "";
     var form = el(
-      "<div>" + petFields +
+      "<div>" + vehicleFields + petFields +
       '<label class="sc__field"><span class="sc__label">Your name</span><input class="sc__input" id="sc-name" autocomplete="name" required aria-required="true"></label>' +
       '<label class="sc__field"><span class="sc__label">Phone</span><input class="sc__input" id="sc-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(555) 123 4567" maxlength="14" required aria-required="true"></label>' +
       '<label class="sc__field"><span class="sc__label">Email</span><input class="sc__input" id="sc-email" type="email" autocomplete="email" required aria-required="true"></label>' +
@@ -877,6 +884,15 @@
         if (!pet.name) { err.textContent = "Please enter your pet’s name."; err.style.display = "block"; return; }
         if (!pet.weight) { err.textContent = "Please select your pet’s weight."; err.style.display = "block"; return; }
       }
+      var vehicle = null;
+      if (isVehicle) {
+        vehicle = {
+          year: form.querySelector("#sc-veh-year").value.trim(),
+          make: form.querySelector("#sc-veh-make").value.trim(),
+          model: form.querySelector("#sc-veh-model").value.trim(),
+        };
+        if (!vehicle.make || !vehicle.model) { err.textContent = "Please enter your vehicle’s make and model."; err.style.display = "block"; return; }
+      }
       err.style.display = "none"; btn.disabled = true; btn.textContent = "Booking…";
       var payload = {
         key: STORE_KEY,
@@ -889,6 +905,7 @@
         client: { name: name, phone: phone, email: email },
       };
       if (pet) payload.pet = pet;
+      if (vehicle) payload.vehicle = vehicle;
       fetch(API + "/api/appointments", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
