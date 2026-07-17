@@ -23,26 +23,35 @@ function stripeClient() {
   try { return require("stripe")(process.env.STRIPE_SECRET_KEY); } catch { return null; }
 }
 
-// The reusable "give a month free" comp: a 100%-off coupon that applies to the
-// NEXT invoice only (duration: once). Same fixed id every time so we don't pile
-// up duplicate coupons in Stripe.
-const FREE_MONTH_COUPON_ID = "storecal-free-month";
-async function freeMonthCoupon(stripe) {
+// Free-month comps are 100%-off coupons applied to the subscription. One free
+// month is a `duration: once` coupon (waives the next invoice only); N months is
+// a `duration: repeating, duration_in_months: N`. Coupons are reused by a fixed
+// id per length so we never pile up duplicates in Stripe.
+const MAX_FREE_MONTHS = 6;
+function freeMonthCouponId(months) { return months <= 1 ? "storecal-free-1mo" : `storecal-free-${months}mo`; }
+async function ensureFreeCoupon(stripe, months) {
+  const id = freeMonthCouponId(months);
   try {
-    return await stripe.coupons.retrieve(FREE_MONTH_COUPON_ID);
+    return await stripe.coupons.retrieve(id);
   } catch (e) {
-    if (e && e.code === "resource_missing") {
-      return await stripe.coupons.create({ id: FREE_MONTH_COUPON_ID, percent_off: 100, duration: "once", name: "Free month (StoreCal)" });
-    }
-    throw e;
+    if (!e || e.code !== "resource_missing") throw e;
+    const params = months <= 1
+      ? { id, percent_off: 100, duration: "once", name: "1 free month (StoreCal)" }
+      : { id, percent_off: 100, duration: "repeating", duration_in_months: months, name: `${months} free months (StoreCal)` };
+    return stripe.coupons.create(params);
   }
 }
-// True when a subscription has a 100%-off discount applied (its next invoice is
-// comped). Reads the expanded `discounts` array (Stripe moved off the singular
-// `discount` field in recent API versions).
-function hasFreeMonth(sub) {
+
+// The 100%-off discount currently on a subscription, if any — with how many
+// whole months it covers. Reads the expanded `discounts` array (Stripe moved off
+// the singular `discount` field in recent API versions).
+function freeDiscountOf(sub) {
   const ds = Array.isArray(sub?.discounts) ? sub.discounts : [];
-  return ds.some((d) => d && typeof d === "object" && d.coupon && d.coupon.percent_off === 100);
+  const d = ds.find((x) => x && typeof x === "object" && x.coupon && x.coupon.percent_off === 100);
+  if (!d) return null;
+  const c = d.coupon;
+  const months = c.duration === "once" ? 1 : c.duration === "repeating" ? (c.duration_in_months || 1) : 0; // 0 = forever
+  return { months };
 }
 // The renewal timestamp (ms). Recent Stripe API versions moved
 // current_period_end off the Subscription onto each subscription item, so read
@@ -52,10 +61,17 @@ function renewsAtMs(sub) {
   const secs = item?.current_period_end || sub?.current_period_end || null;
   return secs ? secs * 1000 : null;
 }
+// Add N whole months to a ms timestamp (keeps day-of-month like Stripe cycles).
+function addMonths(ms, n) {
+  if (!ms || !n) return ms;
+  const d = new Date(ms);
+  d.setMonth(d.getMonth() + n);
+  return d.getTime();
+}
 
 // Live subscription status, renewal date, payments made, and comp state.
 async function subInfo(stripe, customerId) {
-  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false };
+  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false, freeMonths: 0, freeResumesAt: null };
   try {
     const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5, expand: ["data.discounts"] });
     const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
@@ -67,12 +83,19 @@ async function subInfo(stripe, customerId) {
       const invoices = await stripe.invoices.list({ customer: customerId, status: "paid", limit: 100 });
       paymentsCompleted = invoices.data.filter((inv) => (inv.amount_paid || 0) > 0).length;
     } catch { /* leave 0 */ }
+    const renewsAt = renewsAtMs(active);
+    const free = freeDiscountOf(active);
+    const freeMonths = free ? free.months : 0;
     return {
       subscribed: true,
       status: active.status,
-      renewsAt: renewsAtMs(active),
+      renewsAt,
       paymentsCompleted,
-      freeMonthActive: hasFreeMonth(active),
+      freeMonthActive: freeMonths > 0,
+      freeMonths,
+      // Billing resumes after the free run: the next charge is at renewsAt, so
+      // it resumes renewsAt + freeMonths months (null for a "forever" comp).
+      freeResumesAt: freeMonths > 0 ? addMonths(renewsAt, freeMonths) : null,
     };
   } catch { return empty; }
 }
@@ -193,6 +216,8 @@ router.get("/shops", async (_req, res) => {
         renewsAt: sub ? sub.renewsAt : null,
         paymentsCompleted: sub ? sub.paymentsCompleted : 0,
         freeMonthActive: sub ? sub.freeMonthActive : false,
+        freeMonths: sub ? sub.freeMonths : 0,
+        freeResumesAt: sub ? sub.freeResumesAt : null,
         firstMonthFree: s.firstMonthFree === true, // new signups start with a 30-day free trial
         promptBilling: s.promptBilling === true,
         ownerEmail: ownerBy[id] || "",
@@ -251,10 +276,10 @@ router.patch("/shops/:id", async (req, res) => {
   }
 });
 
-// POST /api/admin/shops/:id/free-month — comp (or un-comp) the client's NEXT
-// invoice. Body: { on: boolean }. Applies a 100%-off one-time coupon to their
-// active subscription so the next renewal is $0, then billing resumes as normal.
-// The owner sees a "next month is on us" notice in their billing screen.
+// POST /api/admin/shops/:id/free-month — set how many upcoming months are free.
+// Body: { months: 0..MAX_FREE_MONTHS }. 0 removes any comp; N applies a 100%-off
+// coupon covering the next N invoices, then billing resumes. Returns the fresh
+// comp state (with the exact dates) so the console can show it immediately.
 router.post("/shops/:id/free-month", async (req, res) => {
   const stripe = stripeClient();
   if (!stripe) return res.status(400).json({ error: "Billing isn't connected yet." });
@@ -265,18 +290,27 @@ router.post("/shops/:id/free-month", async (req, res) => {
     if (!shop) return res.status(404).json({ error: "Shop not found" });
     if (!shop.stripeCustomerId) return res.status(400).json({ error: "This client has no billing set up yet." });
 
+    // Back-compat: { on: true/false } still works; { months } is preferred.
+    let months = req.body.months !== undefined ? Number(req.body.months) : (req.body.on === false ? 0 : 1);
+    if (!Number.isInteger(months) || months < 0 || months > MAX_FREE_MONTHS) {
+      return res.status(400).json({ error: `Free months must be between 0 and ${MAX_FREE_MONTHS}.` });
+    }
+
     const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5 });
     const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
     if (!active) return res.status(400).json({ error: "This client has no active subscription to comp." });
 
-    const on = req.body.on !== false; // default to turning it on
-    if (on) {
-      const coupon = await freeMonthCoupon(stripe);
-      await stripe.subscriptions.update(active.id, { discounts: [{ coupon: coupon.id }] });
-    } else {
+    if (months === 0) {
       await stripe.subscriptions.update(active.id, { discounts: [] }); // clear any comp
+    } else {
+      const coupon = await ensureFreeCoupon(stripe, months);
+      // Replacing discounts each time keeps exactly one comp on the sub.
+      await stripe.subscriptions.update(active.id, { discounts: [{ coupon: coupon.id }] });
     }
-    res.json({ success: true, freeMonthActive: on });
+
+    // Read back the live state so the UI reflects Stripe, not our assumption.
+    const info = await subInfo(stripe, shop.stripeCustomerId);
+    res.json({ success: true, freeMonths: info.freeMonths, freeMonthActive: info.freeMonthActive, renewsAt: info.renewsAt, freeResumesAt: info.freeResumesAt });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

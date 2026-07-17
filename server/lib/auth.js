@@ -88,6 +88,19 @@ function verifyReset(token) {
   return p;
 }
 
+// Manage-appointment token: lets a customer reschedule or cancel their own
+// booking from a link in the confirmation email/text — no login. Scoped to one
+// appointment id; whoever holds the link (it was sent to them) can manage only
+// that appointment. 120 days covers even far-out bookings.
+function signManage(apptId) {
+  return jwt.sign({ purpose: "manage", aid: String(apptId) }, JWT_SECRET, { expiresIn: "120d" });
+}
+function verifyManage(token) {
+  const p = jwt.verify(token, JWT_SECRET);
+  if (p.purpose !== "manage") throw new Error("Not a manage token");
+  return p;
+}
+
 // A short, human-friendly temp password to hand off (no ambiguous chars).
 function generateTempPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz";
@@ -99,5 +112,5 @@ function generateTempPassword() {
 module.exports = {
   COOKIE, hashPassword, comparePassword, signToken,
   setAuthCookie, clearAuthCookie, requireAuth, requireOwner, requireSuperAdmin, attachAuth, generateTempPassword,
-  signInvite, verifyInvite, signReset, verifyReset,
+  signInvite, verifyInvite, signReset, verifyReset, signManage, verifyManage,
 };

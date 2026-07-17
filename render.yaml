@@ -27,3 +27,18 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Absolute base URL — used to build customer reschedule/cancel links.
+      - key: PUBLIC_URL
+        sync: false
+      # Optional — enable SMS (confirmations + reschedule/cancel by text).
+      # Set ACCOUNT_SID + FROM + either AUTH_TOKEN or (API_KEY + API_SECRET).
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_API_KEY
+        sync: false
+      - key: TWILIO_API_SECRET
+        sync: false

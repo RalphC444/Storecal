@@ -497,7 +497,7 @@ function BillingPanel() {
 
         {/* Good-news banner: a comped month, or a free trial in progress. */}
         {data && data.subscribed && data.freeMonthActive && (
-          <div className="billing__gift">🎉 Your next month is on us — you won’t be charged{fmtDate(data.renewsAt) ? ` on ${fmtDate(data.renewsAt)}` : " next cycle"}. Billing resumes normally the month after.</div>
+          <div className="billing__gift">🎉 {data.freeMonths > 1 ? `Your next ${data.freeMonths} months are on us` : "Your next month is on us"} — no charge{fmtDate(data.renewsAt) ? ` on ${fmtDate(data.renewsAt)}` : " next cycle"}.{fmtDate(data.freeResumesAt) ? ` Billing resumes ${fmtDate(data.freeResumesAt)}.` : ""}</div>
         )}
         {data && data.subscribed && !data.freeMonthActive && data.trialing && fmtDate(data.renewsAt) && (
           <div className="billing__gift">🎁 You’re in your free month — your first payment is on {fmtDate(data.renewsAt)}.</div>

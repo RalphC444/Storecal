@@ -50,7 +50,7 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
     // Ask Stripe directly whether this shop has an active subscription (no
     // webhooks needed). Determines whether the "subscribe to enable booking"
     // prompt shows and whether online booking is turned on.
-    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, trialing = false;
+    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, freeMonths = 0, freeResumesAt = null, trialing = false;
     const stripe = stripeClient();
     if (stripe && shop?.stripeCustomerId) {
       try {
@@ -66,9 +66,18 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
           const item = active.items?.data?.[0];
           const secs = item?.current_period_end || active.current_period_end || null;
           renewsAt = secs ? secs * 1000 : null;
-          // 100%-off discount == the operator comped their next month.
+          // A 100%-off discount == the operator comped upcoming month(s). How many
+          // whole months depends on the coupon's duration.
           const ds = Array.isArray(active.discounts) ? active.discounts : [];
-          freeMonthActive = ds.some((d) => d && typeof d === "object" && d.coupon && d.coupon.percent_off === 100);
+          const d = ds.find((x) => x && typeof x === "object" && x.coupon && x.coupon.percent_off === 100);
+          if (d) {
+            const c = d.coupon;
+            freeMonths = c.duration === "once" ? 1 : c.duration === "repeating" ? (c.duration_in_months || 1) : 0;
+            freeMonthActive = true;
+            if (renewsAt && freeMonths > 0) {
+              const r = new Date(renewsAt); r.setMonth(r.getMonth() + freeMonths); freeResumesAt = r.getTime();
+            }
+          }
         }
       } catch { /* treat as not subscribed */ }
       // Cache the result on the shop so the public booking widget can gate its
@@ -86,7 +95,9 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       status,
       renewsAt,          // next payment date (ms), or when the trial's first charge lands
       trialing,          // subscription is in its free-trial window
-      freeMonthActive,   // operator comped the next invoice (100%-off once)
+      freeMonthActive,   // operator comped upcoming invoice(s)
+      freeMonths,        // how many whole months are comped
+      freeResumesAt,     // when normal billing resumes (ms)
       firstMonthFree: shop?.firstMonthFree === true, // new signups start with a free month
       assignedPlanId: assignedPlan.id,
       assignedPlan,

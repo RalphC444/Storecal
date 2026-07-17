@@ -62,16 +62,16 @@ export function AdminConsole({ user, onSignOut }) {
     else setErr("Could not delete client");
   }
 
-  // Comp (or un-comp) the client's next invoice via Stripe. Hits Stripe, so
-  // reload afterward to pull the fresh discount + renewal state.
-  async function freeMonth(id, on) {
+  // Set how many upcoming months are comped (0 = none) via Stripe. Hits Stripe,
+  // so reload afterward to pull the fresh discount + renewal state.
+  async function freeMonth(id, months) {
     setSavingId(id); setErr("");
     const res = await fetch(`/api/admin/shops/${id}/free-month`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ months }),
     });
     const d = await res.json().catch(() => ({}));
     setSavingId(null);
-    if (res.ok) { toast(on ? "Next month comped" : "Free month removed"); load(); }
+    if (res.ok) { toast(months > 0 ? `${months} free month${months > 1 ? "s" : ""} applied` : "Free months removed"); load(); }
     else setErr(d.error || "Could not update the comp");
   }
 
@@ -91,7 +91,7 @@ export function AdminConsole({ user, onSignOut }) {
             <AdminClientDetail
               shop={selected} origin={origin} saving={savingId === selected._id}
               onPatch={(body, label) => patch(selected._id, body, label)}
-              onFreeMonth={(on) => freeMonth(selected._id, on)}
+              onFreeMonth={(months) => freeMonth(selected._id, months)}
               onDelete={() => setDelShop(selected)}
               onBack={() => setSelectedId(null)}
             />
@@ -298,15 +298,36 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
             ) : s.subscribed ? (
               <AdCard title="Subscription">
                 <div className="clientdetail__subsummary">
-                  <div className="clientdetail__stat"><span className="clientdetail__stat-l">{s.freeMonthActive ? "Next payment (free)" : "Next payment"}</span><span className="clientdetail__stat-v">{fmtRenewDate(s.renewsAt) || (s.freeMonthActive ? "$0" : "—")}</span></div>
+                  <div className="clientdetail__stat">
+                    <span className="clientdetail__stat-l">Next charge</span>
+                    <span className="clientdetail__stat-v">{s.freeMonthActive ? "$0" : (fmtRenewDate(s.renewsAt) || "—")}</span>
+                    {fmtRenewDate(s.renewsAt) && <span className="clientdetail__stat-sub">{s.freeMonthActive ? "waived · " : ""}{fmtRenewDate(s.renewsAt)}</span>}
+                  </div>
                   <div className="clientdetail__stat"><span className="clientdetail__stat-l">Payments made</span><span className="clientdetail__stat-v">{s.paymentsCompleted}</span></div>
                 </div>
-                <div className="clientdetail__toggles" style={{ marginTop: 16 }}>
-                  <Toggle checked={!!s.freeMonthActive} disabled={saving} label="Give next month free" onChange={v => onFreeMonth(v)} />
-                </div>
-                <p className="panel__hint" style={{ marginTop: 8 }}>{s.freeMonthActive
-                  ? `Next invoice is comped — they’ll be charged $0${fmtRenewDate(s.renewsAt) ? ` on ${fmtRenewDate(s.renewsAt)}` : ""}, then billing resumes. They see a “next month is on us” note in their account.`
-                  : "Waives their next invoice (100% off, one time). Billing resumes automatically the month after."}</p>
+
+                <label className="field" style={{ marginTop: 16 }}><span className="field__label">Free months</span>
+                  <select value={s.freeMonths || 0} disabled={saving} onChange={e => onFreeMonth(Number(e.target.value))}>
+                    <option value={0}>None — bill normally</option>
+                    <option value={1}>1 free month</option>
+                    <option value={2}>2 free months</option>
+                    <option value={3}>3 free months</option>
+                  </select>
+                </label>
+
+                {s.freeMonths > 0 ? (
+                  <div className="acd__comp">
+                    <div className="acd__comp-title">✓ {s.freeMonths} free month{s.freeMonths > 1 ? "s" : ""} applied</div>
+                    <div className="acd__comp-line">
+                      {s.freeMonths > 1 ? `The next ${s.freeMonths} renewals are free` : "The next renewal is free"}
+                      {fmtRenewDate(s.renewsAt) ? ` — no charge on ${fmtRenewDate(s.renewsAt)}.` : "."}
+                    </div>
+                    {fmtRenewDate(s.freeResumesAt) && <div className="acd__comp-line">Normal billing resumes <b>{fmtRenewDate(s.freeResumesAt)}</b>.</div>}
+                    <div className="acd__comp-hint">The client sees a “{s.freeMonths > 1 ? `${s.freeMonths} months on us` : "next month is on us"}” note in their billing screen. Set to <b>None</b> to remove it.</div>
+                  </div>
+                ) : (
+                  <p className="panel__hint" style={{ marginTop: 8 }}>Comps upcoming invoices at 100% off, starting with the next one{fmtRenewDate(s.renewsAt) ? ` (${fmtRenewDate(s.renewsAt)})` : ""}. Billing resumes automatically after.</p>
+                )}
               </AdCard>
             ) : (
               <AdCard title="Subscription" desc="This client hasn’t subscribed yet.">

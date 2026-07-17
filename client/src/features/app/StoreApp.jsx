@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "../../components/Icon";
 import { BrandLogo } from "../../components/BrandLogo";
-import { ToastHost } from "../../components/Toast";
+import { ToastHost, toast } from "../../components/Toast";
 import { useIsMobile } from "../../lib/hooks";
 import { useAppointmentEvents } from "../../lib/realtime";
 import { GALLERY_TYPES, TEAM_LABEL } from "../../lib/businessTypes";
@@ -97,8 +97,14 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   // booking) pushes an event over the socket and the calendar refetches instantly
   // — no manual reload. We refetch (silent) rather than merge so the current week
   // window and provider filter are always respected.
-  useAppointmentEvents(useCallback(() => {
-    if (view === "calendar") loadAppts({ silent: true });
+  useAppointmentEvents(useCallback((payload) => {
+    // A customer used their self-service link — surface it even off the calendar.
+    if (payload?.by === "customer") {
+      toast(payload.action === "cancelled" ? "A customer cancelled a booking" : "A customer rescheduled a booking");
+      loadAppts({ silent: true });
+    } else if (view === "calendar") {
+      loadAppts({ silent: true });
+    }
   }, [view, loadAppts]));
 
   // Fallback refresh in case the socket drops (proxy hiccup, sleep/wake): a slow

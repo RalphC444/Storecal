@@ -5,7 +5,24 @@ const { checkWithinHours } = require("../lib/availabilityCheck");
 const { resolveShopId } = require("../lib/shopScope");
 const { notifyAppointmentChange } = require("../lib/realtime");
 const { sendBookingConfirmation, sendBookingCancellation, sendOwnerBookingNotification } = require("../lib/mailer");
+const { sendSms } = require("../lib/sms");
+const { signManage } = require("../lib/auth");
 const { ObjectId } = require("mongodb");
+
+// Absolute base URL of THIS app. Prefer an explicit PUBLIC_URL/APP_URL; else use
+// the host the request actually hit — which is the StoreCal server even when the
+// booking came cross-origin from a customer's embedded widget (Origin would be
+// their site, so Host is the correct source for a link back to us).
+function appBase(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/$/, "");
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  if (req.headers.host) return `${req.protocol}://${req.headers.host}`;
+  return "https://www.storecal.com";
+}
+// The customer's self-service link (reschedule / cancel) for one appointment.
+function manageUrlFor(req, apptId) {
+  return `${appBase(req)}/manage/${signManage(apptId)}`;
+}
 
 // Shared email fields (shop name + phone, formatted date/time, details) for a
 // booking doc — used by both the confirmation and cancellation notices.
@@ -71,13 +88,21 @@ async function bumpEmails(db, shopId, n = 1) {
   catch { /* non-fatal */ }
 }
 
-// Fire-and-forget branded emails to the customer. Never block or fail the
-// booking/cancellation — email is best-effort.
-function emailBookingConfirmation(db, shopId, doc) {
-  if (!doc.client?.email) return;
+// Fire-and-forget branded confirmation to the customer — email plus (if Twilio
+// is configured and we have a phone) an SMS. Both carry the manage link so the
+// customer can reschedule or cancel themselves. Never blocks the booking.
+function emailBookingConfirmation(db, shopId, doc, manageUrl) {
   (async () => {
-    try { if (await sendBookingConfirmation(await bookingFields(db, shopId, doc))) await bumpEmails(db, shopId, 1); }
-    catch (e) { console.error("Booking confirmation email failed:", e.message); }
+    try {
+      const fields = await bookingFields(db, shopId, doc);
+      if (doc.client?.email) {
+        if (await sendBookingConfirmation({ ...fields, manageUrl })) await bumpEmails(db, shopId, 1);
+      }
+      if (doc.client?.phone) {
+        const link = manageUrl ? ` Manage: ${manageUrl}` : "";
+        await sendSms(doc.client.phone, `${fields.shopName}: you're booked for ${fields.dateLabel} at ${fields.timeLabel}.${link}`);
+      }
+    } catch (e) { console.error("Booking confirmation failed:", e.message); }
   })();
 }
 
@@ -197,6 +222,10 @@ router.get("/", async (req, res) => {
         status: a.status || "pending",
         durationMin: a.durationMin || null,
         createdAt: a.createdAt,
+        // Customer self-service flags (for the "changed by customer" badge).
+        customerRescheduledAt: a.customerRescheduledAt || null,
+        customerCancelledAt: a.customerCancelledAt || null,
+        rescheduledFrom: a.rescheduledFrom || null,
       }))
     );
   } catch (err) {
@@ -312,7 +341,8 @@ router.post("/", async (req, res) => {
       // Booking emails are best-effort and can be switched off per shop from the
       // super-admin console (disables the customer, owner, AND staff notices).
       if (!(await bookingEmailsOff(db, shopId))) {
-        emailBookingConfirmation(db, shopId, doc); // branded confirmation to the customer
+        const manageUrl = manageUrlFor(req, result.insertedId); // self-service reschedule/cancel link
+        emailBookingConfirmation(db, shopId, doc, manageUrl); // branded confirmation (+ SMS) to the customer
         if (isPublic) emailOwnerNotification(db, shopId, doc); // heads-up + login nudge to owner + staff
       }
       res.status(201).json({ success: true, _id: result.insertedId.toString() });

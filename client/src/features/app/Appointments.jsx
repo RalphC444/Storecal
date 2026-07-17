@@ -57,6 +57,13 @@ export function AppointmentDetail({ appt: a, durationOf, businessType, onEdit, o
             <span className={`tag tag--${eff}`}>{STATUS_LABEL[eff]}</span>
           </div>
           <div className="appointmentview__date">{fmtSideDay(a.dateKey)}</div>
+          {a.customerCancelledAt ? (
+            <div className="appointmentview__flag appointmentview__flag--off">Cancelled by the customer online</div>
+          ) : a.customerRescheduledAt ? (
+            <div className="appointmentview__flag">
+              Rescheduled by the customer{a.rescheduledFrom ? ` — was ${fmtSideDay(a.rescheduledFrom.dateKey)} at ${fmtTime(a.rescheduledFrom.timeValue)}` : ""}
+            </div>
+          ) : null}
 
           <dl className="appointmentview__dl">
             <div>

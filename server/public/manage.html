@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manage your appointment</title>
+  <style>
+    :root { --accent: #2563eb; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: #111;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(160deg, #eef2fb 0%, #f6f7f9 100%);
+      display: flex; align-items: flex-start; justify-content: center; padding: 40px 18px 64px;
+    }
+    .card { width: 100%; max-width: 480px; background: #fff; border: 1px solid #e6e8ec; border-radius: 18px;
+      overflow: hidden; box-shadow: 0 24px 60px rgba(16,18,28,.14); }
+    .head { padding: 22px 24px 18px; border-bottom: 1px solid #eef0f3; text-align: center; }
+    .head img { max-height: 54px; max-width: 160px; display: block; margin: 0 auto 12px; border-radius: 10px; }
+    .head h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+    .head p { margin: 4px 0 0; font-size: 13.5px; color: #6a7180; }
+    .body { padding: 22px 24px 24px; }
+    .rows { border: 1px solid #eef0f3; border-radius: 12px; overflow: hidden; margin: 0 0 18px; }
+    .row { display: flex; justify-content: space-between; gap: 14px; padding: 12px 16px; border-bottom: 1px solid #f1f3f6; font-size: 14px; }
+    .row:last-child { border-bottom: 0; }
+    .row .k { color: #8a9099; }
+    .row .v { font-weight: 700; text-align: right; }
+    .row .v.strike { text-decoration: line-through; color: #b0b5bd; font-weight: 500; }
+    h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6a7180; margin: 22px 0 10px; }
+    label.date { display: block; font-size: 13px; color: #6a7180; margin: 0 0 10px; }
+    input[type="date"] { width: 100%; margin-top: 6px; padding: 11px 12px; border: 1px solid #d7dbe2; border-radius: 10px; font: inherit; }
+    .slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .slot { padding: 10px 4px; border: 1px solid #d7dbe2; border-radius: 9px; background: #fff; font: inherit; font-size: 14px;
+      cursor: pointer; color: #222; }
+    .slot:hover { border-color: var(--accent); }
+    .slot.sel { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .muted { font-size: 13px; color: #8a9099; margin: 10px 0 0; }
+    .btn { width: 100%; padding: 13px 16px; border: 0; border-radius: 11px; font: inherit; font-size: 15px; font-weight: 600;
+      cursor: pointer; background: var(--accent); color: #fff; margin-top: 16px; }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn--ghost { background: #fff; color: #b23; border: 1px solid #ecc; }
+    .btn--ghost:hover { background: #fdeeee; }
+    .linkish { display: inline-block; background: none; border: 0; color: var(--accent); font: inherit; font-size: 13.5px;
+      cursor: pointer; padding: 0; margin-top: 14px; }
+    .foot { text-align: center; font-size: 12px; color: #aab0b8; padding: 0 24px 22px; }
+    .note { font-size: 13px; color: #6a7180; line-height: 1.5; }
+    .ok { text-align: center; padding: 8px 0 2px; }
+    .ok .big { font-size: 40px; line-height: 1; }
+    .ok h1 { font-size: 20px; margin: 12px 0 6px; }
+    .err { color: #c0392b; }
+    .spin { text-align: center; color: #8a9099; padding: 24px 0; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <img id="logo" alt="" hidden />
+      <h1 id="shop">Your appointment</h1>
+      <p id="sub">Reschedule or cancel below.</p>
+    </div>
+    <div class="body">
+      <div id="loading" class="spin">Loading your appointment…</div>
+      <div id="content" hidden></div>
+    </div>
+    <p class="foot">Powered by StoreCal</p>
+  </div>
+
+  <script>
+    (function () {
+      var m = location.pathname.replace(/\/+$/, "").match(/\/manage\/([^/]+)/);
+      var token = m ? m[1] : null;
+      var loading = document.getElementById("loading");
+      var content = document.getElementById("content");
+      var info = null;      // the appointment details
+      var chosen = null;    // { date, time }
+
+      function show(html) { content.innerHTML = html; loading.hidden = true; content.hidden = false; }
+      function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+      function fail(msg) { show('<p class="note err">' + esc(msg) + '</p>'); }
+      function api(path, opts) { return fetch(path, opts).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }); }
+
+      if (!token) { fail("This link is missing its appointment."); return; }
+
+      api("/api/appt/" + encodeURIComponent(token)).then(function (r) {
+        if (!r.ok) return fail(r.d && r.d.error ? r.d.error : "This link is invalid or has expired.");
+        info = r.d;
+        if (info.accent) document.documentElement.style.setProperty("--accent", info.accent);
+        document.getElementById("shop").textContent = info.shopName;
+        document.getElementById("sub").textContent = statusSub();
+        if (info.logo) { var lg = document.getElementById("logo"); lg.src = info.logo; lg.hidden = false; }
+        render();
+      }).catch(function () { fail("Something went wrong loading your appointment."); });
+
+      function statusSub() {
+        if (info.status === "cancelled") return "This appointment is cancelled.";
+        return "Reschedule or cancel below.";
+      }
+
+      function detailRows(extra) {
+        return '<div class="rows">' +
+          '<div class="row"><span class="k">Service</span><span class="v">' + esc(info.service) + '</span></div>' +
+          (info.providerName ? '<div class="row"><span class="k">With</span><span class="v">' + esc(info.providerName) + '</span></div>' : '') +
+          '<div class="row"><span class="k">When</span><span class="v' + (extra ? ' strike' : '') + '">' + esc(prettyWhen(info.dateKey, info.timeValue)) + '</span></div>' +
+          (extra || '') +
+        '</div>';
+      }
+
+      function render() {
+        if (info.status === "cancelled") { show(detailRows() + '<p class="note">If you’d like to book again, ' + callLine() + '</p>'); return; }
+        var html = detailRows();
+        if (info.canReschedule) {
+          html += '<h2>Pick a new time</h2>' +
+            '<label class="date">Date<input type="date" id="date" min="' + todayStr() + '"></label>' +
+            '<div id="slots" class="slots"></div>' +
+            '<p class="muted" id="slotmsg">Choose a date to see open times.</p>' +
+            '<button class="btn" id="confirm" disabled>Confirm new time</button>';
+        } else if (info.canCancel) {
+          html += '<p class="note">Need a different time? ' + callLine() + '</p>';
+        }
+        if (info.canCancel) {
+          html += '<button class="linkish" id="cancelBtn">Cancel this appointment</button>';
+        }
+        if (!info.canReschedule && !info.canCancel) {
+          html += '<p class="note">This appointment can no longer be changed online. ' + callLine() + '</p>';
+        }
+        show(html);
+        wire();
+      }
+
+      function callLine() {
+        return info.shopPhone ? 'please call ' + esc(info.shopName) + ' at ' + esc(info.shopPhone) + '.' : 'please contact the shop.';
+      }
+
+      function wire() {
+        var dateEl = document.getElementById("date");
+        if (dateEl) {
+          dateEl.value = info.dateKey >= todayStr() ? info.dateKey : todayStr();
+          dateEl.addEventListener("change", loadSlots);
+          loadSlots();
+        }
+        var confirm = document.getElementById("confirm");
+        if (confirm) confirm.addEventListener("click", doReschedule);
+        var cancelBtn = document.getElementById("cancelBtn");
+        if (cancelBtn) cancelBtn.addEventListener("click", doCancel);
+      }
+
+      function loadSlots() {
+        var date = document.getElementById("date").value;
+        var slots = document.getElementById("slots");
+        var msg = document.getElementById("slotmsg");
+        chosen = null;
+        var confirm = document.getElementById("confirm"); if (confirm) confirm.disabled = true;
+        slots.innerHTML = ""; msg.textContent = "Loading times…"; msg.hidden = false;
+        var url = "/api/availability/" + encodeURIComponent(info.providerId) + "/slots?key=" +
+          encodeURIComponent(info.publicKey) + "&date=" + encodeURIComponent(date) + "&durationMin=" + encodeURIComponent(info.durationMin);
+        fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+          var list = (d && d.slots) || [];
+          // Drop the customer's current slot from the same day (no-op reschedule).
+          if (date === info.dateKey) list = list.filter(function (t) { return t !== info.timeValue; });
+          if (!list.length) { msg.textContent = "No open times that day — try another date."; return; }
+          msg.hidden = true;
+          list.forEach(function (t) {
+            var b = document.createElement("button");
+            b.type = "button"; b.className = "slot"; b.textContent = to12h(t);
+            b.addEventListener("click", function () {
+              Array.prototype.forEach.call(slots.children, function (c) { c.classList.remove("sel"); });
+              b.classList.add("sel"); chosen = { date: date, time: t };
+              document.getElementById("confirm").disabled = false;
+            });
+            slots.appendChild(b);
+          });
+        }).catch(function () { msg.textContent = "Couldn’t load times — try again."; });
+      }
+
+      function doReschedule() {
+        if (!chosen) return;
+        var btn = document.getElementById("confirm"); btn.disabled = true; btn.textContent = "Saving…";
+        api("/api/appt/" + encodeURIComponent(token) + "/reschedule", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dateKey: chosen.date, timeValue: chosen.time }),
+        }).then(function (r) {
+          if (!r.ok) { btn.disabled = false; btn.textContent = "Confirm new time"; alertMsg(r.d && r.d.error || "Couldn’t reschedule."); return; }
+          success("Rescheduled", "You’re now booked for", prettyWhen(chosen.date, chosen.time));
+        }).catch(function () { btn.disabled = false; btn.textContent = "Confirm new time"; alertMsg("Something went wrong."); });
+      }
+
+      function doCancel() {
+        if (!window.confirm("Cancel this appointment?")) return;
+        api("/api/appt/" + encodeURIComponent(token) + "/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function (r) {
+            if (!r.ok) { alertMsg(r.d && r.d.error || "Couldn’t cancel."); return; }
+            success("Cancelled", "Your appointment has been cancelled.", "");
+          }).catch(function () { alertMsg("Something went wrong."); });
+      }
+
+      function success(title, line, when) {
+        document.getElementById("sub").textContent = "";
+        show('<div class="ok"><div class="big">' + (title === "Cancelled" ? "✓" : "📅") + '</div>' +
+          '<h1>' + esc(title) + '</h1>' +
+          '<p class="note">' + esc(line) + (when ? ' <b>' + esc(when) + '</b>.' : '') + '</p>' +
+          (info.shopPhone ? '<p class="note">Questions? Call ' + esc(info.shopName) + ' at ' + esc(info.shopPhone) + '.</p>' : '') +
+          '</div>');
+      }
+
+      function alertMsg(msg) { window.alert(msg); }
+
+      // Helpers
+      function todayStr() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+      function to12h(t) { var p = String(t).split(":"); var h = +p[0]; return (h % 12 || 12) + ":" + p[1] + " " + (h < 12 ? "AM" : "PM"); }
+      function prettyWhen(dateKey, timeValue) {
+        var d = new Date(dateKey + "T00:00:00");
+        var ds = d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric" });
+        return ds + " at " + to12h(timeValue);
+      }
+    })();
+  </script>
+</body>
+</html>

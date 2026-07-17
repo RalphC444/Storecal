@@ -1304,6 +1304,9 @@ a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .appointmentview__when { display: flex; align-items: center; gap: 12px; }
 .appointmentview__time { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .appointmentview__date { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.appointmentview__flag { margin-top: 10px; font-size: 12.5px; font-weight: 600; padding: 7px 11px; border-radius: 8px;
+  background: var(--accent-soft); color: #1e3a8a; border: 1px solid #cdddfb; }
+.appointmentview__flag--off { background: #fdeeee; color: #b23; border-color: #f0cccc; }
 .appointmentview__dl { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
 .appointmentview__notes { grid-column: 1 / -1; }
 .appointmentview__dl dt { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin-bottom: 4px; }

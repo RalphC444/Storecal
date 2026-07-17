@@ -100,9 +100,15 @@ async function sendBookingConfirmation(d) {
         `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:88px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
     )
     .join("");
+  // Self-service management, when we have a link. Leads as the primary CTA; the
+  // "call us" line drops to a fallback.
+  const manageBlock = d.manageUrl
+    ? `<p style="color:#333;font-size:14px;line-height:1.6;margin:0 0 4px">Need to make a change?</p>
+       ${button(d.manageUrl, "Reschedule or cancel")}`
+    : "";
   const callLine = d.shopPhone
-    ? `Need to change or cancel? Call ${esc(d.shopName)} at <b>${esc(d.shopPhone)}</b>.`
-    : "Need to change or cancel? Just call the shop and they'll take care of it.";
+    ? `${d.manageUrl ? "Prefer to call? " : "Need to change or cancel? Call "}${esc(d.shopName)} at <b>${esc(d.shopPhone)}</b>.`
+    : (d.manageUrl ? "" : "Need to change or cancel? Just call the shop and they'll take care of it.");
   await resend.emails.send({
     from: FROM,
     replyTo: SUPPORT_EMAIL,
@@ -111,7 +117,8 @@ async function sendBookingConfirmation(d) {
     html: shell(`You're booked${first ? `, ${esc(first)}` : ""}!`,
       `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px">Thanks for booking with <b>${esc(d.shopName)}</b>. Here are your details:</p>
        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
-       <p style="color:#9aa0a8;font-size:13px;line-height:1.6;margin:0">${callLine}</p>`),
+       ${manageBlock}
+       ${callLine ? `<p style="color:#9aa0a8;font-size:13px;line-height:1.6;margin:0">${callLine}</p>` : ""}`),
   });
   return true;
 }
@@ -193,12 +200,47 @@ async function sendBookingCancellation(d) {
   return true;
 }
 
+// Heads-up to the shop when a CUSTOMER reschedules or cancels their own booking
+// from the manage link. `d` = { to, shopName, clientName, service, dateLabel,
+// timeLabel, providerName, action: "rescheduled"|"cancelled", prevLabel, appUrl }
+async function sendOwnerChangeNotification(d) {
+  const resend = client();
+  if (!resend || !d.to) return false;
+  const cancelled = d.action === "cancelled";
+  const rows = [
+    ["Client", d.clientName],
+    ["Service", d.service],
+    [cancelled ? "Was" : "Now", `${d.dateLabel} at ${d.timeLabel}`],
+    !cancelled && d.prevLabel ? ["Previously", d.prevLabel] : null,
+    d.providerName ? ["With", d.providerName] : null,
+  ].filter(Boolean);
+  const table = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:7px 0;color:#9aa0a8;font-size:13px;width:92px;vertical-align:top">${k}</td><td style="padding:7px 0;color:#111;font-size:14px;font-weight:600">${esc(v)}</td></tr>`
+    )
+    .join("");
+  const verb = cancelled ? "cancelled their appointment" : "rescheduled their appointment";
+  await resend.emails.send({
+    from: FROM,
+    replyTo: SUPPORT_EMAIL,
+    to: d.to,
+    subject: `${d.clientName || "A customer"} ${cancelled ? "cancelled" : "rescheduled"} — ${d.shopName}`,
+    html: shell(cancelled ? "A booking was cancelled" : "A booking was rescheduled",
+      `<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 14px"><b>${esc(d.clientName || "A customer")}</b> ${verb} online. Your calendar is already updated.</p>
+       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3;margin:0 0 16px">${table}</table>
+       ${d.appUrl ? button(d.appUrl, "Open StoreCal") : ""}`),
+  });
+  return true;
+}
+
 module.exports = {
   sendInvite,
   sendReset,
   sendBookingConfirmation,
   sendBookingCancellation,
   sendOwnerBookingNotification,
+  sendOwnerChangeNotification,
   emailEnabled: () => !!process.env.RESEND_API_KEY,
   SUPPORT_EMAIL,
 };

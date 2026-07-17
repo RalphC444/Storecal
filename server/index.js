@@ -94,6 +94,12 @@ app.get("/book/:slug", (_req, res) => {
   res.sendFile(path.resolve(__dirname, "public", "book.html"));
 });
 
+// Customer self-service page: reschedule or cancel their own booking from the
+// signed link in their confirmation email/text. The token lives in the path.
+app.get("/manage/:token", (_req, res) => {
+  res.sendFile(path.resolve(__dirname, "public", "manage.html"));
+});
+
 // Health check for uptime monitors / load balancers.
 app.get("/api/health", (_req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
@@ -103,6 +109,7 @@ app.use("/api/providers", providersRouter);
 app.use("/api/availability", availabilityRouter);
 app.use("/api/timeoff", timeoffRouter);
 app.use("/api/appointments", appointmentsRouter);
+app.use("/api/appt", require("./routes/appt")); // public: customer reschedule/cancel via signed link
 app.use("/api/shop-config", shopConfigRouter);
 app.use("/api/clients", clientsRouter);
 app.use("/api/services", servicesRouter);
