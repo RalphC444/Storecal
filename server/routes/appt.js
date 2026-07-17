@@ -45,7 +45,7 @@ async function loadFromToken(db, token) {
   if (!appt) return null;
   const shop = await db.collection("shops").findOne(
     { _id: new ObjectId(appt.shopId) },
-    { projection: { name: 1, phone: 1, publicKey: 1, slug: 1, businessType: 1, accent: 1, logo: 1, tagline: 1, bookingEmailsOff: 1 } }
+    { projection: { name: 1, phone: 1, publicKey: 1, slug: 1, businessType: 1, accent: 1, logo: 1, tagline: 1, bookingEmailsOff: 1, ownerNotifyEmail: 1 } }
   );
   return { appt, shop };
 }
@@ -102,13 +102,20 @@ function notifyShopAndCustomer(req, db, { appt, shop }, action, prevLabel) {
         providerName: appt.providerName || "",
       };
       // Owner + assigned staff get a heads-up (calendar already updated live).
+      // A per-shop ownerNotifyEmail override (demo stores) wins.
       if (!emailsOff) {
-        const owner = await db.collection("users").findOne({ shopId: appt.shopId, role: "owner" }, { projection: { email: 1 } });
-        const recips = new Set();
-        if (owner?.email) recips.add(owner.email.toLowerCase());
-        if (appt.providerId) {
-          const prov = await db.collection("providers").findOne({ _id: new ObjectId(appt.providerId) }, { projection: { email: 1 } }).catch(() => null);
-          if (prov?.email) recips.add(prov.email.toLowerCase());
+        let recips;
+        if (shop?.ownerNotifyEmail) {
+          recips = [shop.ownerNotifyEmail];
+        } else {
+          const owner = await db.collection("users").findOne({ shopId: appt.shopId, role: "owner" }, { projection: { email: 1 } });
+          const set = new Set();
+          if (owner?.email) set.add(owner.email);
+          if (appt.providerId) {
+            const prov = await db.collection("providers").findOne({ _id: new ObjectId(appt.providerId) }, { projection: { email: 1 } }).catch(() => null);
+            if (prov?.email) set.add(prov.email);
+          }
+          recips = [...set];
         }
         for (const to of recips) {
           await sendOwnerChangeNotification({ ...base, to, action, prevLabel, appUrl: appUrl() });

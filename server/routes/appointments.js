@@ -29,7 +29,7 @@ function manageUrlFor(req, apptId) {
 async function bookingFields(db, shopId, doc, origin) {
   const shop = await db.collection("shops").findOne(
     { _id: new ObjectId(shopId) },
-    { projection: { name: 1, phone: 1, website: 1, businessType: 1, publicKey: 1, slug: 1 } }
+    { projection: { name: 1, phone: 1, website: 1, businessType: 1, publicKey: 1, slug: 1, ownerNotifyEmail: 1 } }
   );
   const [h, m] = String(doc.timeValue || "").split(":").map(Number);
   const timeLabel = Number.isFinite(h) ? `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
@@ -49,6 +49,10 @@ async function bookingFields(db, shopId, doc, origin) {
     // Deep-link back to the shop's website with the same service + groomer
     // preselected, so the cancellation email can offer one-tap rebooking.
     rebookUrl: buildRebookUrl(shop, doc, origin),
+    // Optional per-shop override: route ALL owner/staff notices to this address
+    // instead of the real owner/staff (used for demo stores). Customer emails
+    // are unaffected.
+    ownerNotifyEmail: shop?.ownerNotifyEmail || "",
   };
 }
 
@@ -126,32 +130,34 @@ async function bookingEmailsOff(db, shopId) {
 function emailOwnerNotification(db, shopId, doc) {
   (async () => {
     try {
-      const owner = await db.collection("users").findOne(
-        { shopId, role: "owner" },
-        { projection: { email: 1 } }
-      );
       const f = await bookingFields(db, shopId, doc);
       const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "https://www.storecal.com").replace(/\/$/, "");
       const payload = {
         shopName: f.shopName, clientName: f.clientName, service: f.service,
         dateLabel: f.dateLabel, timeLabel: f.timeLabel, providerName: f.providerName, appUrl,
       };
-
-      // Recipients: the owner, plus the assigned staff member (deduped by email).
-      const sent = new Set();
+      const recips = await ownerStaffRecipients(db, shopId, doc, f.ownerNotifyEmail);
       let count = 0;
-      if (owner?.email) { sent.add(owner.email.toLowerCase()); if (await sendOwnerBookingNotification({ ...payload, to: owner.email })) count++; }
-      if (doc.providerId) {
-        const prov = await db.collection("providers").findOne(
-          { _id: new ObjectId(doc.providerId) },
-          { projection: { email: 1 } }
-        ).catch(() => null);
-        const pe = (prov?.email || "").trim();
-        if (pe && !sent.has(pe.toLowerCase())) { if (await sendOwnerBookingNotification({ ...payload, to: pe })) count++; }
-      }
+      for (const to of recips) { if (await sendOwnerBookingNotification({ ...payload, to })) count++; }
       await bumpEmails(db, shopId, count);
     } catch (e) { console.error("Owner/staff booking notification failed:", e.message); }
   })();
+}
+
+// Who receives owner/staff-facing booking notices for a shop: the per-shop
+// override address if set (demo stores), otherwise the owner + assigned staff
+// (deduped, case-insensitive).
+async function ownerStaffRecipients(db, shopId, doc, overrideEmail) {
+  if (overrideEmail) return [overrideEmail];
+  const seen = new Set(), out = [];
+  const add = (email) => { const e = (email || "").trim(); if (e && !seen.has(e.toLowerCase())) { seen.add(e.toLowerCase()); out.push(e); } };
+  const owner = await db.collection("users").findOne({ shopId, role: "owner" }, { projection: { email: 1 } });
+  add(owner?.email);
+  if (doc.providerId) {
+    const prov = await db.collection("providers").findOne({ _id: new ObjectId(doc.providerId) }, { projection: { email: 1 } }).catch(() => null);
+    add(prov?.email);
+  }
+  return out;
 }
 
 function emailBookingCancellation(db, shopId, doc, message, origin) {
@@ -173,13 +179,7 @@ function emailOwnerCancellation(db, shopId, doc) {
         shopName: f.shopName, clientName: f.clientName, service: f.service,
         dateLabel: f.dateLabel, timeLabel: f.timeLabel, providerName: f.providerName, action: "cancelled", appUrl,
       };
-      const owner = await db.collection("users").findOne({ shopId, role: "owner" }, { projection: { email: 1 } });
-      const recips = new Set();
-      if (owner?.email) recips.add(owner.email.toLowerCase());
-      if (doc.providerId) {
-        const prov = await db.collection("providers").findOne({ _id: new ObjectId(doc.providerId) }, { projection: { email: 1 } }).catch(() => null);
-        if (prov?.email) recips.add(prov.email.toLowerCase());
-      }
+      const recips = await ownerStaffRecipients(db, shopId, doc, f.ownerNotifyEmail);
       for (const to of recips) await sendOwnerChangeNotification({ ...base, to });
     } catch (e) { console.error("Owner cancellation notice failed:", e.message); }
   })();

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadHotjar } from "../lib/hotjar";
+import { loadAnalytics } from "../lib/analytics";
 
 const STORAGE_KEY = "storecal:cookie-consent";
 
@@ -51,10 +51,10 @@ export function CookieConsent({ onLegal }) {
     } catch {
       /* private mode — honor the click anyway, just don't persist it */
     }
-    // Analytics follows the choice: Decline stops Hotjar (reload so the loaded
-    // tracker is dropped and the startup guard skips it); Accept keeps it on.
+    // Analytics follows the choice: Decline stops tracking (reload so the loaded
+    // tag is dropped and the startup guard skips it); Accept keeps it on.
     if (choice === "declined") { window.location.reload(); return; }
-    loadHotjar();
+    loadAnalytics();
     setEntered(false); // slide back out, then unmount once it's gone
     leaveTimer.current = setTimeout(() => setRender(false), 480);
   }, []);

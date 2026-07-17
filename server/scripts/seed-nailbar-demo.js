@@ -9,9 +9,10 @@
 // Safety: only ever targets a shop whose name contains "nail".
 
 require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 
 const TAG = "nailbar";
+const DEMO_NOTIFY_EMAIL = "capriglioner@gmail.com"; // owner/staff notices route here for the demo
 const SLUG = "the-nail-bar-nyc";
 const COLLECTIONS = ["providers", "workingHours", "scheduleMeta", "appointments", "clients"];
 
@@ -48,6 +49,12 @@ async function undo(db, shopId) {
       { $set: { name: p.demoOrigName }, $unset: { demoRenamed: "", demoOrigName: "" } });
   }
   if (renamed.length) console.log(`  restored ${renamed.length} provider name(s)`);
+  // Remove the demo owner/staff notification override.
+  const nr = await db.collection("shops").updateOne(
+    { _id: new ObjectId(shopId), demoOwnerNotify: true },
+    { $unset: { ownerNotifyEmail: "", demoOwnerNotify: "" } }
+  );
+  if (nr.modifiedCount) console.log("  cleared owner-notify override");
   return total;
 }
 
@@ -117,6 +124,11 @@ async function seed(db, shop) {
       { $set: { name: HUMAN, demoRenamed: true, demoOrigName: owner.name } });
     console.log(`  renamed owner provider "${owner.name}" → "${HUMAN}"`);
   }
+
+  // Demo: route owner/staff booking notices to the operator's inbox so they're
+  // visible during demos (customer emails are unaffected).
+  await db.collection("shops").updateOne({ _id: shop._id }, { $set: { ownerNotifyEmail: DEMO_NOTIFY_EMAIL, demoOwnerNotify: true } });
+  console.log(`  owner/staff notices → ${DEMO_NOTIFY_EMAIL}`);
 
   // Customers.
   const clientDefs = [
