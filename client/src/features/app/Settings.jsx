@@ -31,8 +31,7 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
       { id: "security", label: "Security", icon: "lock", desc: "Password" },
     ];
     if (isOwner) {
-      list.push({ id: "website", label: "Website", icon: "globe", desc: "Storefront banner" });
-      list.push({ id: "booking", label: "Booking", icon: "link", desc: "Links & profile" });
+      list.push({ id: "website", label: "Website", icon: "globe", desc: "Booking page, links & branding" });
       if (!meta.freeForLife) list.push({ id: "billing", label: "Billing", icon: "card", desc: "Plan & payment" });
     }
     return list;
@@ -75,10 +74,9 @@ export function SettingsView({ user, onUserChange, onSignOut }) {
             <LoadingSpinner />
           ) : (
             <>
-              {active === "profile" && <ProfilePanel user={user} onUserChange={onUserChange} />}
+              {active === "profile" && <ProfilePanel user={user} onUserChange={onUserChange} isOwner={isOwner} isAuto={isAuto} />}
               {active === "security" && <SecurityPanel />}
               {isOwner && active === "website" && <WebsitePanel />}
-              {isOwner && active === "booking" && <BookingPanel isAuto={isAuto} />}
               {isOwner && active === "billing" && <BillingPanel />}
             </>
           )}
@@ -115,7 +113,7 @@ function SettingsCard({ title, desc, children }) {
 
 // ── Profile ──────────────────────────────────────────────────────────────────
 
-function ProfilePanel({ user, onUserChange }) {
+function ProfilePanel({ user, onUserChange, isOwner, isAuto }) {
   const [name, setName] = useState(user.name || "");
   const [savedName, setSavedName] = useState(user.name || "");
   const [msg, setMsg] = useState("");
@@ -147,6 +145,8 @@ function ProfilePanel({ user, onUserChange }) {
           {msg && <span className="schedule__msg">{msg}</span>}
         </div>
       </SettingsCard>
+      {/* Owners at staff-based shops can list themselves as bookable. */}
+      {isOwner && !isAuto && <BookableSelfCard />}
     </>
   );
 }
@@ -248,7 +248,8 @@ function WebsitePanel() {
 
   return (
     <>
-      <CategoryHead title="Website" desc="Control what visitors see on your storefront." />
+      <CategoryHead title="Website" desc="Your booking page, share link, external links, and branding." />
+      <BookingLinkCard />
       <SettingsCard
         title="Announcement banner"
         desc="Show a message across the top of your website — e.g. holiday hours or “We’re on vacation until Aug 5.”"
@@ -286,6 +287,7 @@ function WebsitePanel() {
         </div>
       </SettingsCard>
 
+      <ExternalLinksCard />
       <BrandingCard />
     </>
   );
@@ -313,33 +315,59 @@ function BrandingCard() {
       .finally(() => setLoaded(true));
   }, []);
 
-  const dirty = accent !== saved.accent || logo !== saved.logo || tagline.trim() !== saved.tagline;
+  // Logo auto-saves on upload/remove; accent + tagline use the Save button.
+  const dirty = accent !== saved.accent || tagline.trim() !== saved.tagline;
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoErr, setLogoErr] = useState("");
+
+  // PATCH a partial set of branding fields and sync saved state from the reply.
+  async function patchBranding(partial) {
+    const res = await fetch("/api/shop-config", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(partial),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || "Save failed");
+    setSaved(prev => ({
+      accent: d.accent ?? prev.accent, logo: d.logo ?? prev.logo, tagline: d.tagline ?? prev.tagline,
+    }));
+    return d;
+  }
 
   async function onLogoFile(e) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
     if (!file) return;
-    try { setLogo(await resizeImageDataUrl(file, 400, 0.85)); }
-    catch { toast("Couldn’t read that image"); }
+    setLogoErr(""); setLogoBusy(true);
+    try {
+      const dataUrl = await resizeImageDataUrl(file, 400, 0.85);
+      const d = await patchBranding({ logo: dataUrl }); // save immediately — no separate step
+      setLogo(d.logo || "");
+      if (!d.logo) setLogoErr("That image was too large to save. Try a smaller one.");
+      else toast("Logo saved");
+    } catch {
+      setLogoErr("Couldn’t use that image. Please upload a JPG or PNG (not HEIC).");
+    } finally { setLogoBusy(false); }
+  }
+
+  async function removeLogo() {
+    setLogoErr(""); setLogoBusy(true);
+    try { await patchBranding({ logo: "" }); setLogo(""); toast("Logo removed"); }
+    catch { setLogoErr("Couldn’t remove the logo — try again."); }
+    finally { setLogoBusy(false); }
   }
 
   async function save() {
     setSaving(true);
-    const res = await fetch("/api/shop-config", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accent, logo, tagline: tagline.trim() }),
-    });
-    const d = await res.json().catch(() => ({}));
-    setSaving(false);
-    if (res.ok) {
-      setAccent(d.accent || ""); setLogo(d.logo || ""); setTagline(d.tagline || "");
-      setSaved({ accent: d.accent || "", logo: d.logo || "", tagline: d.tagline || "" });
+    try {
+      const d = await patchBranding({ accent, tagline: tagline.trim() });
+      setAccent(d.accent || ""); setTagline(d.tagline || "");
       toast("Branding saved");
-    } else toast(d.error || "Couldn’t save branding");
+    } catch (e) { toast(e.message || "Couldn’t save branding"); }
+    finally { setSaving(false); }
   }
 
   return (
-    <SettingsCard title="Booking page branding" desc="Personalize your hosted booking page — the link you share in your bio.">
+    <SettingsCard title="Booking page branding" desc="Personalize your hosted booking page — the link you share in your bio. Your logo saves as soon as you upload it.">
       {!loaded ? <LoadingSpinner /> : (
         <>
           <div className="field">
@@ -347,13 +375,14 @@ function BrandingCard() {
             <div className="brand__logo">
               {logo ? <img className="brand__logo-img" src={logo} alt="Logo preview" /> : <div className="brand__logo-ph">No logo</div>}
               <div className="brand__logo-actions">
-                <label className="btn btn--file">
-                  {logo ? "Replace" : "Upload logo"}
-                  <input type="file" accept="image/*" hidden onChange={onLogoFile} />
+                <label className={"btn btn--file" + (logoBusy ? " is-busy" : "")}>
+                  {logoBusy ? "Saving…" : logo ? "Replace" : "Upload logo"}
+                  <input type="file" accept="image/*" hidden disabled={logoBusy} onChange={onLogoFile} />
                 </label>
-                {logo && <button type="button" className="action action--danger" onClick={() => setLogo("")}>Remove</button>}
+                {logo && !logoBusy && <button type="button" className="action action--danger" onClick={removeLogo}>Remove</button>}
               </div>
             </div>
+            {logoErr && <p className="form__error" style={{ marginTop: 8 }}>{logoErr}</p>}
           </div>
 
           <div className="field">
@@ -380,16 +409,70 @@ function BrandingCard() {
   );
 }
 
-// ── Booking ──────────────────────────────────────────────────────────────────
+// ── Website: external links (link-in-bio / linktree) ─────────────────────────
 
-function BookingPanel({ isAuto }) {
+// Owner-managed list of external links shown as buttons on the hosted booking
+// page — Instagram, Google reviews, a menu PDF, etc. Stored on the shop.
+function ExternalLinksCard() {
+  const [links, setLinks] = useState(null); // [{ label, url }]
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/shop-config").then(r => r.json())
+      .then(d => setLinks(Array.isArray(d?.shop?.links) ? d.shop.links : []))
+      .catch(() => setLinks([]));
+  }, []);
+
+  function set(i, k, v) { setLinks(ls => ls.map((l, idx) => idx === i ? { ...l, [k]: v } : l)); }
+  function add() { setLinks(ls => [...ls, { label: "", url: "" }]); }
+  function remove(i) { setLinks(ls => ls.filter((_, idx) => idx !== i)); }
+  function move(i, dir) {
+    setLinks(ls => {
+      const j = i + dir; if (j < 0 || j >= ls.length) return ls;
+      const copy = ls.slice(); const [it] = copy.splice(i, 1); copy.splice(j, 0, it); return copy;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    // Drop empties and normalise before saving.
+    const clean = (links || [])
+      .map(l => ({ label: (l.label || "").trim(), url: (l.url || "").trim() }))
+      .filter(l => l.url);
+    const res = await fetch("/api/shop-config", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ links: clean }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (res.ok) { setLinks(Array.isArray(d.links) ? d.links : clean); toast("Links saved"); }
+    else toast(d.error || "Couldn’t save links");
+  }
+
   return (
-    <>
-      <CategoryHead title="Booking" desc="How clients reach your booking page and who they can book." />
-      <BookingLinkCard />
-      {/* Auto shops don't do per-staff booking, so there's no "list yourself" card. */}
-      {!isAuto && <BookableSelfCard />}
-    </>
+    <SettingsCard title="Links" desc="Extra buttons shown on your booking page — Instagram, Google reviews, a menu, your other site. Works like a link-in-bio.">
+      {links === null ? <LoadingSpinner /> : (
+        <>
+          {links.length === 0 && <p className="panel__hint" style={{ marginTop: -4 }}>No links yet. Add your first below.</p>}
+          <div className="linkrows">
+            {links.map((l, i) => (
+              <div className="linkrow" key={i}>
+                <input className="linkrow__label" type="text" value={l.label} placeholder="Label (e.g. Instagram)" onChange={e => set(i, "label", e.target.value)} />
+                <input className="linkrow__url" type="url" value={l.url} placeholder="https://…" onChange={e => set(i, "url", e.target.value)} />
+                <div className="linkrow__ctl">
+                  <button type="button" className="linkrow__btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                  <button type="button" className="linkrow__btn" onClick={() => move(i, 1)} disabled={i === links.length - 1} aria-label="Move down">↓</button>
+                  <button type="button" className="linkrow__btn linkrow__btn--del" onClick={() => remove(i)} aria-label="Remove">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="banner__actions">
+            <button className="action" type="button" onClick={add}>+ Add link</button>
+            <button className="btn" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save links"}</button>
+          </div>
+        </>
+      )}
+    </SettingsCard>
   );
 }
 

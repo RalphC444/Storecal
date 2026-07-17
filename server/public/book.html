@@ -16,9 +16,16 @@
     .wrap { max-width: 640px; margin: 0 auto; }
     .hero { text-align: center; margin-bottom: 8px; }
     .hero__logo { max-height: 84px; max-width: 220px; margin: 0 auto 16px; display: block; border-radius: 14px; }
+    .hero__logo[hidden] { display: none; }
     .hero__name { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
     .hero__tag { font-size: 15.5px; color: #5a6069; margin: 0 auto 22px; max-width: 480px; line-height: 1.5; }
-    #book-cta { display: flex; justify-content: center; margin-bottom: 8px; }
+    #book-cta { display: flex; justify-content: center; margin-bottom: 8px; min-height: 46px; }
+    .links { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 4px; }
+    .links a {
+      display: block; text-align: center; text-decoration: none; font-weight: 600; font-size: 15px;
+      padding: 13px 18px; border-radius: 12px; border: 1px solid #e0e3ea; background: #fff; color: #1a1c22;
+    }
+    .links a:hover { border-color: var(--accent); color: var(--accent); }
     .sect { margin-top: 34px; }
     .sect__title {
       font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
@@ -34,20 +41,48 @@
     @media (min-width: 520px) {
       [data-storecal="staff"].scd-grid { grid-template-columns: 1fr 1fr; }
     }
-    /* Theme the per-service Book buttons with the shop's accent (the data script
-       hardcodes blue; this scoped rule outranks it without !important). */
     [data-storecal="services"] .scd-card__book { background: var(--accent); }
+
+    /* Skeleton loaders — shown until real content arrives. */
+    .skel { position: relative; overflow: hidden; background: #e6e9f0; border-radius: 8px; }
+    .skel::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    @media (prefers-reduced-motion: reduce) { .skel::after { animation: none; } }
+    .skel-logo { height: 64px; width: 64px; border-radius: 14px; margin: 0 auto 16px; }
+    .skel-line { height: 16px; margin: 0 auto 10px; }
+    .skel-name { height: 30px; width: 60%; }
+    .skel-tag { height: 15px; width: 78%; }
+    .skel-btn { height: 46px; width: 190px; border-radius: 12px; margin: 6px auto 0; }
+    .skel-card { height: 118px; border-radius: 14px; margin-bottom: 12px; }
   </style>
 </head>
 <body>
   <main class="wrap">
     <header class="hero">
       <img id="logo" class="hero__logo" alt="" hidden />
-      <h1 id="name" class="hero__name">Book an appointment</h1>
-      <p id="tag" class="hero__tag"></p>
+      <div id="hero-skel">
+        <div class="skel skel-logo"></div>
+        <div class="skel skel-line skel-name"></div>
+        <div class="skel skel-line skel-tag"></div>
+        <div class="skel skel-btn"></div>
+      </div>
+      <h1 id="name" class="hero__name" hidden></h1>
+      <p id="tag" class="hero__tag" hidden></p>
+      <div id="links" class="links"></div>
       <div id="book-cta"></div>
     </header>
-    <div id="sections"></div>
+    <div id="sections">
+      <section class="sect">
+        <h2 class="sect__title">Services</h2>
+        <div class="skel skel-card"></div>
+        <div class="skel skel-card"></div>
+        <div class="skel skel-card"></div>
+      </section>
+    </div>
     <p class="foot">Powered by StoreCal</p>
   </main>
 
@@ -59,7 +94,8 @@
       var slug = m ? decodeURIComponent(m[1]) : null;
       var key = new URLSearchParams(location.search).get("key");
       var sections = document.getElementById("sections");
-      var fail = function (msg) { sections.innerHTML = '<p class="err">' + msg + "</p>"; };
+      var heroSkel = document.getElementById("hero-skel");
+      function fail(msg) { heroSkel.hidden = true; sections.innerHTML = '<p class="err">' + msg + "</p>"; }
 
       if (!slug && !key) { fail("This booking link is missing its store."); return; }
       var q = slug ? "slug=" + encodeURIComponent(slug) : "key=" + encodeURIComponent(key);
@@ -72,33 +108,48 @@
           var accent = shop.accent || "#2563eb";
           var storeKey = shop.publicKey;
 
-          // Branding.
+          // Branding — swap the hero skeleton for the real header.
           document.documentElement.style.setProperty("--accent", accent);
           document.title = "Book · " + (shop.name || "StoreCal");
-          document.getElementById("name").textContent = shop.name || "Book an appointment";
-          if (shop.tagline) document.getElementById("tag").textContent = shop.tagline;
+          var nameEl = document.getElementById("name");
+          nameEl.textContent = shop.name || "Book an appointment";
+          nameEl.hidden = false;
+          if (shop.tagline) { var t = document.getElementById("tag"); t.textContent = shop.tagline; t.hidden = false; }
           if (shop.logo) { var lg = document.getElementById("logo"); lg.src = shop.logo; lg.hidden = false; }
+          heroSkel.hidden = true;
+
+          // Optional external links (link-in-bio / linktree style).
+          var links = Array.isArray(shop.links) ? shop.links : [];
+          if (links.length) {
+            document.getElementById("links").innerHTML = links.map(function (l) {
+              var url = String(l.url || ""); var label = String(l.label || url);
+              if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+              return '<a href="' + url.replace(/"/g, "%22") + '" target="_blank" rel="noopener">' + esc(label) + "</a>";
+            }).join("");
+          }
 
           if (!storeKey) { fail("This store isn’t set up for online booking yet."); return; }
 
-          // Only build sections that will actually have content.
+          // Build only the sections that will have content; each gets skeleton
+          // cards until storecal-data.js fills it.
+          var skelCards = '<div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div>';
           var html = "";
           if ((d.services || []).length)
-            html += '<section class="sect"><h2 class="sect__title">Services</h2><div data-storecal="services"></div></section>';
+            html += '<section class="sect"><h2 class="sect__title">Services</h2><div data-storecal="services">' + skelCards + '</div></section>';
           if (d.showStaff !== false && (d.providers || []).length)
-            html += '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff"></div></section>';
+            html += '<section class="sect"><h2 class="sect__title">Our team</h2><div data-storecal="staff">' + skelCards + '</div></section>';
           var galleryOn = d.showGallery !== false;
           if (galleryOn)
             html += '<section class="sect" id="sect-gallery"><h2 class="sect__title">Our work</h2><div data-storecal="gallery"></div></section>';
           sections.innerHTML = html;
 
-          // storecal-data.js fills the service/staff/gallery containers; embed.js
-          // renders the accent Book button into #book-cta and wires every Book CTA
-          // (including the per-service buttons the data script renders).
-          function addScript(src, attrs) {
+          // storecal-data.js fills the containers (replacing the skeletons); embed.js
+          // renders the accent Book button into #book-cta and wires every Book CTA.
+          function addScript(src, attrs, onload) {
             var s = document.createElement("script");
             s.src = src;
             Object.keys(attrs).forEach(function (k) { s.setAttribute(k, attrs[k]); });
+            if (onload) s.onload = onload;
             document.body.appendChild(s);
           }
           addScript("/storecal-data.js", { "data-store": storeKey, "data-accent": accent });
@@ -113,6 +164,8 @@
           }
         })
         .catch(function () { fail("Something went wrong loading this store."); });
+
+      function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
     })();
   </script>
 </body>

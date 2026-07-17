@@ -147,6 +147,19 @@
 .brand__color { display: flex; align-items: center; gap: 10px; }
 .brand__color input[type="color"] { width: 44px; height: 36px; padding: 0; border: 1px solid var(--line-2); border-radius: 8px; background: none; cursor: pointer; }
 .brand__hex { width: 110px; text-transform: lowercase; }
+.btn--file.is-busy { opacity: .6; pointer-events: none; }
+
+/* External links (link-in-bio) editor */
+.linkrows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.linkrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
+.linkrow input { min-width: 0; }
+.linkrow__ctl { display: flex; gap: 4px; }
+.linkrow__btn { width: 30px; height: 34px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--paper);
+  cursor: pointer; color: var(--ink-2); font-size: 13px; line-height: 1; }
+.linkrow__btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.linkrow__btn:disabled { opacity: .4; cursor: default; }
+.linkrow__btn--del:hover:not(:disabled) { border-color: #d66; color: #c0392b; }
+@media (max-width: 560px) { .linkrow { grid-template-columns: 1fr; } .linkrow__ctl { justify-content: flex-end; } }
 
 .billing__gift {
   max-width: 520px; margin: 0 0 14px; padding: 12px 15px; border-radius: 12px;

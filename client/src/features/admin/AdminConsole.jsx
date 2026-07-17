@@ -264,7 +264,11 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 <AdRow label="Plan">{planLabelOf(s)}</AdRow>
                 <AdRow label="Booking access">{BOOKING_LABEL[bookingValueOf(s)]}</AdRow>
                 {!s.freeForLife && s.subscribed && (
-                  <AdRow label="Next payment">{fmtRenewDate(s.renewsAt) || (s.freeMonthActive ? "$0" : "—")}</AdRow>
+                  <AdRow label="Next payment">
+                    {s.freeMonthActive
+                      ? `${fmtRenewDate(s.freeResumesAt) || "—"} (${s.freeMonths} free — $0 on ${fmtRenewDate(s.renewsAt)})`
+                      : (fmtRenewDate(s.renewsAt) || "—")}
+                  </AdRow>
                 )}
                 {!s.freeForLife && s.subscribed && <AdRow label="Payments made">{s.paymentsCompleted}</AdRow>}
               </div>
@@ -299,9 +303,9 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
               <AdCard title="Subscription">
                 <div className="clientdetail__subsummary">
                   <div className="clientdetail__stat">
-                    <span className="clientdetail__stat-l">Next charge</span>
-                    <span className="clientdetail__stat-v">{s.freeMonthActive ? "$0" : (fmtRenewDate(s.renewsAt) || "—")}</span>
-                    {fmtRenewDate(s.renewsAt) && <span className="clientdetail__stat-sub">{s.freeMonthActive ? "waived · " : ""}{fmtRenewDate(s.renewsAt)}</span>}
+                    <span className="clientdetail__stat-l">Next payment</span>
+                    <span className="clientdetail__stat-v">{s.freeMonthActive ? (fmtRenewDate(s.freeResumesAt) || "—") : (fmtRenewDate(s.renewsAt) || "—")}</span>
+                    {s.freeMonthActive && fmtRenewDate(s.renewsAt) && <span className="clientdetail__stat-sub">{fmtRenewDate(s.renewsAt)} is free ($0)</span>}
                   </div>
                   <div className="clientdetail__stat"><span className="clientdetail__stat-l">Payments made</span><span className="clientdetail__stat-v">{s.paymentsCompleted}</span></div>
                 </div>

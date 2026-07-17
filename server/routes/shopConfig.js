@@ -107,6 +107,8 @@ router.get("/", async (req, res) => {
         accent: shop.accent || "",
         logo: shop.logo || "",
         tagline: shop.tagline || "",
+        // External link-in-bio buttons shown on the hosted page.
+        links: Array.isArray(shop.links) ? shop.links : [],
       },
       addons: shop.addons || [],
       services: services.map((s) => ({
@@ -171,6 +173,16 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
     if (req.body.tagline !== undefined) {
       set.tagline = String(req.body.tagline || "").trim().slice(0, 120);
     }
+    // External links (link-in-bio buttons). Keep label + url, cap the count.
+    if (req.body.links !== undefined) {
+      const arr = Array.isArray(req.body.links) ? req.body.links : [];
+      set.links = arr.slice(0, 20)
+        .map((l) => ({
+          label: String((l && l.label) || "").trim().slice(0, 60),
+          url: String((l && l.url) || "").trim().slice(0, 400),
+        }))
+        .filter((l) => l.url);
+    }
 
     await db.collection("shops").updateOne({ _id: new ObjectId(req.auth.shopId) }, { $set: set });
     res.json({
@@ -180,6 +192,7 @@ router.patch("/", requireAuth, requireOwner, async (req, res) => {
       accent: set.accent,
       logo: set.logo,
       tagline: set.tagline,
+      links: set.links,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
