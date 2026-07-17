@@ -83,6 +83,9 @@ router.get("/:token", async (req, res) => {
       // Rescheduling needs a provider to query open slots against.
       canReschedule: active && !isPast(appt) && !withinCutoff(appt) && !!appt.providerId,
       canCancel: active && !isPast(appt),
+      // True when the appointment is still upcoming but inside the reschedule
+      // cutoff — lets the page explain *why* rescheduling is closed.
+      withinCutoff: active && !isPast(appt) && withinCutoff(appt),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -135,7 +138,8 @@ function notifyShopAndCustomer(req, db, { appt, shop }, action, prevLabel) {
   })();
 }
 
-// POST /api/appt/:token/reschedule  { dateKey, timeValue } — same service+staff, new time.
+// POST /api/appt/:token/reschedule  { dateKey, timeValue, providerId? } — same
+// service, new time; the customer may also pick a different team member.
 router.post("/:token/reschedule", async (req, res) => {
   try {
     const db = await getDb();
@@ -145,7 +149,7 @@ router.post("/:token/reschedule", async (req, res) => {
 
     if (["cancelled", "completed"].includes(appt.status)) return res.status(409).json({ error: "This appointment can no longer be changed." });
     if (isPast(appt)) return res.status(409).json({ error: "This appointment has already passed." });
-    if (withinCutoff(appt)) return res.status(409).json({ error: `Changes must be made at least ${CHANGE_CUTOFF_HOURS} hours ahead — please call ${shop?.phone || "the shop"}.` });
+    if (withinCutoff(appt)) return res.status(409).json({ error: `Reschedules must be made at least ${CHANGE_CUTOFF_HOURS} hours in advance — please call ${shop?.phone || "the shop"} to change this one.` });
 
     const { dateKey, timeValue } = req.body || {};
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || "")) || !/^\d{2}:\d{2}$/.test(String(timeValue || ""))) {
@@ -153,16 +157,33 @@ router.post("/:token/reschedule", async (req, res) => {
     }
     const newStart = startOf(dateKey, timeValue);
     if (!(newStart > new Date())) return res.status(400).json({ error: "Pick a time in the future." });
-    if (dateKey === appt.dateKey && timeValue === appt.timeValue) return res.status(400).json({ error: "That's the same time as now — pick a different slot." });
+
+    // The customer may switch team members (the widget offers the same staff
+    // picker as booking). Default to the current provider; validate any change
+    // belongs to this shop before trusting it.
+    let providerId = appt.providerId;
+    let providerName = appt.providerName || "";
+    const wanted = req.body && req.body.providerId;
+    if (wanted && wanted !== "any" && String(wanted) !== String(appt.providerId || "")) {
+      let pid;
+      try { pid = new ObjectId(String(wanted)); } catch { return res.status(400).json({ error: "That team member isn't available." }); }
+      const prov = await db.collection("providers").findOne({ _id: pid, shopId: appt.shopId }, { projection: { name: 1 } });
+      if (!prov) return res.status(400).json({ error: "That team member isn't available." });
+      providerId = String(wanted);
+      providerName = prov.name || providerName;
+    }
+
+    const sameSlot = dateKey === appt.dateKey && timeValue === appt.timeValue && String(providerId) === String(appt.providerId);
+    if (sameSlot) return res.status(400).json({ error: "That's the same time as now — pick a different slot." });
 
     // Re-validate against live hours/time-off and existing bookings — never trust the client.
-    const hoursErr = await checkWithinHours(db, appt.shopId, appt.providerId, dateKey, timeValue, durationOf(appt));
+    const hoursErr = await checkWithinHours(db, appt.shopId, providerId, dateKey, timeValue, durationOf(appt));
     if (hoursErr) return res.status(409).json({ error: hoursErr });
 
     // Respect the same-slot unique index: a cancelled booking in the new slot is
     // freed; an active one means the time was just taken.
-    if (appt.providerId) {
-      const clash = await db.collection("appointments").findOne({ providerId: appt.providerId, start: newStart, _id: { $ne: appt._id } });
+    if (providerId) {
+      const clash = await db.collection("appointments").findOne({ providerId, start: newStart, _id: { $ne: appt._id } });
       if (clash) {
         if (clash.status === "cancelled") await db.collection("appointments").deleteOne({ _id: clash._id });
         else return res.status(409).json({ error: "Sorry, that time was just taken. Please pick another." });
@@ -174,9 +195,9 @@ router.post("/:token/reschedule", async (req, res) => {
       await db.collection("appointments").updateOne(
         { _id: appt._id },
         { $set: {
-            dateKey, timeValue, start: newStart, updatedAt: new Date(),
+            dateKey, timeValue, start: newStart, providerId, providerName, updatedAt: new Date(),
             customerRescheduledAt: new Date(),
-            rescheduledFrom: { dateKey: appt.dateKey, timeValue: appt.timeValue },
+            rescheduledFrom: { dateKey: appt.dateKey, timeValue: appt.timeValue, providerId: appt.providerId },
         } }
       );
     } catch (e) {
@@ -185,13 +206,15 @@ router.post("/:token/reschedule", async (req, res) => {
     }
 
     // Live-update owner/provider calendars + refresh open widgets. Only the
-    // first ping carries by:"customer" so the owner sees a single toast; the
-    // second just refreshes the freed day.
-    notifyAppointmentChange(appt.shopId, { action: "rescheduled", by: "customer", _id: appt._id.toString(), dateKey, providerId: appt.providerId });
-    if (appt.dateKey !== dateKey) notifyAppointmentChange(appt.shopId, { action: "rescheduled", _id: appt._id.toString(), dateKey: appt.dateKey, providerId: appt.providerId });
+    // first ping carries by:"customer" so the owner sees a single toast; the rest
+    // just refresh the freed day (and the old staff member's calendar, if changed).
+    notifyAppointmentChange(appt.shopId, { action: "rescheduled", by: "customer", _id: appt._id.toString(), dateKey, providerId });
+    if (appt.dateKey !== dateKey || String(appt.providerId) !== String(providerId)) {
+      notifyAppointmentChange(appt.shopId, { action: "rescheduled", _id: appt._id.toString(), dateKey: appt.dateKey, providerId: appt.providerId });
+    }
 
-    notifyShopAndCustomer(req, db, { appt: { ...appt, dateKey, timeValue, start: newStart }, shop }, "rescheduled", prevLabel);
-    res.json({ success: true, dateKey, timeValue });
+    notifyShopAndCustomer(req, db, { appt: { ...appt, dateKey, timeValue, start: newStart, providerId, providerName }, shop }, "rescheduled", prevLabel);
+    res.json({ success: true, dateKey, timeValue, providerId, providerName });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

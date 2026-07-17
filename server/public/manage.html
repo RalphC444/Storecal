@@ -72,8 +72,8 @@
       var token = m ? m[1] : null;
       var loading = document.getElementById("loading");
       var content = document.getElementById("content");
-      var info = null;      // the appointment details
-      var chosen = null;    // { date, time }
+      var info = null;          // the appointment details
+      var reschedMounted = false; // embed widget injected once
 
       function show(html) { content.innerHTML = html; loading.hidden = true; content.hidden = false; }
       function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
@@ -110,19 +110,18 @@
         if (info.status === "cancelled") { show(detailRows() + '<p class="note">If you’d like to book again, ' + callLine() + '</p>'); return; }
         var html = detailRows();
         if (info.canReschedule) {
-          html += '<h2>Pick a new time</h2>' +
-            '<label class="date">Date<input type="date" id="date" min="' + todayStr() + '"></label>' +
-            '<div id="slots" class="slots"></div>' +
-            '<p class="muted" id="slotmsg">Choose a date to see open times.</p>' +
-            '<button class="btn" id="confirm" disabled>Confirm new time</button>';
-        } else if (info.canCancel) {
-          html += '<p class="note">Need a different time? ' + callLine() + '</p>';
+          html += '<button class="btn" id="rebtn">Reschedule</button>' +
+            '<p class="muted">Reschedules can be made up to <b>' + info.cutoffHours + ' hours</b> before your appointment.</p>';
+        } else if (info.withinCutoff) {
+          // Upcoming, but inside the cutoff — say so plainly rather than "can no longer be changed."
+          html += '<p class="note">Reschedules must be made at least <b>' + info.cutoffHours + ' hours</b> in advance, ' +
+            'so this appointment can’t be moved online anymore. To change it, ' + callLine() + '</p>';
         }
         if (info.canCancel) {
           html += '<button class="linkish" id="cancelBtn">Cancel this appointment</button>';
         }
-        if (!info.canReschedule && !info.canCancel) {
-          html += '<p class="note">This appointment can no longer be changed online. ' + callLine() + '</p>';
+        if (!info.canReschedule && !info.withinCutoff && !info.canCancel) {
+          html += '<p class="note">This appointment has already taken place. To book again, ' + callLine() + '</p>';
         }
         show(html);
         wire();
@@ -133,56 +132,39 @@
       }
 
       function wire() {
-        var dateEl = document.getElementById("date");
-        if (dateEl) {
-          dateEl.value = info.dateKey >= todayStr() ? info.dateKey : todayStr();
-          dateEl.addEventListener("change", loadSlots);
-          loadSlots();
-        }
-        var confirm = document.getElementById("confirm");
-        if (confirm) confirm.addEventListener("click", doReschedule);
+        var rebtn = document.getElementById("rebtn");
+        if (rebtn) { mountRescheduler(); rebtn.addEventListener("click", openRescheduler); }
         var cancelBtn = document.getElementById("cancelBtn");
         if (cancelBtn) cancelBtn.addEventListener("click", doCancel);
       }
 
-      function loadSlots() {
-        var date = document.getElementById("date").value;
-        var slots = document.getElementById("slots");
-        var msg = document.getElementById("slotmsg");
-        chosen = null;
-        var confirm = document.getElementById("confirm"); if (confirm) confirm.disabled = true;
-        slots.innerHTML = ""; msg.textContent = "Loading times…"; msg.hidden = false;
-        var url = "/api/availability/" + encodeURIComponent(info.providerId) + "/slots?key=" +
-          encodeURIComponent(info.publicKey) + "&date=" + encodeURIComponent(date) + "&durationMin=" + encodeURIComponent(info.durationMin);
-        fetch(url).then(function (r) { return r.json(); }).then(function (d) {
-          var list = (d && d.slots) || [];
-          // Drop the customer's current slot from the same day (no-op reschedule).
-          if (date === info.dateKey) list = list.filter(function (t) { return t !== info.timeValue; });
-          if (!list.length) { msg.textContent = "No open times that day — try another date."; return; }
-          msg.hidden = true;
-          list.forEach(function (t) {
-            var b = document.createElement("button");
-            b.type = "button"; b.className = "slot"; b.textContent = to12h(t);
-            b.addEventListener("click", function () {
-              Array.prototype.forEach.call(slots.children, function (c) { c.classList.remove("sel"); });
-              b.classList.add("sel"); chosen = { date: date, time: t };
-              document.getElementById("confirm").disabled = false;
-            });
-            slots.appendChild(b);
-          });
-        }).catch(function () { msg.textContent = "Couldn’t load times — try again."; });
+      // Reschedule reuses the real booking widget (same calendar + staff picker)
+      // in its token-scoped "reschedule" mode. Inject it once, opened on demand.
+      function mountRescheduler() {
+        if (reschedMounted || !info.publicKey) return;
+        reschedMounted = true;
+        var mount = document.createElement("div");
+        mount.id = "sc-resched-mount";
+        document.body.appendChild(mount);
+        var s = document.createElement("script");
+        s.src = "/embed.js";
+        s.setAttribute("data-store", info.publicKey);
+        s.setAttribute("data-target", "#sc-resched-mount");
+        s.setAttribute("data-reschedule-token", token);
+        s.setAttribute("data-reschedule-service", info.service || "");
+        if (info.providerId) s.setAttribute("data-reschedule-provider", info.providerId);
+        if (info.durationMin) s.setAttribute("data-reschedule-duration", info.durationMin);
+        if (info.accent) s.setAttribute("data-accent", info.accent);
+        document.body.appendChild(s);
       }
 
-      function doReschedule() {
-        if (!chosen) return;
-        var btn = document.getElementById("confirm"); btn.disabled = true; btn.textContent = "Saving…";
-        api("/api/appt/" + encodeURIComponent(token) + "/reschedule", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dateKey: chosen.date, timeValue: chosen.time }),
-        }).then(function (r) {
-          if (!r.ok) { btn.disabled = false; btn.textContent = "Confirm new time"; alertMsg(r.d && r.d.error || "Couldn’t reschedule."); return; }
-          success("Rescheduled", "You’re now booked for", prettyWhen(chosen.date, chosen.time));
-        }).catch(function () { btn.disabled = false; btn.textContent = "Confirm new time"; alertMsg("Something went wrong."); });
+      function openRescheduler() {
+        var tries = 0;
+        (function go() {
+          if (window.StoreCalWidget && window.StoreCalWidget.reschedule) { window.StoreCalWidget.reschedule(); return; }
+          if (tries++ < 40) { setTimeout(go, 100); return; } // wait for embed.js to load
+          alertMsg("Rescheduling is still loading — please try again in a moment.");
+        })();
       }
 
       function doCancel() {

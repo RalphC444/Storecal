@@ -30,7 +30,7 @@ function shell(title, body) {
   <div style="background:#f4f5f8;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
     <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e6e8ec">
       <div style="padding:22px 28px 18px;border-bottom:1px solid #eef0f3">
-        <img src="https://www.storecal.com/email-logo.png" alt="StoreCal" height="30" style="display:block;border:0;outline:none;text-decoration:none" />
+        <img src="https://www.storecal.com/email-logo.png" alt="StoreCal" width="137" height="30" style="display:block;border:0;outline:none;text-decoration:none;height:30px;width:137px" />
       </div>
       <div style="padding:28px 28px 8px">
         <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 14px">${title}</h1>
@@ -110,6 +110,7 @@ async function sendBookingConfirmation(d) {
   // "call us" line drops to a fallback.
   const manageBlock = d.manageUrl
     ? `<p style="color:#333;font-size:14px;line-height:1.6;margin:0 0 4px">Need to make a change?</p>
+       <p style="color:#9aa0a8;font-size:13px;line-height:1.6;margin:0 0 10px">You can reschedule online up to <b>24 hours</b> before your appointment. Within 24 hours, please call the shop.</p>
        ${button(d.manageUrl, "Reschedule or cancel")}`
     : "";
   const callLine = d.shopPhone

@@ -24,6 +24,19 @@
   var ACCENT = script.getAttribute("data-accent") || "#2563eb";
   if (!STORE_KEY) { console.error("[StoreCal] Missing data-store on embed script."); return; }
 
+  // Reschedule mode: the customer's "manage" page mounts this widget with a
+  // signed appointment token so the same calendar + staff picker used for
+  // booking also drives rescheduling. Present ⇒ no inline trigger renders and the
+  // flow skips the service step (service is fixed) and the details step (the
+  // customer is already known) — it opens via StoreCalWidget.reschedule().
+  var RESCHED = {
+    token: script.getAttribute("data-reschedule-token") || "",
+    service: script.getAttribute("data-reschedule-service") || "",
+    provider: script.getAttribute("data-reschedule-provider") || "",
+    durationMin: parseInt(script.getAttribute("data-reschedule-duration"), 10) || 0,
+  };
+  var rescheduling = false; // set true while a reschedule flow is on-screen
+
   var API = new URL(script.src).origin;
   var api = function (path) { return API + path + (path.indexOf("?") === -1 ? "?" : "&") + "key=" + encodeURIComponent(STORE_KEY); };
 
@@ -189,7 +202,7 @@
   trigger.type = "button";
   trigger.className = "sc-trigger";
   trigger.textContent = script.getAttribute("data-button-text") || "Book Appointment";
-  root.appendChild(trigger);
+  if (!RESCHED.token) root.appendChild(trigger); // reschedule mode has no inline CTA
 
   var overlay = document.createElement("div");
   overlay.className = "sc-overlay";
@@ -204,10 +217,12 @@
   // args (e.g. click events).
   function openModal(opts) {
     var o = opts && typeof opts === "object" ? opts : null;
-    var pre = o && (o.service || o.serviceId || o.serviceName);
-    var provPre = o && (o.provider || o.providerId);
     overlay.classList.add("sc-overlay--open");
     document.body.style.overflow = "hidden"; // lock page scroll behind the modal
+    if (o && o.reschedule) { rescheduling = true; startReschedule(); return; }
+    rescheduling = false;
+    var pre = o && (o.service || o.serviceId || o.serviceName);
+    var provPre = o && (o.provider || o.providerId);
     start(pre || null, provPre || null);
   }
   function closeModal() {
@@ -227,7 +242,10 @@
     qService = params.get("sc_service");
     qProvider = params.get("sc_provider");
   } catch (e) { /* URLSearchParams unsupported → skip deep-link */ }
-  if (qService) {
+  if (RESCHED.token) {
+    // Manage page: never auto-open a booking flow or react to deep-links; the
+    // page opens the reschedule flow explicitly via StoreCalWidget.reschedule().
+  } else if (qService) {
     setTimeout(function () { openModal({ service: qService, provider: qProvider || undefined }); }, 0);
   } else if (script.getAttribute("data-auto")) {
     // Link-in-bio / hosted /book pages set data-auto to open immediately. Skip
@@ -274,6 +292,7 @@
   // Programmatic API for custom sites: StoreCalWidget.book("Service Name" | {service}).
   window.StoreCalWidget = {
     open: function () { if (!booking.active) return callStore(); openModal(); },
+    reschedule: function () { openModal({ reschedule: true }); },
     book: function (arg) { if (!booking.active) return callStore(); openModal(typeof arg === "string" ? { service: arg } : arg); },
   };
 
@@ -444,6 +463,29 @@
     });
   }
 
+  // Reschedule entry (manage page): the service is fixed to the appointment's, so
+  // skip the service step and drop straight into staff → date/time, then a
+  // lightweight confirm (no details form — the customer is already known).
+  function startReschedule() {
+    frame("Loading…", loading());
+    fetch(api("/api/shop-config")).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.error) throw new Error(d.error);
+      cfg = d;
+      booking.active = d.bookingActive !== false;
+      booking.phone = (d.shop && d.shop.phone) || "";
+      // Match the appointment's service in the live config so the staff filter and
+      // slot duration behave exactly like booking; fall back to a stub if it was
+      // renamed or removed since the appointment was made.
+      var svc = (cfg.services || []).filter(function (s) {
+        return s._id === RESCHED.service || (s.name || "").toLowerCase() === RESCHED.service.toLowerCase();
+      })[0] || { _id: null, name: RESCHED.service || "your appointment", durationMin: RESCHED.durationMin || 45 };
+      state.service = svc; state.provider = null; state.assigned = null; state.addons = []; state.date = ""; state.time = "";
+      goAfterService();
+    }).catch(function (e) {
+      frame("", el('<div class="sc__err">Couldn\'t load rescheduling. ' + esc(e.message) + "</div>"));
+    });
+  }
+
   // Combined first step: pick one service and, in the same view, toggle any
   // optional add-ons. A single docked "Continue" CTA advances to staff.
   function chooseService() {
@@ -551,7 +593,7 @@
       cards.push({ p: p, card: b });
     });
     body.appendChild(list);
-    frame("Team member", body, { onBack: chooseService });
+    frame("Team member", body, { onBack: rescheduling ? null : chooseService });
 
     // Enhance each card with a photo preview once galleries load — the owner
     // shows the shop gallery, everyone else shows their own. The strip is a
@@ -585,7 +627,7 @@
     panes.appendChild(calPane); panes.appendChild(timePane);
     body.appendChild(panes);
     body.appendChild(el('<div class="sc__tz">Times are the shop’s local time.</div>'));
-    frame("Date & time", body, { onBack: showsTeamStep() ? chooseProvider : chooseService });
+    frame("Date & time", body, { onBack: showsTeamStep() ? chooseProvider : (rescheduling ? null : chooseService) });
     wrap.classList.add("sc--wide");
 
     // Which A/B week a date falls in for a biweekly schedule (mirrors the admin's
@@ -749,7 +791,7 @@
               } else {
                 state.assigned = { _id: state.provider._id, name: state.provider.name };
               }
-              contact();
+              if (rescheduling) confirmReschedule(); else contact();
             };
             listWrap.appendChild(b);
           });
@@ -937,6 +979,56 @@
     actions.appendChild(cal);
     body.appendChild(actions);
     frame("Confirmed", body);
+  }
+
+  // Reschedule confirm: a summary of the new slot + a one-tap confirm that posts
+  // to the token-scoped manage endpoint (no name/phone/email — already on file).
+  function withStaff(prov) {
+    return (cfg.shop.businessType === "auto" || !prov || prov._id === "any") ? "" : " with <b>" + esc(prov.name) + "</b>";
+  }
+  function confirmReschedule() {
+    var prov = state.assigned || state.provider;
+    var body = document.createElement("div");
+    body.appendChild(el(
+      '<div class="sc__summary">Move <b>' + esc(state.service.name) + "</b>" + withStaff(prov) +
+      " to<br>" + esc(fmtDate(state.date)) + " at <b>" + esc(fmtTime(state.time)) + "</b></div>"
+    ));
+    var btn = el('<button class="sc__btn">Confirm new time</button>');
+    var err = el('<div class="sc__err" style="display:none"></div>');
+    btn.onclick = function () {
+      btn.disabled = true; btn.textContent = "Saving…"; err.style.display = "none";
+      fetch(API + "/api/appt/" + encodeURIComponent(RESCHED.token) + "/reschedule", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateKey: state.date, timeValue: state.time, providerId: (state.assigned || state.provider)._id }),
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.d.error || "Could not reschedule");
+          rescheduleDone();
+        })
+        .catch(function (e) {
+          btn.disabled = false; btn.textContent = "Confirm new time";
+          err.textContent = e.message; err.style.display = "block";
+        });
+    };
+    body.appendChild(btn); body.appendChild(err);
+    frame("Confirm", body, { onBack: chooseWhen });
+  }
+
+  function rescheduleDone() {
+    var prov = state.assigned || state.provider;
+    var withPart = withStaff(prov).replace(/<\/?b>/g, "");
+    var body = el(
+      '<div class="sc__done"><div class="sc__check">✓</div>' +
+      '<div class="sc__done-t">You\'re rescheduled!</div>' +
+      '<div class="sc__done-s">' + esc(state.service.name) + withPart + "<br>" +
+      esc(fmtDate(state.date)) + " at " + esc(fmtTime(state.time)) + "</div></div>"
+    );
+    var actions = el('<div class="sc__done-actions"></div>');
+    var doneBtn = el('<button class="sc__btn">Done</button>');
+    doneBtn.onclick = function () { window.location.reload(); };
+    actions.appendChild(doneBtn);
+    body.appendChild(actions);
+    frame("Rescheduled", body);
   }
 
   // Build + download an .ics file for the booked appointment (works with Apple

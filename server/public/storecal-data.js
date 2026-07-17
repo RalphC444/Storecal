@@ -152,6 +152,10 @@
     });
   }
   function renderStaff(data) {
+    // Initials avatars are tinted with the shop's accent (the branding upgrade
+    // color) so the team section matches the rest of the page; photos are left as-is.
+    var accent = detectAccent();
+    var tint = "color-mix(in srgb, " + accent + " 14%, #fff)";
     document.querySelectorAll('[data-storecal="staff"]').forEach(function (host) {
       if (data.showStaff === false) { host.style.display = "none"; return; }
       host.style.display = "";
@@ -159,7 +163,7 @@
       host.innerHTML = (data.providers || []).map(function (p) {
         var av = p.photo
           ? '<span class="scd-person__av" style="background-image:url(' + p.photo + ');background-size:cover;background-position:center"></span>'
-          : '<span class="scd-person__av">' + esc((p.name || "?").slice(0, 1).toUpperCase()) + "</span>";
+          : '<span class="scd-person__av" style="background:' + tint + ';color:' + accent + '">' + esc((p.name || "?").slice(0, 1).toUpperCase()) + "</span>";
         return '<div class="scd-person">' + av +
           '<div><div class="scd-person__name">' + esc(p.name) + "</div>" +
           (p.bio ? '<div class="scd-person__bio">' + esc(p.bio) + "</div>" : "") + "</div></div>";
