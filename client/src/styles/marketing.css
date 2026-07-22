@@ -103,7 +103,7 @@
   background: var(--m-peri); transition: width .3s var(--m-ease);
 }
 .marketing__link:hover::after { width: 100%; }
-.marketing__navtoggle { display: none; flex-direction: column; gap: 5px; background: none; border: 0; cursor: pointer; padding: 6px; }
+.marketing__navtoggle { display: none; flex-direction: column; gap: 0.3125rem; background: none; border: 0; cursor: pointer; padding: 0.375rem; }
 .marketing__navtoggle span { width: 25px; height: 2px; background: var(--m-navy); border-radius: 2px; transition: .3s; }
 .marketing__navtoggle[aria-expanded="true"] span:first-child { transform: translateY(7px) rotate(45deg); }
 .marketing__navtoggle[aria-expanded="true"] span:last-child { transform: translateY(-7px) rotate(-45deg); }
@@ -168,11 +168,11 @@
   transform: rotate(2deg); transition: transform .5s var(--m-ease);
 }
 .marketing__herovisual:hover .marketing__mock { transform: rotate(0deg); }
-.marketing__mock-head { display: flex; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--m-line); background: var(--m-cream); }
+.marketing__mock-head { display: flex; gap: 0.375rem; padding: 0.75rem 0.875rem; border-bottom: 1px solid var(--m-line); background: var(--m-cream); }
 .marketing__mock-dot { width: 9px; height: 9px; border-radius: 50%; background: #cdd0e6; }
-.marketing__mock-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px; height: 230px; }
+.marketing__mock-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; padding: 0.875rem; height: 230px; }
 .marketing__mock-col { position: relative; background: var(--m-cream); border-radius: 9px; }
-.marketing__mock-col span { position: absolute; top: 7px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--m-muted); font-weight: 700; }
+.marketing__mock-col span { position: absolute; top: 7px; left: 0; right: 0; text-align: center; font-size: 0.625rem; color: var(--m-muted); font-weight: 700; }
 .marketing__mock-evt { position: absolute; left: 5px; right: 5px; border-radius: 6px; background: var(--m-peri); opacity: .9; }
 .marketing__mock-evt--b { background: #10b981; opacity: .85; }
 .marketing__badge {
@@ -266,7 +266,7 @@
   box-shadow: 0 40px 90px -40px rgba(0, 13, 110, .45); position: relative; z-index: 1;
 }
 .marketing__browser-bar { display: flex; align-items: center; gap: .8rem; padding: .7rem 1rem; background: var(--m-cream); border-bottom: 1px solid var(--m-line); }
-.marketing__browser-dots { display: inline-flex; gap: 6px; flex: none; }
+.marketing__browser-dots { display: inline-flex; gap: 0.375rem; flex: none; }
 .marketing__browser-dots i { width: 11px; height: 11px; border-radius: 50%; background: #cdd0e6; }
 .marketing__browser-url { flex: 1; text-align: center; font-size: .8rem; font-weight: 600; color: var(--m-muted); background: #fff; border: 1px solid var(--m-line); border-radius: 100px; padding: .35rem .9rem; max-width: 320px; margin: 0 auto; }
 .marketing__demo-frame { width: 100%; height: 640px; border: 0; display: block; background: #f7f7fd; }
@@ -395,13 +395,13 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    PUBLIC POLICY PAGES (Terms / Refund & Cancellation / Privacy)
    ═══════════════════════════════════════════════════════════════════════════ */
-.legal { max-width: 760px; margin: 0 auto; padding: 24px; }
-.legal__nav { padding: 8px 0 16px; }
-.legal__back { color: var(--accent); font-size: 14px; }
-.legal__title { font-size: 30px; font-weight: 800; letter-spacing: -0.01em; margin: 8px 0 6px; }
-.legal__meta { font-size: 14px; color: var(--ink-2); line-height: 1.6; margin: 0 0 28px; }
-.legal__sec { padding: 22px 0; border-top: 1px solid var(--line); }
-.legal__sec h2 { font-size: 22px; font-weight: 700; margin: 0 0 12px; }
-.legal__sec h3 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; }
-.legal__sec p { font-size: 15px; line-height: 1.65; color: var(--ink-2); margin: 0 0 12px; }
+.legal { max-width: 760px; margin: 0 auto; padding: 1.5rem; }
+.legal__nav { padding: 0.5rem 0 1rem; }
+.legal__back { color: var(--accent); font-size: 0.875rem; }
+.legal__title { font-size: 1.875rem; font-weight: 800; letter-spacing: -0.01em; margin: 0.5rem 0 0.375rem; }
+.legal__meta { font-size: 0.875rem; color: var(--ink-2); line-height: 1.6; margin: 0 0 1.75rem; }
+.legal__sec { padding: 1.375rem 0; border-top: 1px solid var(--line); }
+.legal__sec h2 { font-size: 1.375rem; font-weight: 700; margin: 0 0 0.75rem; }
+.legal__sec h3 { font-size: 1rem; font-weight: 700; margin: 1.125rem 0 0.5rem; }
+.legal__sec p { font-size: 0.9375rem; line-height: 1.65; color: var(--ink-2); margin: 0 0 0.75rem; }
 .legal__sec a { color: var(--accent); }
