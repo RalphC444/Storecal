@@ -86,6 +86,13 @@ const ActBadge = ({ on }) => (
 const bookingTrialText = (s) => (s.bookingTrial && !s.bookingTrialEnded)
   ? `Free until ${s.bookingTrialLimit ?? 3} bookings (${s.bookingTrialUsed || 0}/${s.bookingTrialLimit ?? 3})`
   : null;
+// Add-on state (branding / AI chatbot): derived from live Stripe "active" (paid
+// line item present) + the comp grant. charged > free > off.
+const addonState = (active, comped) => active ? "charged" : comped ? "free" : "off";
+const addonStatusText = (state, priceCents) =>
+  state === "charged" ? `On — the client is charged ${fmtMoneyCents(priceCents)}/mo for it.`
+  : state === "free" ? "On — comped (no charge)."
+  : "Off — not available to this client.";
 
 export function AdminConsole({ user, onSignOut }) {
   const [shops, setShops] = useState(null);
@@ -133,6 +140,18 @@ export function AdminConsole({ user, onSignOut }) {
     else setErr(d.error || "Could not update the comp");
   }
 
+  // Operator sets an add-on's state (off / free / charged) for a shop.
+  async function setAddon(id, addon, state) {
+    setSavingId(id); setErr("");
+    const res = await fetch(`/api/admin/shops/${id}/addon`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addon, state }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setSavingId(null);
+    if (res.ok) { toast("Add-on updated"); load(); }
+    else setErr(d.error || "Could not update the add-on");
+  }
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const selected = shops && shops.find(s => s._id === selectedId);
 
@@ -156,6 +175,7 @@ export function AdminConsole({ user, onSignOut }) {
               shop={selected} origin={origin} saving={savingId === selected._id}
               onPatch={(body, label) => patch(selected._id, body, label)}
               onFreeMonth={(months) => freeMonth(selected._id, months)}
+              onAddon={(addon, state) => setAddon(selected._id, addon, state)}
               onDelete={() => setDelShop(selected)}
               onBack={() => setSelectedId(null)}
             />
@@ -268,7 +288,7 @@ const ADMIN_SECTIONS = [
   { id: "install", label: "Links & embed", icon: "globe" },
 ];
 
-function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDelete, onBack }) {
+function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onAddon, onDelete, onBack }) {
   const [phone, setPhone] = useState(s.phone || "");
   const [website, setWebsite] = useState(s.website || "");
   const [copied, setCopied] = useState("");
@@ -429,15 +449,14 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                   onChange={e => setBrandPrice(e.target.value)}
                   onBlur={() => { const v = Number(brandPrice); if (Number.isFinite(v) && v >= 0 && Math.round(v * 100) !== (s.brandingAddonPrice ?? 500)) onPatch({ brandingAddonPrice: v }, "Branding price updated"); }} />
               </label>
-              <div className="clientdetail__toggles" style={{ marginTop: 12 }}>
-                <Toggle checked={!!s.brandingAddonComp} disabled={saving} label="Include free (comp — no charge)"
-                  onChange={v => onPatch({ brandingAddonComp: v }, v ? "Branding comped" : "Branding comp removed")} />
-              </div>
-              <p className="panel__hint" style={{ marginTop: 8 }}>{s.brandingAddonComp
-                ? "Included free for this client — branding is unlocked at no charge."
-                : s.brandingActive
-                ? `Unlocked — the client is paying ${fmtMoneyCents(s.brandingAddonPrice ?? 500)}/mo for it.`
-                : "Locked — the owner can unlock it themselves from their Website settings."}</p>
+              <label className="field" style={{ marginTop: 12 }}><span className="field__label">Status</span>
+                <select value={addonState(s.brandingActive, s.brandingAddonComp)} disabled={saving} onChange={e => onAddon("branding", e.target.value)}>
+                  <option value="off">Off</option>
+                  <option value="free">On — Free (comped)</option>
+                  <option value="charged">On — Charged ({fmtMoneyCents(s.brandingAddonPrice ?? 500)}/mo)</option>
+                </select>
+              </label>
+              <p className="panel__hint" style={{ marginTop: 8 }}>{addonStatusText(addonState(s.brandingActive, s.brandingAddonComp), s.brandingAddonPrice ?? 500)}</p>
             </AdCard>
 
             <AdCard title="AI chatbot add-on" desc="Owners add an AI chat assistant for this monthly add-on, charged on top of their plan. (The chatbot rendering ships later; this controls billing + access.)">
@@ -446,15 +465,14 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                   onChange={e => setAiPrice(e.target.value)}
                   onBlur={() => { const v = Number(aiPrice); if (Number.isFinite(v) && v >= 0 && Math.round(v * 100) !== (s.aiChatAddonPrice ?? 799)) onPatch({ aiChatAddonPrice: v }, "AI chatbot price updated"); }} />
               </label>
-              <div className="clientdetail__toggles" style={{ marginTop: 12 }}>
-                <Toggle checked={!!s.aiChatAddonComp} disabled={saving} label="Include free (comp — no charge)"
-                  onChange={v => onPatch({ aiChatAddonComp: v }, v ? "AI chatbot comped" : "AI chatbot comp removed")} />
-              </div>
-              <p className="panel__hint" style={{ marginTop: 8 }}>{s.aiChatAddonComp
-                ? "Included free for this client — the AI chatbot is unlocked at no charge."
-                : s.aiChatActive
-                ? `Unlocked — the client is paying ${fmtMoneyCents(s.aiChatAddonPrice ?? 799)}/mo for it.`
-                : "Locked — the owner can unlock it themselves once the feature ships."}</p>
+              <label className="field" style={{ marginTop: 12 }}><span className="field__label">Status</span>
+                <select value={addonState(s.aiChatActive, s.aiChatAddonComp)} disabled={saving} onChange={e => onAddon("aichat", e.target.value)}>
+                  <option value="off">Off</option>
+                  <option value="free">On — Free (comped)</option>
+                  <option value="charged">On — Charged ({fmtMoneyCents(s.aiChatAddonPrice ?? 799)}/mo)</option>
+                </select>
+              </label>
+              <p className="panel__hint" style={{ marginTop: 8 }}>{addonStatusText(addonState(s.aiChatActive, s.aiChatAddonComp), s.aiChatAddonPrice ?? 799)}</p>
             </AdCard>
 
             <AdCard title="Free until N bookings (trial)" desc="An alternative to the 30-day free month: the client pays nothing until they take N real customer bookings — the card is still captured up front, and billing starts automatically on the Nth booking. Takes precedence over “First month free” at checkout.">

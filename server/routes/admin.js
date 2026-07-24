@@ -5,6 +5,7 @@ const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
 const { requireAuth, requireSuperAdmin, hashPassword } = require("../lib/auth");
 const { generatePublicKey } = require("../lib/shopScope");
+const { ADDONS, applyAddonState } = require("../lib/addons");
 
 const router = Router();
 const PLAN_IDS = ["booking", "website", "booking-reduced"];
@@ -395,6 +396,24 @@ router.post("/shops/:id/free-month", async (req, res) => {
     res.json({ success: true, freeMonths: info.freeMonths, freeMonthActive: info.freeMonthActive, renewsAt: info.renewsAt, freeResumesAt: info.freeResumesAt });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/shops/:id/addon — operator sets an add-on's state for a shop.
+// Body: { addon: "branding"|"aichat", state: "off"|"free"|"charged" }. Adds/removes
+// the paid Stripe line item as needed; "charged" needs an active subscription.
+router.post("/shops/:id/addon", async (req, res) => {
+  try {
+    const { addon, state } = req.body;
+    if (!ADDONS[addon]) return res.status(400).json({ error: "Unknown add-on" });
+    const db = await getDb();
+    let _id; try { _id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: "Bad id" }); }
+    const shop = await db.collection("shops").findOne({ _id });
+    if (!shop) return res.status(404).json({ error: "Shop not found" });
+    await applyAddonState(stripeClient(), db, shop, addon, state);
+    res.json({ success: true, state });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
