@@ -121,7 +121,7 @@
           html += '<button class="linkish" id="cancelBtn">Cancel this appointment</button>';
         }
         if (!info.canReschedule && !info.withinCutoff && !info.canCancel) {
-          html += '<p class="note">This appointment has already taken place. To book again, ' + callLine() + '</p>';
+          html += '<p class="note">This appointment has already taken place or you are within the 24 hr time frame and cannot reschedule. To book again, ' + callLine() + '</p>';
         }
         show(html);
         wire();

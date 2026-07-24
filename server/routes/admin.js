@@ -27,7 +27,10 @@ function stripeClient() {
 // month is a `duration: once` coupon (waives the next invoice only); N months is
 // a `duration: repeating, duration_in_months: N`. Coupons are reused by a fixed
 // id per length so we never pile up duplicates in Stripe.
-const MAX_FREE_MONTHS = 6;
+const MAX_FREE_MONTHS = 12; // up to a full year comp
+// The plan line item = the one WITHOUT an addon tag. Comps apply here only, so
+// add-ons (branding, AI chatbot) keep billing during a free period.
+const planItemOf = (sub) => (sub?.items?.data || []).find((i) => !(i && i.metadata && i.metadata.addon)) || (sub?.items?.data || [])[0] || null;
 function freeMonthCouponId(months) { return months <= 1 ? "storecal-free-1mo" : `storecal-free-${months}mo`; }
 async function ensureFreeCoupon(stripe, months) {
   const id = freeMonthCouponId(months);
@@ -61,8 +64,12 @@ function freeMonthsFromCouponId(id) {
 }
 // How many whole months of free comp are on a subscription (0 = none).
 function freeDiscountOf(sub) {
-  const ds = Array.isArray(sub?.discounts) ? sub.discounts : (sub?.discount ? [sub.discount] : []);
-  for (const d of ds) {
+  const item = planItemOf(sub);
+  const lists = [
+    Array.isArray(item?.discounts) ? item.discounts : [],
+    Array.isArray(sub?.discounts) ? sub.discounts : (sub?.discount ? [sub.discount] : []),
+  ];
+  for (const ds of lists) for (const d of ds) {
     const months = freeMonthsFromCouponId(couponIdOfDiscount(d));
     if (months) return { months };
   }
@@ -86,9 +93,9 @@ function addMonths(ms, n) {
 
 // Live subscription status, renewal date, payments made, and comp state.
 async function subInfo(stripe, customerId) {
-  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false, freeMonths: 0, freeResumesAt: null, brandingActive: false };
+  const empty = { subscribed: false, renewsAt: null, status: null, paymentsCompleted: 0, freeMonthActive: false, freeMonths: 0, freeResumesAt: null, brandingActive: false, aiChatActive: false };
   try {
-    const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5, expand: ["data.discounts"] });
+    const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 5, expand: ["data.discounts", "data.items.data.discounts"] });
     const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
     if (!active) return empty;
     // Count real payments (paid invoices with a non-zero amount — a comped $0
@@ -102,6 +109,7 @@ async function subInfo(stripe, customerId) {
     const free = freeDiscountOf(active);
     const freeMonths = free ? free.months : 0;
     const brandingActive = !!(active.items?.data || []).find((i) => i && i.metadata && i.metadata.addon === "branding");
+    const aiChatActive = !!(active.items?.data || []).find((i) => i && i.metadata && i.metadata.addon === "aichat");
     return {
       subscribed: true,
       status: active.status,
@@ -113,6 +121,7 @@ async function subInfo(stripe, customerId) {
       // it resumes renewsAt + freeMonths months (null for a "forever" comp).
       freeResumesAt: freeMonths > 0 ? addMonths(renewsAt, freeMonths) : null,
       brandingActive,
+      aiChatActive,
     };
   } catch { return empty; }
 }
@@ -247,6 +256,10 @@ router.get("/shops", async (_req, res) => {
         brandingAddonPrice: Number.isInteger(s.brandingAddonPrice) ? s.brandingAddonPrice : 500,
         brandingAddonComp: s.brandingAddonComp === true,
         brandingActive: sub ? sub.brandingActive : false,
+        // AI-chatbot add-on ($7.99/mo default).
+        aiChatAddonPrice: Number.isInteger(s.aiChatAddonPrice) ? s.aiChatAddonPrice : 799,
+        aiChatAddonComp: s.aiChatAddonComp === true,
+        aiChatActive: sub ? sub.aiChatActive : false,
         promptBilling: s.promptBilling === true,
         ownerEmail: ownerBy[id] || "",
         phone: s.phone || "",
@@ -309,6 +322,16 @@ router.patch("/shops/:id", async (req, res) => {
       set.brandingAddonComp = !!req.body.brandingAddonComp;
       set.brandingAddon = !!req.body.brandingAddonComp; // comp grants access immediately
     }
+    // AI-chatbot add-on price (dollars → cents) + comp grant.
+    if (req.body.aiChatAddonPrice !== undefined) {
+      const dollars = Number(req.body.aiChatAddonPrice);
+      if (!Number.isFinite(dollars) || dollars < 0 || dollars > 100) return res.status(400).json({ error: "AI chatbot price must be $0–$100" });
+      set.aiChatAddonPrice = Math.round(dollars * 100);
+    }
+    if (req.body.aiChatAddonComp !== undefined) {
+      set.aiChatAddonComp = !!req.body.aiChatAddonComp;
+      set.aiChatAddon = !!req.body.aiChatAddonComp; // comp grants access immediately
+    }
     if (req.body.showStaff !== undefined) set.showStaff = !!req.body.showStaff;
     if (req.body.showGallery !== undefined) set.showGallery = !!req.body.showGallery;
     if (req.body.showStaffGalleries !== undefined) set.showStaffGalleries = !!req.body.showStaffGalleries;
@@ -354,13 +377,18 @@ router.post("/shops/:id/free-month", async (req, res) => {
     const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
     if (!active) return res.status(400).json({ error: "This client has no active subscription to comp." });
 
+    // Apply the comp to the PLAN line item only, so add-ons (branding, AI chatbot)
+    // keep being charged during the free period.
+    const planItem = planItemOf(active);
+    if (!planItem) return res.status(400).json({ error: "No plan line item to comp." });
     if (months === 0) {
-      await stripe.subscriptions.update(active.id, { discounts: [] }); // clear any comp
+      await stripe.subscriptionItems.update(planItem.id, { discounts: "" }); // clear item comp
     } else {
       const coupon = await ensureFreeCoupon(stripe, months);
-      // Replacing discounts each time keeps exactly one comp on the sub.
-      await stripe.subscriptions.update(active.id, { discounts: [{ coupon: coupon.id }] });
+      await stripe.subscriptionItems.update(planItem.id, { discounts: [{ coupon: coupon.id }] });
     }
+    // Drop any legacy subscription-wide comp (it would also waive add-ons).
+    await stripe.subscriptions.update(active.id, { discounts: [] }).catch(() => {});
 
     // Read back the live state so the UI reflects Stripe, not our assumption.
     const info = await subInfo(stripe, shop.stripeCustomerId);

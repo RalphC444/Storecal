@@ -41,8 +41,7 @@ I'm {sender_name} with {sender_company} — I set up simple online booking for s
 
 It's a friendlier, lower-cost alternative to Square, Booksy, or Phorest — most shops are taking bookings the same day, and the first month is free.
 
-Worth a 10-minute look? You can see it live here: {cta_link}
-Or just reply and I'll send a booking page set up for {business_name}.`,
+Worth a quick look? Just reply and I'll send over a booking page set up for {business_name} so you can try it.`,
     },
     2: {
       subject: "Quick follow-up — {business_name}",
@@ -70,7 +69,7 @@ I'm {sender_name} with {sender_company}. I help nail salons in {city} take appoi
 
 Simpler and cheaper than Square or Booksy, first month free, and I can have your booking page live today.
 
-Want me to send you one to try? See a live example here: {cta_link}`,
+Want me to set one up for {business_name} so you can try it? Just reply and I'll send it over.`,
     },
     2: {
       subject: "Following up — online booking for {business_name}",
@@ -98,8 +97,7 @@ I'm {sender_name} with {sender_company}. I set up online appointment booking for
 
 Quick to set up, first month free, and cheaper than the big scheduling tools.
 
-Open to a quick look? Here's a live demo: {cta_link}
-Or reply and I'll get one set up for {business_name}.`,
+Open to a quick look? Just reply and I'll get one set up for {business_name} to try.`,
     },
     2: {
       subject: "Following up — {business_name}",
@@ -107,7 +105,7 @@ Or reply and I'll get one set up for {business_name}.`,
 
 Circling back. The idea: customers request a time for {business_name} from your website, it drops onto one calendar, and the phone rings a lot less. Quick to set up, first month free, cheaper than the big scheduling tools.
 
-Want a quick look? Here's a live demo: {cta_link}`,
+Want a quick look? Just reply and I'll set one up for {business_name}.`,
     },
     3: {
       subject: "Last note — {business_name}",

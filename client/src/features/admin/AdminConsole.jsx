@@ -274,6 +274,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
   const [copied, setCopied] = useState("");
   const [active, setActive] = useState("overview");
   const [brandPrice, setBrandPrice] = useState((((s.brandingAddonPrice ?? 500)) / 100).toString());
+  const [aiPrice, setAiPrice] = useState((((s.aiChatAddonPrice ?? 799)) / 100).toString());
   const [trialLimit, setTrialLimit] = useState(String(s.bookingTrialLimit ?? 3));
 
   const bookingUrl = `${origin}/book/${s.slug}`;
@@ -386,14 +387,17 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                   <div className="clientdetail__stat"><span className="clientdetail__stat-l">Payments made</span><span className="clientdetail__stat-v">{s.paymentsCompleted}</span></div>
                 </div>
 
-                <label className="field" style={{ marginTop: 16 }}><span className="field__label">Free months</span>
+                <label className="field" style={{ marginTop: 16 }}><span className="field__label">Free months (plan only)</span>
                   <select value={s.freeMonths || 0} disabled={saving} onChange={e => onFreeMonth(Number(e.target.value))}>
                     <option value={0}>None — bill normally</option>
                     <option value={1}>1 free month</option>
                     <option value={2}>2 free months</option>
                     <option value={3}>3 free months</option>
+                    <option value={6}>6 free months</option>
+                    <option value={12}>12 free months (1 year)</option>
                   </select>
                 </label>
+                <p className="panel__hint" style={{ marginTop: 6 }}>Comps the monthly plan only — any add-ons (branding, AI chatbot) keep billing.</p>
 
                 {s.freeMonths > 0 ? (
                   <div className="acd__comp">
@@ -434,6 +438,23 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 : s.brandingActive
                 ? `Unlocked — the client is paying ${fmtMoneyCents(s.brandingAddonPrice ?? 500)}/mo for it.`
                 : "Locked — the owner can unlock it themselves from their Website settings."}</p>
+            </AdCard>
+
+            <AdCard title="AI chatbot add-on" desc="Owners add an AI chat assistant for this monthly add-on, charged on top of their plan. (The chatbot rendering ships later; this controls billing + access.)">
+              <label className="field"><span className="field__label">Add-on price ($ / month)</span>
+                <input type="number" min="0" max="100" step="0.01" value={aiPrice}
+                  onChange={e => setAiPrice(e.target.value)}
+                  onBlur={() => { const v = Number(aiPrice); if (Number.isFinite(v) && v >= 0 && Math.round(v * 100) !== (s.aiChatAddonPrice ?? 799)) onPatch({ aiChatAddonPrice: v }, "AI chatbot price updated"); }} />
+              </label>
+              <div className="clientdetail__toggles" style={{ marginTop: 12 }}>
+                <Toggle checked={!!s.aiChatAddonComp} disabled={saving} label="Include free (comp — no charge)"
+                  onChange={v => onPatch({ aiChatAddonComp: v }, v ? "AI chatbot comped" : "AI chatbot comp removed")} />
+              </div>
+              <p className="panel__hint" style={{ marginTop: 8 }}>{s.aiChatAddonComp
+                ? "Included free for this client — the AI chatbot is unlocked at no charge."
+                : s.aiChatActive
+                ? `Unlocked — the client is paying ${fmtMoneyCents(s.aiChatAddonPrice ?? 799)}/mo for it.`
+                : "Locked — the owner can unlock it themselves once the feature ships."}</p>
             </AdCard>
 
             <AdCard title="Free until N bookings (trial)" desc="An alternative to the 30-day free month: the client pays nothing until they take N real customer bookings — the card is still captured up front, and billing starts automatically on the Nth booking. Takes precedence over “First month free” at checkout.">

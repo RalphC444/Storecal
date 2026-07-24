@@ -48,6 +48,34 @@ async function ensureBrandingPrice(stripe, cents) {
 // The branding line item on a subscription, if present.
 const brandingItemOf = (sub) => (sub?.items?.data || []).find((i) => i && i.metadata && i.metadata.addon === "branding") || null;
 
+// ── AI chatbot add-on ─────────────────────────────────────────────────────────
+// Same mechanism as custom branding: a recurring line item on top of the plan,
+// tagged metadata.addon="aichat". The chatbot rendering/integration ships later;
+// this is the billing + unlock plumbing so it can be priced, sold, and turned on
+// now. Owners gate the future feature on the `aiChatUnlocked` flag.
+const AICHAT_DEFAULT_CENTS = 799; // $7.99/mo
+const AICHAT_PRODUCT_ID = "storecal-aichat";
+const aiChatPriceOf = (shop) => Number.isInteger(shop?.aiChatAddonPrice) ? shop.aiChatAddonPrice : AICHAT_DEFAULT_CENTS;
+async function ensureAiChatPrice(stripe, cents) {
+  try { await stripe.products.retrieve(AICHAT_PRODUCT_ID); }
+  catch (e) {
+    if (e && e.code === "resource_missing") await stripe.products.create({ id: AICHAT_PRODUCT_ID, name: "StoreCal AI Chatbot" });
+    else throw e;
+  }
+  const key = `storecal-aichat-${cents}`;
+  const found = await stripe.prices.list({ lookup_keys: [key], limit: 1 });
+  if (found.data[0]) return found.data[0].id;
+  const price = await stripe.prices.create({
+    product: AICHAT_PRODUCT_ID, unit_amount: cents, currency: "usd",
+    recurring: { interval: "month" }, lookup_key: key,
+  });
+  return price.id;
+}
+const aiChatItemOf = (sub) => (sub?.items?.data || []).find((i) => i && i.metadata && i.metadata.addon === "aichat") || null;
+// The plan line item = the one WITHOUT an addon tag (add-ons carry metadata.addon).
+// Comps apply to THIS item only, so add-ons keep billing during a free period.
+const planItemOf = (sub) => (sub?.items?.data || []).find((i) => !(i && i.metadata && i.metadata.addon)) || (sub?.items?.data || [])[0] || null;
+
 // Ensure the shop has a Stripe customer, creating one on first use. If the
 // stored id doesn't exist in the current Stripe mode (e.g. after switching from
 // test to live keys — customers are mode-specific), create a fresh one.
@@ -78,11 +106,11 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
     // Ask Stripe directly whether this shop has an active subscription (no
     // webhooks needed). Determines whether the "subscribe to enable booking"
     // prompt shows and whether online booking is turned on.
-    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, freeMonths = 0, freeResumesAt = null, trialing = false, brandingActive = false;
+    let subscribed = false, planId = null, status = null, renewsAt = null, freeMonthActive = false, freeMonths = 0, freeResumesAt = null, trialing = false, brandingActive = false, aiChatActive = false;
     const stripe = stripeClient();
     if (stripe && shop?.stripeCustomerId) {
       try {
-        const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5, expand: ["data.discounts"] });
+        const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5, expand: ["data.discounts", "data.items.data.discounts"] });
         const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
         if (active) {
           subscribed = true;
@@ -90,6 +118,7 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
           planId = active.metadata?.planId || null;
           trialing = active.status === "trialing";
           brandingActive = !!brandingItemOf(active); // paid custom-branding add-on on the sub
+          aiChatActive = !!aiChatItemOf(active); // paid AI-chatbot add-on on the sub
           // Renewal date: recent Stripe API versions keep current_period_end on
           // the subscription item, not the subscription itself.
           const item = active.items?.data?.[0];
@@ -98,7 +127,12 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
           // Free-month comp: our coupons carry deterministic ids (storecal-free-<N>mo).
           // In 2026-06-24.dahlia the coupon id lives at discount.source.coupon;
           // older versions use discount.coupon — handle both.
-          const ds = Array.isArray(active.discounts) ? active.discounts : (active.discount ? [active.discount] : []);
+          // Comps live on the plan item now; still read sub-level for back-compat.
+          const planItem = planItemOf(active);
+          const ds = [].concat(
+            Array.isArray(planItem?.discounts) ? planItem.discounts : [],
+            Array.isArray(active.discounts) ? active.discounts : (active.discount ? [active.discount] : [])
+          );
           for (const d of ds) {
             const cid = d && typeof d === "object"
               ? ((d.source && d.source.type === "coupon" && d.source.coupon) || d.coupon)
@@ -118,7 +152,8 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       // Stripe call: `subscribed` (booking CTAs) and `brandingAddon` (whether the
       // hosted page applies the custom logo/color).
       const brandingUnlocked = brandingActive || shop?.brandingAddonComp === true;
-      try { await db.collection("shops").updateOne({ _id: shop._id }, { $set: { subscribed, brandingAddon: brandingUnlocked } }); } catch { /* non-fatal */ }
+      const aiChatUnlockedCache = aiChatActive || shop?.aiChatAddonComp === true;
+      try { await db.collection("shops").updateOne({ _id: shop._id }, { $set: { subscribed, brandingAddon: brandingUnlocked, aiChatAddon: aiChatUnlockedCache } }); } catch { /* non-fatal */ }
     }
 
     // The plan the operator assigned this shop (set via set-plan.js); the
@@ -128,6 +163,9 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
     // Custom-branding add-on state for the owner's Settings gate.
     const brandingComped = shop?.brandingAddonComp === true;
     const brandingPrice = brandingPriceOf(shop);
+    // AI-chatbot add-on state (same gate pattern).
+    const aiChatComped = shop?.aiChatAddonComp === true;
+    const aiChatPrice = aiChatPriceOf(shop);
 
     res.json({
       subscribed,
@@ -151,6 +189,11 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       brandingActive,                                  // paid add-on is on their subscription
       brandingComped,                                  // operator granted it free
       brandingUnlocked: brandingActive || brandingComped, // controls unlocked either way
+      // AI-chatbot add-on ($7.99/mo). `aiChatUnlocked` gates the future feature.
+      aiChatPrice,
+      aiChatActive,
+      aiChatComped,
+      aiChatUnlocked: aiChatActive || aiChatComped,
       freeForLife: shop?.freeForLife === true, // comped account → hide all billing UI
       // Demo-mode accounts (operator "Booking access → Demo") aren't nagged to
       // subscribe — booking is already on and they're not a paying customer yet.
@@ -280,6 +323,45 @@ router.post("/branding", requireAuth, requireOwner, async (req, res) => {
     }
     await db.collection("shops").updateOne({ _id: shop._id }, { $set: { brandingAddon: on } });
     res.json({ success: true, brandingUnlocked: on, brandingActive: on });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/billing/aichat — owner unlocks (or removes) the AI-chatbot add-on.
+// Body: { on }. Mirrors /branding: adds/removes a recurring line item on the live
+// subscription at the shop's configured price, on top of the plan.
+router.post("/aichat", requireAuth, requireOwner, async (req, res) => {
+  const stripe = stripeClient();
+  if (!stripe) return res.status(400).json({ error: "Billing isn't connected yet." });
+  try {
+    const db = await getDb();
+    const shop = await db.collection("shops").findOne({ _id: new ObjectId(req.auth.shopId) });
+    if (!shop) return res.status(404).json({ error: "Shop not found" });
+    const on = req.body.on !== false;
+
+    // Comped shops don't get charged — just flip the access flag.
+    if (shop.aiChatAddonComp === true) {
+      await db.collection("shops").updateOne({ _id: shop._id }, { $set: { aiChatAddon: on } });
+      return res.json({ success: true, aiChatUnlocked: on, aiChatActive: false });
+    }
+
+    if (!shop.stripeCustomerId) return res.status(400).json({ error: "Start your subscription first, then add the AI chatbot." });
+    const subs = await stripe.subscriptions.list({ customer: shop.stripeCustomerId, status: "all", limit: 5 });
+    const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(s.status));
+    if (!active) return res.status(400).json({ error: "You need an active subscription before adding the AI chatbot." });
+
+    const existing = aiChatItemOf(active);
+    if (on) {
+      if (!existing) {
+        const price = await ensureAiChatPrice(stripe, aiChatPriceOf(shop));
+        await stripe.subscriptionItems.create({ subscription: active.id, price, quantity: 1, metadata: { addon: "aichat" } });
+      }
+    } else if (existing) {
+      await stripe.subscriptionItems.del(existing.id); // proration credited automatically
+    }
+    await db.collection("shops").updateOne({ _id: shop._id }, { $set: { aiChatAddon: on } });
+    res.json({ success: true, aiChatUnlocked: on, aiChatActive: on });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
