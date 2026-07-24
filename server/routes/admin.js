@@ -190,16 +190,18 @@ router.get("/shops", async (_req, res) => {
       const m = {}; rows.forEach((r) => { m[r._id] = r.n; }); return m;
     };
     const owners = await db.collection("users").find({ role: "owner", shopId: { $in: ids } }).toArray();
-    const ownerBy = {}; owners.forEach((u) => { ownerBy[u.shopId] = u.email; });
+    const ownerBy = {}; const ownerActiveBy = {};
+    owners.forEach((u) => { ownerBy[u.shopId] = u.email; ownerActiveBy[u.shopId] = u.lastActive || null; });
 
     // Usage: services, active staff, and appointments booked (all-time + this
     // calendar month) — so the operator can see how much each client uses.
     const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-    const [svc, staff, apptTotal, apptMonth] = await Promise.all([
+    const [svc, staff, apptTotal, apptMonth, shopHours] = await Promise.all([
       countBy("services"),
       countBy("providers", { active: true }),
       countBy("appointments"),
       countBy("appointments", { createdAt: { $gte: monthStart } }),
+      countBy("workingHours", { providerId: "shop" }), // shop-level hours = bookable
     ]);
 
     // Live subscription + renewal per shop that has a Stripe customer.
@@ -250,6 +252,15 @@ router.get("/shops", async (_req, res) => {
         appointmentsThisMonth: apptMonth[id] || 0,
         emailsSent: s.usage?.emailsSent || 0,
         createdAt: s.createdAt || null,
+        // ── Funnel / activation signals ──
+        lastActive: ownerActiveBy[id] || null,
+        activatedAt: s.activatedAt || null,
+        // "Activated" = the booking page can actually take a booking (has a
+        // service AND shop-level hours). Computed live so it's right even for
+        // shops created before activatedAt tracking existed.
+        activated: (svc[id] || 0) > 0 && (shopHours[id] || 0) > 0,
+        firstBookingAt: s.firstBookingAt || null,
+        firstPublicBookingAt: s.firstPublicBookingAt || null,
       };
     }));
   } catch (err) {

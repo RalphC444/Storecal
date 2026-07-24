@@ -43,6 +43,7 @@ export const MARKETING_PLANS = [
       "Store hours & closures",
       "Client list & visit history",
     ],
+    note: "First month free · no credit card to start",
   },
   {
     name: "Website + Booking",
@@ -56,5 +57,31 @@ export const MARKETING_PLANS = [
       "Live services & staff synced from StoreCal",
       "Ongoing updates & support",
     ],
+    note: "Apply and we build it with you",
+  },
+];
+
+// Pricing FAQ — answers the questions that stall a signup (card, billing timing,
+// cancellation) and surfaces the branding add-on that's otherwise hidden.
+export const PRICING_FAQ = [
+  {
+    q: "Do I need a credit card to start?",
+    a: "No. Create your account and your booking page works right away. You only add a card when you decide to subscribe — and your first month is free.",
+  },
+  {
+    q: "When am I charged?",
+    a: "Never today. When you subscribe, the first 30 days are free; your first $35 payment lands 30 days later. Cancel before then and you won’t be charged.",
+  },
+  {
+    q: "Can I cancel anytime?",
+    a: "Yes — cancel in a couple of clicks from your dashboard. No contracts, no cancellation fees.",
+  },
+  {
+    q: "Which plan is right for me?",
+    a: "Already have a website? Booking access ($35/mo) adds online booking to it. No website yet? Website + Booking ($99/mo) is a custom site we build for you with booking built in.",
+  },
+  {
+    q: "Can I use my own logo and colors?",
+    a: "Yes — a $5/mo branding add-on puts your logo and brand color on your booking page. Turn it on anytime from Settings.",
   },
 ];

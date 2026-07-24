@@ -2,6 +2,7 @@ const { Router } = require("express");
 const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
 const { resolveShopId } = require("../lib/shopScope");
+const { markActivatedIfReady } = require("../lib/activation");
 
 const router = Router();
 
@@ -53,6 +54,7 @@ router.post("/", async (req, res) => {
     await db.collection("providers").updateMany(
       { shopId }, { $addToSet: { serviceIds: result.insertedId.toString() } }
     );
+    markActivatedIfReady(db, shopId); // stamp activatedAt once services + hours both exist
     res.status(201).json({ success: true, _id: result.insertedId.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });

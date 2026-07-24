@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthShell } from "./AuthShell";
 import { PasswordInput } from "../../components/PasswordInput";
+import { track } from "../../lib/analytics";
 
 // Self-serve store-owner signup. Step 1 collects business details and creates
 // the account (auto sign-in). Step 2 confirms their booking page is live and
@@ -13,6 +14,8 @@ export function RegisterScreen({ onAuthed, onBack, onSignIn }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => { track("signup_started"); }, []); // funnel: reached the signup form
 
   async function submit(e) {
     e.preventDefault();
@@ -31,16 +34,6 @@ export function RegisterScreen({ onAuthed, onBack, onSignIn }) {
     finally { setBusy(false); }
   }
 
-  async function startFreeMonth() {
-    setBusy(true); setErr("");
-    try {
-      const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      const d = await res.json();
-      if (res.ok && d.url) { window.location.href = d.url; return; }
-      throw new Error(d.error || "Couldn’t open checkout");
-    } catch (e2) { setErr(e2.message); setBusy(false); }
-  }
-
   function copyLink() {
     if (navigator.clipboard && result?.bookingUrl) navigator.clipboard.writeText(result.bookingUrl).catch(() => {});
     setCopied(true); setTimeout(() => setCopied(false), 1500);
@@ -51,24 +44,23 @@ export function RegisterScreen({ onAuthed, onBack, onSignIn }) {
       <AuthShell title="You’re all set! 🎉" subtitle={`${form.businessName} is ready to take bookings.`}>
         <div className="signup-done">
           <div className="signup-done__block">
-            <span className="field__label">Your booking page is live</span>
+            <span className="field__label">Your booking page</span>
             <div className="invite__row">
               <input className="invite__link" readOnly value={result.bookingUrl} onFocus={(e) => e.target.select()} />
               <a className="action" href={result.bookingUrl} target="_blank" rel="noreferrer">Open</a>
               <button className="btn" type="button" onClick={copyLink}>{copied ? "Copied!" : "Copy"}</button>
             </div>
-            <p className="signup-done__hint">Share this anywhere — Instagram bio, Google, a text. Customers can book right now. Already have a website? You can embed booking on it too (Settings → Website).</p>
+            <p className="signup-done__hint">Two quick steps and customers can book: set your hours and add a service. Then share this link anywhere — Instagram bio, Google, a text. (You can embed it on an existing website too.)</p>
           </div>
 
           <div className="signup-done__cta">
-            <button className="btn btn--lg" type="button" onClick={startFreeMonth} disabled={busy}>
-              {busy ? "Opening…" : "Start my first month free"}
+            <button className="btn btn--lg" type="button" onClick={() => onAuthed(result.user)}>
+              Set up my booking page →
             </button>
-            <p className="signup-done__fine">No charge today. We’ll save your card and your first payment ($35/month) is 30 days from now — cancel anytime before then and you won’t be billed.</p>
+            <p className="signup-done__fine">Your first month is free — you’ll turn on billing from your dashboard whenever you’re ready. No charge today.</p>
           </div>
 
           {err && <p className="form__error">{err}</p>}
-          <button className="linklike signup-done__skip" type="button" onClick={() => onAuthed(result.user)}>Skip for now — go to my dashboard</button>
         </div>
       </AuthShell>
     );

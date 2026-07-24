@@ -64,6 +64,12 @@ const authLimiter = rateLimit({
 // the API from any customer's website. Public endpoints are non-credentialed and
 // the admin cookie is sameSite:lax, so cross-site credentialed calls can't leak.
 app.use(cors({ origin: true, credentials: true }));
+
+// Stripe webhook — MUST see the raw body to verify the signature, so it's
+// mounted before express.json(). It bypasses the JSON parser and the API rate
+// limiter (both registered after this line). No-ops (503) until the secret is set.
+app.post("/api/billing/webhook", express.raw({ type: "*/*" }), require("./routes/billingWebhook"));
+
 app.use(express.json({ limit: "2mb" })); // headroom for small base64 profile photos
 app.use(cookieParser());
 // Optional auth: attaches req.auth (shopId/role/providerId) when a valid cookie

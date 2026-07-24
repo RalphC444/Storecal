@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Icon } from "../../components/Icon";
 import { BrandLogo } from "../../components/BrandLogo";
 import { ApplyForWebsiteModal } from "./ApplyForWebsiteModal";
-import { CONTACT_HREF, SUPPORT_EMAIL, MARKETING_FEATURES, MARKETING_PLANS } from "./constants";
+import { CONTACT_HREF, SUPPORT_EMAIL, MARKETING_FEATURES, MARKETING_PLANS, PRICING_FAQ } from "./constants";
+import { track } from "../../lib/analytics";
 
 // The public marketing landing page shown before sign-in. Editorial layout —
 // serif display type, soft blobs, a scrolling marquee, floating glyphs, and
@@ -16,6 +17,8 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
   const [scrolled, setScrolled] = useState(false);
   const rootRef = useRef(null);
   const demoFrameRef = useRef(null);
+
+  useEffect(() => { track("landing_view"); }, []); // top-of-funnel
 
   const openApply = (plan) => {
     setApplyPlan(plan || "");
@@ -295,7 +298,7 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
         <div className="marketing__sechead">
           <p className="marketing__section-eyebrow" data-reveal>Pricing</p>
           <h2 className="marketing__h2" data-reveal>Simple <em>monthly</em> pricing.</h2>
-          <p className="marketing__lede" data-reveal>No contracts — cancel anytime. Billed monthly.</p>
+          <p className="marketing__lede" data-reveal>Start free — no credit card to sign up. First month free when you subscribe, then billed monthly. Cancel anytime.</p>
         </div>
         <div className="marketing__plans">
           {MARKETING_PLANS.map((p) => (
@@ -315,6 +318,15 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
                 onClick={() => p.featured ? openApply(p.name) : onGetStarted()}>
                 {p.featured ? "Apply for a website →" : "Start free →"}
               </button>
+              {p.note && <p className="marketing__planfine">{p.note}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="marketing__faq" data-reveal>
+          {PRICING_FAQ.map((f) => (
+            <div className="marketing__faq-item" key={f.q}>
+              <h3 className="marketing__faq-q">{f.q}</h3>
+              <p className="marketing__faq-a">{f.a}</p>
             </div>
           ))}
         </div>

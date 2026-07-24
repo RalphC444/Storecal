@@ -31,6 +31,56 @@ const planLabelOf = (s) =>
 const fmtRenewDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
 const fmtMoneyCents = (cents) => `$${((cents || 0) / 100).toFixed((cents || 0) % 100 ? 2 : 0)}`;
 
+// ── Funnel / lifecycle helpers ──────────────────────────────────────────────
+const PLAN_CENTS = { booking: 3500, "booking-reduced": 2500, website: 9900 };
+const fmtDate = (v) => v ? new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+const fmtAgo = (v) => {
+  if (!v) return "never";
+  const s = Math.floor((Date.now() - new Date(v).getTime()) / 1000);
+  if (s < 90) return "just now";
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24); if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30); if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+};
+// Current monthly recurring: plan price for real, non-comped, non-free-month subs.
+const mrrCentsOf = (list) => (list || []).reduce((sum, s) => {
+  if (!s.subscribed || s.freeForLife || s.freeMonthActive) return sum;
+  return sum + (PLAN_CENTS[s.planId] || 0);
+}, 0);
+
+// Top-of-page funnel snapshot the console never showed before.
+function AdminSummary({ shops }) {
+  const total = shops.length;
+  const activated = shops.filter(s => s.activated).length;
+  const paying = shops.filter(s => s.paymentsCompleted > 0).length;
+  const trialing = shops.filter(s => s.subscribed && !s.freeForLife && (s.paymentsCompleted || 0) === 0).length;
+  const booked = shops.filter(s => s.firstBookingAt).length;
+  const pct = (n) => total ? Math.round((n / total) * 100) : 0;
+  const tiles = [
+    { l: "Clients", v: total },
+    { l: "Activated", v: activated, sub: `${pct(activated)}% of clients` },
+    { l: "First booking", v: booked, sub: `${pct(booked)}% ever booked` },
+    { l: "Paying", v: paying, sub: `${trialing} on trial` },
+    { l: "Est. MRR", v: fmtMoneyCents(mrrCentsOf(shops)), sub: "excl. comps & free months" },
+  ];
+  return (
+    <div className="adminconsole__summary">
+      {tiles.map(t => (
+        <div className="adminconsole__sumtile" key={t.l}>
+          <span className="adminconsole__sumlabel">{t.l}</span>
+          <b>{t.v}</b>
+          {t.sub && <span className="adminconsole__sumsub">{t.sub}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+const ActBadge = ({ on }) => (
+  <span className={"actbadge" + (on ? " actbadge--on" : "")}>{on ? "Activated" : "Not activated"}</span>
+);
+
 export function AdminConsole({ user, onSignOut }) {
   const [shops, setShops] = useState(null);
   const [savingId, setSavingId] = useState(null);
@@ -106,13 +156,14 @@ export function AdminConsole({ user, onSignOut }) {
                 <button className="btn" onClick={() => setAdding(true)}>+ Add client</button>
               </div>
               {err && <p className="form__error">{err}</p>}
+              {shops && shops.length > 0 && <AdminSummary shops={shops} />}
               {!shops ? <LoadingSpinner />
                 : shops.length === 0 ? <p className="empty">No clients yet.</p>
                 : (
                   <div className="adminconsole__tablewrap">
                     <table className="adminconsole__table adminconsole__table--rows">
                       <thead>
-                        <tr><th>Business</th><th>Contact</th><th>Plan</th><th>Booking</th><th>Subscription</th><th aria-label="Open"></th></tr>
+                        <tr><th>Business</th><th>Lifecycle</th><th>Contact</th><th>Plan</th><th>Booking</th><th>Subscription</th><th aria-label="Open"></th></tr>
                       </thead>
                       <tbody>
                         {shops.map(s => (
@@ -120,6 +171,11 @@ export function AdminConsole({ user, onSignOut }) {
                             <td>
                               <div className="adminconsole__name">{s.name}</div>
                               <div className="adminconsole__meta">{s.businessType} · {s.services} svc · {s.staff} staff · {s.appointments} appts</div>
+                            </td>
+                            <td>
+                              <ActBadge on={s.activated} />
+                              <div className="adminconsole__meta">Joined {fmtDate(s.createdAt)}</div>
+                              <div className="adminconsole__meta">Active {fmtAgo(s.lastActive)}</div>
                             </td>
                             <td className="adminconsole__contact">
                               <span>{s.ownerEmail || <span className="adminconsole__dim">no email</span>}</span>
@@ -262,6 +318,10 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
             <AdCatHead title="Overview" desc="A snapshot of this client." />
             <AdCard title="Status">
               <div className="acd__deflist">
+                <AdRow label="Activation"><ActBadge on={s.activated} /></AdRow>
+                <AdRow label="Signed up">{fmtDate(s.createdAt)}</AdRow>
+                <AdRow label="Last active">{fmtAgo(s.lastActive)}</AdRow>
+                <AdRow label="First booking">{s.firstBookingAt ? `${fmtDate(s.firstBookingAt)}${s.firstPublicBookingAt ? "" : " (walk-in)"}` : "—"}</AdRow>
                 <AdRow label="Subscription">{s.freeMonthActive ? "Subscribed · next month free" : statusText}</AdRow>
                 <AdRow label="Plan">{planLabelOf(s)}</AdRow>
                 <AdRow label="Booking access">{BOOKING_LABEL[bookingValueOf(s)]}</AdRow>

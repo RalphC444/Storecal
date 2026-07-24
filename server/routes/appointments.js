@@ -349,6 +349,17 @@ router.post("/", async (req, res) => {
     try {
       const result = await db.collection("appointments").insertOne(doc);
       notifyAppointmentChange(shopId, { action: "created", _id: result.insertedId.toString(), dateKey: doc.dateKey, providerId: doc.providerId });
+      // Funnel metric: stamp the shop's first-ever booking (and first *customer*
+      // booking) once — powers "time from signup to first booking" in admin.
+      try {
+        const { ObjectId } = require("mongodb");
+        const sid = new ObjectId(shopId);
+        const now = new Date();
+        db.collection("shops").updateOne({ _id: sid, firstBookingAt: { $exists: false } }, { $set: { firstBookingAt: now } })
+          .then((r) => { if (r.modifiedCount > 0) require("../lib/analytics").capture(shopId, "first_booking", { public: isPublic }); })
+          .catch(() => {});
+        if (isPublic) db.collection("shops").updateOne({ _id: sid, firstPublicBookingAt: { $exists: false } }, { $set: { firstPublicBookingAt: now } }).catch(() => {});
+      } catch { /* metrics are best-effort */ }
       // Booking emails are best-effort and can be switched off per shop from the
       // super-admin console (disables the customer, owner, AND staff notices).
       if (!(await bookingEmailsOff(db, shopId))) {

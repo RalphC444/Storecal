@@ -323,6 +323,13 @@
 .marketing__planpoints li::before { content: "✓"; position: absolute; left: 0; color: var(--m-peri); font-weight: 700; }
 .marketing__plan--featured .marketing__planpoints li::before { color: var(--m-peri); }
 .marketing__plancta { margin-top: auto; width: 100%; }
+.marketing__planfine { text-align: center; font-size: .78rem; color: var(--m-muted); margin: .7rem 0 0; }
+
+/* Pricing FAQ — removes the questions that stall a signup */
+.marketing__faq { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem 2.6rem; max-width: 60rem; margin: 3rem auto 0; }
+@media (max-width: 640px) { .marketing__faq { grid-template-columns: 1fr; gap: 1.4rem; } }
+.marketing__faq-q { font-family: var(--m-sans); font-size: 1rem; font-weight: 700; color: var(--m-ink); margin: 0 0 .4rem; }
+.marketing__faq-a { font-size: .92rem; line-height: 1.6; color: var(--m-muted); margin: 0; }
 .marketing__plan--featured .mbtn--ghost { border-color: rgba(255, 255, 255, .5); color: #fff; }
 .marketing__plan--featured .mbtn--ghost:hover { background: #fff; color: var(--m-navy); }
 .marketing__fine { text-align: center; font-size: .82rem; color: var(--m-muted); margin-top: 1.8rem; }

@@ -4,6 +4,7 @@ const { ObjectId } = require("mongodb");
 const { resolveShopId } = require("../lib/shopScope");
 const { effectiveRanges } = require("../lib/availabilityCheck");
 const { notifyAvailabilityChange } = require("../lib/realtime");
+const { markActivatedIfReady } = require("../lib/activation");
 
 const router = Router();
 
@@ -139,6 +140,7 @@ router.put("/:providerId", async (req, res) => {
     // Push to open booking widgets so they re-gray days without a refresh.
     notifyAvailabilityChange(shopId, { providerId });
 
+    markActivatedIfReady(db, shopId); // shop hours saved → maybe activated now
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

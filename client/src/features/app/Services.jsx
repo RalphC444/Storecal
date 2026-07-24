@@ -51,6 +51,16 @@ export function ServicesView({ providers, teamLabel, onProvidersChange, addReq, 
           <h3 className="schedule__label">Service menu</h3>
           <p className="panel__hint">The services clients can book online — name, length, and price.</p>
           {!services ? <LoadingSpinner />
+            : services.length === 0 ? (
+              <div className="clients-empty">
+                <span className="clients-empty__icon"><Icon name="tag" /></span>
+                <h3 className="clients-empty__title">Add your first service</h3>
+                <p className="clients-empty__text">Services are what customers choose when they book — like “Women’s Haircut · 45 min · $65.” You need at least one before your booking page can take appointments.</p>
+                <div className="clients-empty__actions">
+                  <button className="btn" onClick={() => setEditing({})}>+ Add your first service</button>
+                </div>
+              </div>
+            )
             : (
               <div className="service-list">
                 {services.map(s => (

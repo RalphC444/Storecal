@@ -35,6 +35,16 @@ const BOOKING_PRESETS = {
   generic: { vehicle: false, pet: false, providerPicker: false, providerLabel: "", serviceLabel: "Select a service", notesLabel: "Notes (optional)", notesPlaceholder: "Anything we should know before your appointment?" },
 };
 
+// Sensible default shop hours per vertical (weekday: 0=Sun … 6=Sat, minutes from
+// midnight). Seeded at signup so a skipped hours step never leaves an empty,
+// unbookable page — the owner adjusts these in setup.
+const DEFAULT_HOURS = {
+  salon:    { days: [2, 3, 4, 5, 6], startMin: 600, endMin: 1080 }, // Tue–Sat, 10am–6pm
+  grooming: { days: [2, 3, 4, 5, 6], startMin: 540, endMin: 1020 }, // Tue–Sat, 9am–5pm
+  auto:     { days: [1, 2, 3, 4, 5], startMin: 480, endMin: 1020 }, // Mon–Fri, 8am–5pm
+  generic:  { days: [1, 2, 3, 4, 5], startMin: 540, endMin: 1020 }, // Mon–Fri, 9am–5pm
+};
+
 // POST /api/auth/register — SELF-SERVE owner signup: creates a shop + owner
 // account, logs them in, and sets them up to start a first-month-free
 // subscription. Booking works immediately (demo mode) so the hosted page and
@@ -86,6 +96,16 @@ router.post("/register", async (req, res) => {
       active: businessType !== "auto", ownerUserId: userRes.insertedId.toString(), serviceIds: [], sortOrder: 0, createdAt: new Date(),
     });
 
+    // Seed default shop hours so the booking page is never an empty dead-end.
+    const dh = DEFAULT_HOURS[businessType] || DEFAULT_HOURS.salon;
+    await db.collection("workingHours").insertMany(
+      dh.days.map((weekday) => ({
+        providerId: "shop", shopId, weekday,
+        ranges: [{ startMin: dh.startMin, endMin: dh.endMin }], breaks: [],
+      }))
+    );
+
+    require("../lib/analytics").capture(shopId, "signup_completed", { businessType }); // funnel: self-serve signup
     setAuthCookie(res, signToken(user));
     const origin = req.headers.origin || "";
     res.status(201).json({
@@ -114,6 +134,7 @@ router.post("/login", async (req, res) => {
       const shop = await db.collection("shops").findOne({ _id: new ObjectId(user.shopId) }).catch(() => null);
       return res.status(403).json({ error: `You're no longer part of ${shop?.name || "this store"}. Contact the store owner if this is a mistake.` });
     }
+    db.collection("users").updateOne({ _id: user._id }, { $set: { lastActive: new Date() } }).catch(() => {}); // activity metric
     setAuthCookie(res, signToken(user));
     res.json({ user: publicUser(user) });
   } catch (err) {
@@ -151,6 +172,11 @@ router.get("/me", requireAuth, async (req, res) => {
     const user = await db.collection("users").findOne({ _id: new ObjectId(req.auth.uid) });
     if (!user) return res.status(401).json({ error: "Account not found" });
     if (user.disabled) return res.status(401).json({ error: "Access removed" }); // kicks an open session
+    // Activity metric: refresh lastActive at most every 10 min (cheap, non-blocking).
+    const last = user.lastActive ? new Date(user.lastActive).getTime() : 0;
+    if (Date.now() - last > 10 * 60 * 1000) {
+      db.collection("users").updateOne({ _id: user._id }, { $set: { lastActive: new Date() } }).catch(() => {});
+    }
     res.json({ user: publicUser(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });

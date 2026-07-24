@@ -7,6 +7,7 @@ import { ForgotPasswordScreen } from "./features/auth/ForgotPasswordScreen";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen";
 import { ChangePasswordScreen } from "./features/auth/ChangePasswordScreen";
 import { CookieConsent } from "./components/CookieConsent";
+import { track } from "./lib/analytics";
 
 // Heavy, role-specific areas are code-split so a visitor only downloads what
 // their screen needs — a marketing/booking visitor never fetches the owner app
@@ -126,6 +127,7 @@ export default function App() {
   // "Try the live demo" — sign into the shared demo store as its owner so
   // visitors can explore the full owner experience.
   async function demoLogin() {
+    track("demo_opened");
     setPhase("loading");
     try {
       const res = await fetch("/api/auth/login", {
