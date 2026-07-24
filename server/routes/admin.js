@@ -238,6 +238,11 @@ router.get("/shops", async (_req, res) => {
         freeMonths: sub ? sub.freeMonths : 0,
         freeResumesAt: sub ? sub.freeResumesAt : null,
         firstMonthFree: s.firstMonthFree === true, // new signups start with a 30-day free trial
+        // "Free until N bookings" trial (operator-assigned).
+        bookingTrial: s.bookingTrial === true,
+        bookingTrialLimit: (Number.isInteger(s.bookingTrialLimit) && s.bookingTrialLimit > 0) ? s.bookingTrialLimit : 3,
+        bookingTrialUsed: Math.max(0, (s.publicBookingCount || 0) - (Number.isInteger(s.bookingTrialBaseline) ? s.bookingTrialBaseline : 0)),
+        bookingTrialEnded: !!s.bookingTrialEndedAt,
         // Custom-branding add-on (operator-configurable price + comp).
         brandingAddonPrice: Number.isInteger(s.brandingAddonPrice) ? s.brandingAddonPrice : 500,
         brandingAddonComp: s.brandingAddonComp === true,
@@ -287,6 +292,13 @@ router.patch("/shops/:id", async (req, res) => {
     if (req.body.demo !== undefined) set.demo = !!req.body.demo;
     if (req.body.freeForLife !== undefined) set.freeForLife = !!req.body.freeForLife;
     if (req.body.firstMonthFree !== undefined) set.firstMonthFree = !!req.body.firstMonthFree;
+    // "Free until N bookings" trial toggle + threshold.
+    if (req.body.bookingTrial !== undefined) set.bookingTrial = !!req.body.bookingTrial;
+    if (req.body.bookingTrialLimit !== undefined) {
+      const n = Number(req.body.bookingTrialLimit);
+      if (!Number.isInteger(n) || n < 1 || n > 100) return res.status(400).json({ error: "Free-booking limit must be between 1 and 100" });
+      set.bookingTrialLimit = n;
+    }
     // Custom-branding add-on price (sent in dollars → stored as cents) + comp grant.
     if (req.body.brandingAddonPrice !== undefined) {
       const dollars = Number(req.body.brandingAddonPrice);

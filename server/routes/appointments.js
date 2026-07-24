@@ -358,7 +358,14 @@ router.post("/", async (req, res) => {
         db.collection("shops").updateOne({ _id: sid, firstBookingAt: { $exists: false } }, { $set: { firstBookingAt: now } })
           .then((r) => { if (r.modifiedCount > 0) require("../lib/analytics").capture(shopId, "first_booking", { public: isPublic }); })
           .catch(() => {});
-        if (isPublic) db.collection("shops").updateOne({ _id: sid, firstPublicBookingAt: { $exists: false } }, { $set: { firstPublicBookingAt: now } }).catch(() => {});
+        if (isPublic) {
+          db.collection("shops").updateOne({ _id: sid, firstPublicBookingAt: { $exists: false } }, { $set: { firstPublicBookingAt: now } }).catch(() => {});
+          // Count real customer bookings and, for a "free until N bookings" shop,
+          // end the trial once the threshold is hit.
+          db.collection("shops").updateOne({ _id: sid }, { $inc: { publicBookingCount: 1 } })
+            .then(() => require("../lib/bookingTrial").maybeEndBookingTrial(db, shopId))
+            .catch(() => {});
+        }
       } catch { /* metrics are best-effort */ }
       // Booking emails are best-effort and can be switched off per shop from the
       // super-admin console (disables the customer, owner, AND staff notices).

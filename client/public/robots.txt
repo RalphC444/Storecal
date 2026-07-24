@@ -1,0 +1,7 @@
+# StoreCal — allow all crawlers; block only the authenticated app + API.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+
+Sitemap: https://www.storecal.com/sitemap.xml

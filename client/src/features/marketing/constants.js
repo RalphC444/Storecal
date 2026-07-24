@@ -84,4 +84,8 @@ export const PRICING_FAQ = [
     q: "Can I use my own logo and colors?",
     a: "Yes — a $5/mo branding add-on puts your logo and brand color on your booking page. Turn it on anytime from Settings.",
   },
+  {
+    q: "Is StoreCal an alternative to Square, Booksy, or Phorest?",
+    a: "Yes. StoreCal covers the essentials those tools do — online booking, staff scheduling, store hours, and a client list — with simpler setup and a lower monthly cost, and it embeds on a website you already have. It's a popular fit for salons, barbershops, and local shops in Mount Vernon, Westchester County, and the New York area.",
+  },
 ];

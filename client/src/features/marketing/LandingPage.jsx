@@ -126,7 +126,7 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
         <div className="marketing__heroin">
           <div className="marketing__herocopy">
             <p className="marketing__eyebrow" data-reveal>
-              <span className="marketing__pill"><i className="marketing__pill-dot" aria-hidden="true" /> Booking &amp; scheduling for local shops</span>
+              <span className="marketing__pill"><i className="marketing__pill-dot" aria-hidden="true" /> Booking &amp; scheduling for local shops · Westchester, NY</span>
             </p>
             <h1 className="marketing__h1" data-reveal>
               Let clients book you online, <em>no busywork.</em>
@@ -364,7 +364,7 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
               <span className="brand__mark"><BrandLogo /></span>
               <span className="marketing__brandname marketing__brandname--foot">StoreCal</span>
             </a>
-            <p>Booking, scheduling, and websites for local shops.</p>
+            <p>Online booking, scheduling, and calendar software for salons, barbershops, and local shops in Mount Vernon, Westchester County, and the greater New York area — a simple, affordable alternative to Square, Booksy, and Phorest.</p>
           </div>
           <div className="marketing__foot-col">
             <h4>Product</h4>

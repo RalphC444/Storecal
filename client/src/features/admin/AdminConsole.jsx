@@ -80,6 +80,11 @@ function AdminSummary({ shops }) {
 const ActBadge = ({ on }) => (
   <span className={"actbadge" + (on ? " actbadge--on" : "")}>{on ? "Activated" : "Not activated"}</span>
 );
+// When a shop is on the "free until N bookings" trial, show progress instead of
+// the (far-future) trial renewal date. Returns null when it doesn't apply.
+const bookingTrialText = (s) => (s.bookingTrial && !s.bookingTrialEnded)
+  ? `Free until ${s.bookingTrialLimit ?? 3} bookings (${s.bookingTrialUsed || 0}/${s.bookingTrialLimit ?? 3})`
+  : null;
 
 export function AdminConsole({ user, onSignOut }) {
   const [shops, setShops] = useState(null);
@@ -261,6 +266,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
   const [copied, setCopied] = useState("");
   const [active, setActive] = useState("overview");
   const [brandPrice, setBrandPrice] = useState((((s.brandingAddonPrice ?? 500)) / 100).toString());
+  const [trialLimit, setTrialLimit] = useState(String(s.bookingTrialLimit ?? 3));
 
   const bookingUrl = `${origin}/book/${s.slug}`;
   const embedCode =
@@ -322,7 +328,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 <AdRow label="Signed up">{fmtDate(s.createdAt)}</AdRow>
                 <AdRow label="Last active">{fmtAgo(s.lastActive)}</AdRow>
                 <AdRow label="First booking">{s.firstBookingAt ? `${fmtDate(s.firstBookingAt)}${s.firstPublicBookingAt ? "" : " (walk-in)"}` : "—"}</AdRow>
-                <AdRow label="Subscription">{s.freeMonthActive ? "Subscribed · next month free" : statusText}</AdRow>
+                <AdRow label="Subscription">{bookingTrialText(s) || (s.freeMonthActive ? "Subscribed · next month free" : statusText)}</AdRow>
                 <AdRow label="Plan">{planLabelOf(s)}</AdRow>
                 <AdRow label="Booking access">{BOOKING_LABEL[bookingValueOf(s)]}</AdRow>
                 {!s.freeForLife && s.subscribed && (
@@ -366,7 +372,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 <div className="clientdetail__subsummary">
                   <div className="clientdetail__stat">
                     <span className="clientdetail__stat-l">Next payment</span>
-                    <span className="clientdetail__stat-v">{s.freeMonthActive ? (fmtRenewDate(s.freeResumesAt) || "—") : (fmtRenewDate(s.renewsAt) || "—")}</span>
+                    <span className="clientdetail__stat-v">{bookingTrialText(s) || (s.freeMonthActive ? (fmtRenewDate(s.freeResumesAt) || "—") : (fmtRenewDate(s.renewsAt) || "—"))}</span>
                     {s.freeMonthActive && fmtRenewDate(s.renewsAt) && <span className="clientdetail__stat-sub">{fmtRenewDate(s.renewsAt)} is free ($0)</span>}
                   </div>
                   <div className="clientdetail__stat"><span className="clientdetail__stat-l">Payments made</span><span className="clientdetail__stat-v">{s.paymentsCompleted}</span></div>
@@ -420,6 +426,23 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 : s.brandingActive
                 ? `Unlocked — the client is paying ${fmtMoneyCents(s.brandingAddonPrice ?? 500)}/mo for it.`
                 : "Locked — the owner can unlock it themselves from their Website settings."}</p>
+            </AdCard>
+
+            <AdCard title="Free until N bookings (trial)" desc="An alternative to the 30-day free month: the client pays nothing until they take N real customer bookings — the card is still captured up front, and billing starts automatically on the Nth booking. Takes precedence over “First month free” at checkout.">
+              <div className="clientdetail__toggles">
+                <Toggle checked={!!s.bookingTrial} disabled={saving} label="Free until N bookings (card required)"
+                  onChange={v => onPatch({ bookingTrial: v }, v ? "Booking trial on" : "Booking trial off")} />
+              </div>
+              {s.bookingTrial && (<>
+                <label className="field" style={{ marginTop: 12 }}><span className="field__label">Free bookings before billing starts</span>
+                  <input type="number" min="1" max="100" step="1" value={trialLimit}
+                    onChange={e => setTrialLimit(e.target.value)}
+                    onBlur={() => { const n = Number(trialLimit); if (Number.isInteger(n) && n >= 1 && n <= 100 && n !== (s.bookingTrialLimit ?? 3)) onPatch({ bookingTrialLimit: n }, "Free-booking limit updated"); }} />
+                </label>
+                <p className="panel__hint" style={{ marginTop: 8 }}>{s.bookingTrialEnded
+                  ? "Trial complete — billing has started."
+                  : `${s.bookingTrialUsed || 0} of ${s.bookingTrialLimit ?? 3} free bookings used — billing begins on booking #${s.bookingTrialLimit ?? 3}. The client subscribes as normal (card saved); no charge until then.`}</p>
+              </>)}
             </AdCard>
           </>)}
 

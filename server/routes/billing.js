@@ -139,6 +139,11 @@ router.get("/", requireAuth, requireOwner, async (req, res) => {
       freeMonths,        // how many whole months are comped
       freeResumesAt,     // when normal billing resumes (ms)
       firstMonthFree: shop?.firstMonthFree === true, // new signups start with a free month
+      // "Free until N bookings" trial (operator-assigned per shop).
+      bookingTrial: shop?.bookingTrial === true,
+      bookingTrialLimit: (Number.isInteger(shop?.bookingTrialLimit) && shop.bookingTrialLimit > 0) ? shop.bookingTrialLimit : 3,
+      bookingTrialUsed: Math.max(0, (shop?.publicBookingCount || 0) - (Number.isInteger(shop?.bookingTrialBaseline) ? shop.bookingTrialBaseline : 0)),
+      bookingTrialEnded: !!shop?.bookingTrialEndedAt,
       assignedPlanId: assignedPlan.id,
       assignedPlan,
       // Custom-branding add-on:
@@ -196,10 +201,20 @@ router.post("/checkout", requireAuth, requireOwner, async (req, res) => {
       cancel_url: `${origin}/?billing=cancelled`,
     };
 
-    // First month free: give a 30-day trial and still capture the card now
-    // (Checkout skips card collection during a trial unless we force it), so the
-    // first real charge lands automatically after the trial.
-    if (shop.firstMonthFree === true) {
+    // Trial handling — both capture the card now (Checkout skips card collection
+    // during a trial unless we force it).
+    if (shop.bookingTrial === true) {
+      // "Free until N bookings": a long time-trial we END programmatically once
+      // the shop hits its booking threshold (see lib/bookingTrial.js). Baseline
+      // the counter so only bookings AFTER subscribing count toward the free run.
+      subscription_data.trial_period_days = 3650; // ~never by time; ended by bookings
+      sessionParams.payment_method_collection = "always";
+      await db.collection("shops").updateOne(
+        { _id: shop._id },
+        { $set: { bookingTrialBaseline: shop.publicBookingCount || 0 }, $unset: { bookingTrialEndedAt: "" } }
+      );
+    } else if (shop.firstMonthFree === true) {
+      // First month free: 30-day trial, first real charge lands automatically after.
       subscription_data.trial_period_days = 30;
       sessionParams.payment_method_collection = "always";
     }

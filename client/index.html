@@ -4,14 +4,108 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/storecal.svg" />
+    <link rel="apple-touch-icon" href="/storecal.svg" />
+
+    <!-- ── SEO ─────────────────────────────────────────────────────────────
+         Static so crawlers get title/description/structured data without running
+         JS. The marketing page is client-rendered React; Google renders it, and
+         the <noscript> below is a fallback for scrapers that don't. -->
+    <title>StoreCal — Booking &amp; Scheduling for Local Shops | Westchester, NY</title>
+    <meta name="description" content="Online booking, scheduling, and calendar software for salons, barbershops, and local shops in Mount Vernon &amp; Westchester, NY — a simple, affordable alternative to Square, Booksy &amp; Phorest. Take appointments from your website in minutes." />
+    <meta name="keywords" content="online booking, appointment scheduling, calendar software, store calendar, salon booking software, barbershop booking, appointment app, Square alternative, Booksy alternative, Phorest alternative, Mount Vernon NY, Westchester NY, book appointments online" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="theme-color" content="#4d4bd9" />
+    <meta name="author" content="StoreCal" />
+    <link rel="canonical" href="https://www.storecal.com/" />
+
+    <!-- Open Graph (Facebook / LinkedIn / iMessage) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="StoreCal" />
+    <meta property="og:title" content="StoreCal — Online Booking &amp; Scheduling for Local Shops" />
+    <meta property="og:description" content="Simple online booking, scheduling & calendar software for salons, barbershops & local shops in Mount Vernon and Westchester, NY. An affordable alternative to Square, Booksy & Phorest." />
+    <meta property="og:url" content="https://www.storecal.com/" />
+    <meta property="og:image" content="https://www.storecal.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="StoreCal — Online Booking &amp; Scheduling for Local Shops" />
+    <meta name="twitter:description" content="Online booking, scheduling & calendar software for local shops in Mount Vernon & Westchester, NY — an affordable alternative to Square, Booksy & Phorest." />
+    <meta name="twitter:image" content="https://www.storecal.com/og-image.png" />
+
+    <!-- Structured data: helps Google understand what StoreCal is + where it serves. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.storecal.com/#org",
+          "name": "StoreCal",
+          "url": "https://www.storecal.com/",
+          "logo": "https://www.storecal.com/storecal.svg",
+          "description": "Online booking, scheduling, and calendar software for local service businesses.",
+          "areaServed": [
+            { "@type": "City", "name": "Mount Vernon, NY" },
+            { "@type": "AdministrativeArea", "name": "Westchester County, NY" },
+            { "@type": "AdministrativeArea", "name": "New York" }
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.storecal.com/#website",
+          "url": "https://www.storecal.com/",
+          "name": "StoreCal",
+          "publisher": { "@id": "https://www.storecal.com/#org" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "StoreCal",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "url": "https://www.storecal.com/",
+          "description": "Online booking widget, staff scheduling, store hours, and a client list for salons, barbershops, and local shops — plus optional done-for-you websites.",
+          "offers": {
+            "@type": "Offer",
+            "price": "35.00",
+            "priceCurrency": "USD",
+            "description": "Booking access — $35/month. First month free."
+          },
+          "provider": { "@id": "https://www.storecal.com/#org" },
+          "areaServed": [
+            { "@type": "City", "name": "Mount Vernon, NY" },
+            { "@type": "AdministrativeArea", "name": "Westchester County, NY" }
+          ]
+        }
+      ]
+    }
+    </script>
+
     <!-- Editorial display + text faces for the marketing site (scoped to .marketing in CSS). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Manrope:wght@400..800&display=swap" rel="stylesheet" />
-    <title>StoreCal</title>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Crawlable fallback for non-JS bots (Google renders the React app above). -->
+    <noscript>
+      <h1>StoreCal — Online Booking &amp; Scheduling for Local Shops</h1>
+      <p>
+        StoreCal is simple online booking, scheduling, and calendar software for salons,
+        barbershops, and local stores in Mount Vernon, Westchester County, and the greater
+        New York area. Let clients book appointments from your website in minutes — a
+        friendly, affordable alternative to Square Appointments, Booksy, and Phorest.
+      </p>
+      <ul>
+        <li>Embeddable online booking widget for any website</li>
+        <li>Staff calendars, schedules, and store hours</li>
+        <li>Client list with visit history and appointment reminders</li>
+        <li>Optional done-for-you website with booking built in</li>
+      </ul>
+      <p>Booking access is $35/month with the first month free. Visit <a href="https://www.storecal.com/">storecal.com</a> to get started.</p>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

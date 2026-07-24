@@ -222,11 +222,17 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   // The monthly price for THIS account's assigned plan ($35 booking, $25 reduced,
   // $99 website) — comes from the server so the quest/nudge show the real price.
   const [planPrice, setPlanPrice] = useState("");
+  // "Free until N bookings" trial (operator-assigned) — changes the subscribe copy.
+  const [bookingTrial, setBookingTrial] = useState(false);
+  const [bookingTrialLimit, setBookingTrialLimit] = useState(3);
   const [subBusy, setSubBusy] = useState(false);
   useEffect(() => {
     if (user.role !== "owner") { setSubscribed(true); return; }
     fetch("/api/billing").then(r => r.json())
-      .then(d => { setSubscribed(!!d.subscribed); setPromptBilling(!!d.promptBilling); setPlanPrice(d.assignedPlan?.price || ""); })
+      .then(d => {
+        setSubscribed(!!d.subscribed); setPromptBilling(!!d.promptBilling); setPlanPrice(d.assignedPlan?.price || "");
+        setBookingTrial(!!d.bookingTrial); setBookingTrialLimit(d.bookingTrialLimit || 3);
+      })
       .catch(() => {});
   }, [user.role]);
   const needsSubscribe = user.role === "owner" && !isDemo && !hoursNeeded && !subscribed && promptBilling;
@@ -288,7 +294,10 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const questSteps = isOwner ? [
     { label: "Add your services", desc: "List what you offer, with prices — this is what customers pick.", done: services.length > 0, actionLabel: "Add services", onAction: () => go("services") },
     { label: "Set your hours", desc: "Tell customers when they can book.", done: !hoursNeeded, actionLabel: "Set hours", onAction: openHours },
-    ...(promptBilling ? [{ label: "Start your free month", desc: `Turn on online booking — first month free${planPrice ? `, then ${planPrice}` : ""}.`, done: subscribed, actionLabel: "Start free month", onAction: startCheckout }] : []),
+    ...(promptBilling ? [bookingTrial
+      ? { label: "Turn on online booking", desc: `Free until your first ${bookingTrialLimit} bookings${planPrice ? `, then ${planPrice}` : ""}. Your card is saved now — no charge until booking #${bookingTrialLimit}.`, done: subscribed, actionLabel: "Start free", onAction: startCheckout }
+      : { label: "Start your free month", desc: `Turn on online booking — first month free${planPrice ? `, then ${planPrice}` : ""}.`, done: subscribed, actionLabel: "Start free month", onAction: startCheckout }
+    ] : []),
   ] : [];
   const questComplete = questSteps.length > 0 && questSteps.every(s => s.done);
   const showQuest = isOwner && !isDemo && !questDismissed && !questComplete && !!shopMeta.slug;
