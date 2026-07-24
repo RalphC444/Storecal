@@ -6,23 +6,17 @@
 //
 // No-ops entirely unless POSTHOG_KEY is set, so prod behaves identically until
 // you add the key.
+// DISABLED for now — commented out. `capture` is a no-op so its call sites
+// (signup_completed, activated, first_booking) stay valid and the DB-based
+// activation/funnel tracking is unaffected. To re-enable: uncomment the body
+// and set POSTHOG_KEY.
+/*
 const HOST = process.env.POSTHOG_HOST || "https://us.i.posthog.com";
 const KEY = process.env.POSTHOG_KEY || "";
+*/
 
-function capture(distinctId, event, properties = {}) {
-  if (!KEY || !distinctId) return;
-  try {
-    fetch(`${HOST}/capture/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: KEY,
-        event,
-        distinct_id: String(distinctId),
-        properties: { source: "server", ...properties },
-      }),
-    }).catch(() => {});
-  } catch { /* best-effort — never break the request */ }
+function capture(/* distinctId, event, properties */) {
+  // PostHog disabled — no-op.
 }
 
 module.exports = { capture };

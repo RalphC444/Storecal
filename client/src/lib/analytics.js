@@ -19,9 +19,11 @@ export function loadAnalytics() {
 }
 
 // ── Product analytics (PostHog) — funnel events ────────────────────────────
-// Loads ONLY when VITE_POSTHOG_KEY is set, and (like Contentsquare) only if the
-// visitor hasn't declined cookies. Without a key, track() is a silent no-op, so
-// the app runs identically until you plug in a project key.
+// DISABLED for now. The loader + real capture are commented out below; `track`
+// is a no-op so existing call sites (landing_view, signup_started, demo_opened)
+// stay valid. To re-enable: uncomment the block, restore the real `track`,
+// uncomment loadPosthog() in initAnalytics, and set VITE_POSTHOG_KEY.
+/*
 const PH_KEY = import.meta.env.VITE_POSTHOG_KEY;
 const PH_HOST = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
 let phStarted = false;
@@ -34,12 +36,15 @@ function loadPosthog() {
   window.posthog.init(PH_KEY, { api_host: PH_HOST, capture_pageview: false, persistence: "localStorage+cookie" });
 }
 
-// Fire a funnel event. No-ops until PostHog is loaded (or forever, without a key).
-export function track(event, props) {
-  try { if (window.posthog && window.posthog.capture) window.posthog.capture(event, props || {}); } catch { /* best-effort */ }
+export function trackEnabled(event, props) {
+  try { if (window.posthog && window.posthog.capture) window.posthog.capture(event, props || {}); } catch (e) { void e; }
 }
+*/
+
+// No-op while PostHog is commented out — keeps track() call sites valid.
+export function track() { /* PostHog disabled */ }
 
 // Called once at startup: load unless the visitor has explicitly declined.
 export function initAnalytics(consent) {
-  if (consent !== "declined") { loadAnalytics(); loadPosthog(); }
+  if (consent !== "declined") loadAnalytics(); /* loadPosthog(); ← re-enable with PostHog */
 }

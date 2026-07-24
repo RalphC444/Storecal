@@ -219,11 +219,14 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   // Subscribe goes straight to Stripe Checkout — no in-app plan chooser.
   const [subscribed, setSubscribed] = useState(true);
   const [promptBilling, setPromptBilling] = useState(false);
+  // The monthly price for THIS account's assigned plan ($35 booking, $25 reduced,
+  // $99 website) — comes from the server so the quest/nudge show the real price.
+  const [planPrice, setPlanPrice] = useState("");
   const [subBusy, setSubBusy] = useState(false);
   useEffect(() => {
     if (user.role !== "owner") { setSubscribed(true); return; }
     fetch("/api/billing").then(r => r.json())
-      .then(d => { setSubscribed(!!d.subscribed); setPromptBilling(!!d.promptBilling); })
+      .then(d => { setSubscribed(!!d.subscribed); setPromptBilling(!!d.promptBilling); setPlanPrice(d.assignedPlan?.price || ""); })
       .catch(() => {});
   }, [user.role]);
   const needsSubscribe = user.role === "owner" && !isDemo && !hoursNeeded && !subscribed && promptBilling;
@@ -285,7 +288,7 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
   const questSteps = isOwner ? [
     { label: "Add your services", desc: "List what you offer, with prices — this is what customers pick.", done: services.length > 0, actionLabel: "Add services", onAction: () => go("services") },
     { label: "Set your hours", desc: "Tell customers when they can book.", done: !hoursNeeded, actionLabel: "Set hours", onAction: openHours },
-    ...(promptBilling ? [{ label: "Start your free month", desc: "Turn on online booking — first month free, then $35/mo.", done: subscribed, actionLabel: "Start free month", onAction: startCheckout }] : []),
+    ...(promptBilling ? [{ label: "Start your free month", desc: `Turn on online booking — first month free${planPrice ? `, then ${planPrice}` : ""}.`, done: subscribed, actionLabel: "Start free month", onAction: startCheckout }] : []),
   ] : [];
   const questComplete = questSteps.length > 0 && questSteps.every(s => s.done);
   const showQuest = isOwner && !isDemo && !questDismissed && !questComplete && !!shopMeta.slug;
