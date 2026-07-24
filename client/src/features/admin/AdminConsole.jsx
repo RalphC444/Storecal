@@ -459,7 +459,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onAd
               <p className="panel__hint" style={{ marginTop: 8 }}>{addonStatusText(addonState(s.brandingActive, s.brandingAddonComp), s.brandingAddonPrice ?? 500)}</p>
             </AdCard>
 
-            <AdCard title="AI chatbot add-on" desc="Owners add an AI chat assistant for this monthly add-on, charged on top of their plan. (The chatbot rendering ships later; this controls billing + access.)">
+            <AdCard title="AI chatbot add-on" desc="An AI chat assistant on the client's booking page / website, for this monthly add-on on top of their plan. When on, it renders on the site (gated by shop.aiChat in the public config).">
               <label className="field"><span className="field__label">Add-on price ($ / month)</span>
                 <input type="number" min="0" max="100" step="0.01" value={aiPrice}
                   onChange={e => setAiPrice(e.target.value)}

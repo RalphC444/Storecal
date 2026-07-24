@@ -111,6 +111,9 @@ router.get("/", async (req, res) => {
         logo: shop.logo || "",
         tagline: shop.tagline || "",
         brandingUnlocked: shop.brandingAddon === true || shop.brandingAddonComp === true,
+        // AI chatbot add-on: render the chatbot on the site only when it's on
+        // (comped or paid). Gate your website-side chatbot on `shop.aiChat`.
+        aiChat: shop.aiChatAddon === true || shop.aiChatAddonComp === true,
         // External link-in-bio buttons shown on the hosted page (always free).
         links: Array.isArray(shop.links) ? shop.links : [],
         // Owner-chosen order of the booking page's content sections.
