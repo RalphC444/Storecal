@@ -5,6 +5,7 @@ import { BrandLogo } from "../../components/BrandLogo";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Toggle } from "../../components/Toggle";
+import { AdminCRM } from "./AdminCRM";
 
 // ── Platform operator console ────────────────────────────────────────────────
 // A simplified admin view (not a store view) for managing clients: change each
@@ -25,14 +26,14 @@ const bookingPatchFor = (v) =>
   : { freeForLife: false, bookingActive: null, demo: false };
 const BOOKING_LABEL = { demo: "Demo", auto: "Auto", on: "On", off: "Off — call us", free: "Free for life" };
 const planLabelOf = (s) =>
-  s.planId === "website" ? "$99 · Website + Booking"
+  s.planId === "website" ? "$59 · Website + Booking"
   : s.planId === "booking-reduced" ? "$25 · Booking (reduced)"
   : "$35 · Booking";
 const fmtRenewDate = (ms) => ms ? new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
 const fmtMoneyCents = (cents) => `$${((cents || 0) / 100).toFixed((cents || 0) % 100 ? 2 : 0)}`;
 
 // ── Funnel / lifecycle helpers ──────────────────────────────────────────────
-const PLAN_CENTS = { booking: 3500, "booking-reduced": 2500, website: 9900 };
+const PLAN_CENTS = { booking: 3500, "booking-reduced": 2500, website: 5900 };
 const fmtDate = (v) => v ? new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 const fmtAgo = (v) => {
   if (!v) return "never";
@@ -93,6 +94,7 @@ export function AdminConsole({ user, onSignOut }) {
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [delShop, setDelShop] = useState(null); // shop pending deletion
+  const [view, setView] = useState("clients"); // "clients" | "crm"
 
   const load = useCallback(() => {
     fetch("/api/admin/shops").then(r => r.json())
@@ -140,10 +142,16 @@ export function AdminConsole({ user, onSignOut }) {
       <div className="adminconsole">
         <header className="adminconsole__head">
           <span className="adminconsole__brand"><span className="brand__mark"><BrandLogo /></span> StoreCal Admin</span>
+          <nav className="adminconsole__nav">
+            <button className={"adminconsole__navbtn" + (view === "clients" ? " is-active" : "")} onClick={() => setView("clients")}>Clients</button>
+            <button className={"adminconsole__navbtn" + (view === "crm" ? " is-active" : "")} onClick={() => setView("crm")}>Outreach</button>
+          </nav>
           <span className="adminconsole__user">{user.email} · <button className="linklike" onClick={onSignOut}>Sign out</button></span>
         </header>
         <div className="adminconsole__body">
-          {selected ? (
+          {view === "crm" ? (
+            <AdminCRM />
+          ) : selected ? (
             <AdminClientDetail
               shop={selected} origin={origin} saving={savingId === selected._id}
               onPatch={(body, label) => patch(selected._id, body, label)}
@@ -358,7 +366,7 @@ function AdminClientDetail({ shop: s, origin, saving, onPatch, onFreeMonth, onDe
                 <select value={s.planId} disabled={saving} onChange={e => onPatch({ planId: e.target.value }, "Plan updated")}>
                   <option value="booking">Booking access — $35/mo</option>
                   <option value="booking-reduced">Booking access (reduced) — $25/mo</option>
-                  <option value="website">Website + Booking — $99/mo</option>
+                  <option value="website">Website + Booking — $59/mo</option>
                 </select>
               </label>
             </AdCard>
@@ -598,7 +606,7 @@ function AddClientModal({ origin, onClose, onDone }) {
               <label className="field"><span className="field__label">Plan</span>
                 <select value={form.planId} onChange={e => set("planId", e.target.value)}>
                   <option value="booking">Booking access — $35/mo</option>
-                  <option value="website">Website + Booking — $99/mo</option>
+                  <option value="website">Website + Booking — $59/mo</option>
                 </select></label>
             </div>
             {err && <p className="form__error">{err}</p>}

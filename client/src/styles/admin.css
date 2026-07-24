@@ -15,6 +15,32 @@
   font-size: 0.78125rem; line-height: 1.5; white-space: pre-wrap; word-break: break-all; margin: 0 0 0.625rem; overflow-x: auto; }
 .adminconsole__account { max-width: 560px; margin: 2.125rem 0 0; padding-top: 1.625rem; border-top: 1px solid var(--line); }
 
+/* Header view switcher (Clients / Outreach) */
+.adminconsole__nav { display: flex; gap: 0.25rem; }
+.adminconsole__navbtn { background: none; border: 0; cursor: pointer; font: inherit; font-size: 0.875rem;
+  color: var(--ink-2); padding: 0.4rem 0.85rem; border-radius: 999px; }
+.adminconsole__navbtn:hover { background: var(--wash); color: var(--ink); }
+.adminconsole__navbtn.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* CRM toolbar + table extras */
+.crm__toolbar { display: flex; flex-wrap: wrap; gap: 0.625rem; margin-bottom: 1rem; }
+.crm__toolbar .clients-search { flex: 1; min-width: 12rem; max-width: 24rem; }
+.crm__count { font-size: 0.78rem; color: var(--ink-3); margin: 0.75rem 0 0; }
+
+/* Outreach email preview */
+.crm__preview { margin-top: 0.875rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.crm__preview-to { padding: 0.6rem 0.85rem; background: var(--wash); border-bottom: 1px solid var(--line); font-size: 0.8125rem; color: var(--ink-2); }
+.crm__preview-body { margin: 0; padding: 0.85rem; white-space: pre-wrap; font: 0.8125rem/1.55 ui-monospace, Menlo, monospace; color: var(--ink); overflow-x: auto; }
+
+/* Prospect history (emails + activity, merged, time-ordered) */
+.crm__history { margin-top: 0.875rem; display: flex; flex-direction: column; }
+.crm__hist-row { display: grid; grid-template-columns: 8rem 1fr auto; gap: 0.75rem; align-items: baseline;
+  padding: 0.5rem 0; border-top: 1px solid var(--line); font-size: 0.8125rem; }
+.crm__hist-k { font-weight: 600; text-transform: capitalize; color: var(--ink-2); }
+.crm__hist-d { color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.crm__hist-t { color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 560px) { .crm__hist-row { grid-template-columns: 1fr; gap: 0.15rem; } }
+
 /* Funnel snapshot (top of the clients list) */
 .adminconsole__summary { display: flex; flex-wrap: wrap; gap: 0.625rem; margin-bottom: 1.375rem; }
 .adminconsole__sumtile { flex: 1; min-width: 8rem; display: flex; flex-direction: column; gap: 0.125rem;

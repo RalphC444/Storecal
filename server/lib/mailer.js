@@ -84,6 +84,22 @@ async function sendReset(to, url) {
   return true;
 }
 
+// Cold-outreach send (admin CRM). Plain-text — personal, inbox-friendly — with
+// the support inbox as Reply-To so replies land at storecal.support@gmail.com.
+// Returns { ok, id, error } so the CRM can log each attempt.
+async function sendOutreachEmail(to, subject, text) {
+  const resend = client();
+  if (!resend) return { ok: false, error: "RESEND_API_KEY is not set" };
+  if (!to) return { ok: false, error: "No recipient email" };
+  try {
+    const { data, error } = await resend.emails.send({ from: FROM, replyTo: SUPPORT_EMAIL, to, subject, text });
+    if (error) return { ok: false, error: error.message || String(error) };
+    return { ok: true, id: (data && data.id) || null };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
@@ -248,6 +264,7 @@ module.exports = {
   sendBookingCancellation,
   sendOwnerBookingNotification,
   sendOwnerChangeNotification,
+  sendOutreachEmail,
   emailEnabled: () => !!process.env.RESEND_API_KEY,
   SUPPORT_EMAIL,
 };

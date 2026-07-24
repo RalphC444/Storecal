@@ -132,7 +132,7 @@ export function ApplyForWebsiteModal({ plan, onClose }) {
                 <select value={form.plan} onChange={(e) => set("plan", e.target.value)}>
                   <option value="">Not sure yet</option>
                   <option value="Booking access">Booking access — $35/mo</option>
-                  <option value="Website + Booking">Website + Booking — $99/mo</option>
+                  <option value="Website + Booking">Website + Booking — $59/mo</option>
                 </select>
               </label>
             </div>

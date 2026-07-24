@@ -116,6 +116,7 @@ app.use("/api/services", servicesRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/public", require("./routes/public")); // website: services + staff
 app.use("/api/addons", require("./routes/addons"));
+app.use("/api/admin/crm", require("./routes/adminCrm")); // superadmin: CRM + cold outreach
 app.use("/api/admin", require("./routes/admin")); // platform operator: manage clients
 app.use("/api/apply", require("./routes/apply")); // marketing: "apply for a website" form
 app.use("/api/gallery", require("./routes/gallery")); // shop photo gallery (public read)

@@ -47,7 +47,7 @@ export const MARKETING_PLANS = [
   },
   {
     name: "Website + Booking",
-    price: "$99",
+    price: "$59",
     per: "/month",
     featured: true,
     blurb: "A custom website for your business with booking built in.",
@@ -78,7 +78,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Which plan is right for me?",
-    a: "Already have a website? Booking access ($35/mo) adds online booking to it. No website yet? Website + Booking ($99/mo) is a custom site we build for you with booking built in.",
+    a: "Already have a website? Booking access ($35/mo) adds online booking to it. No website yet? Website + Booking ($59/mo) is a custom site we build for you with booking built in.",
   },
   {
     q: "Can I use my own logo and colors?",
