@@ -12,7 +12,16 @@ const router = Router();
 const MAX_SHOP = 40;
 const MAX_STAFF = 15;
 
-const publicImg = (i) => ({ _id: i._id.toString(), url: i.url, caption: i.caption || "", cover: i.cover === true, providerId: i.providerId || null });
+// The list/grids load the light thumbnail to keep payloads small; the cover
+// (used as the page hero) gets the full image. Legacy rows have no thumb → fall
+// back to the full image so they still display.
+const publicImg = (i) => ({
+  _id: i._id.toString(),
+  url: i.cover === true ? i.url : (i.thumb || i.url),
+  caption: i.caption || "",
+  cover: i.cover === true,
+  providerId: i.providerId || null,
+});
 
 // Can the signed-in user manage this gallery? Owner → shop + any staff gallery.
 // Provider → only their own staff gallery (never the shop gallery).
@@ -65,6 +74,9 @@ router.post("/", requireAuth, async (req, res) => {
     const shopId = req.auth.shopId;
     const url = String(req.body.url || "");
     if (!url.startsWith("data:image/")) return res.status(400).json({ error: "A valid image is required" });
+    // Optional light thumbnail (what the grids load); ignore anything malformed.
+    const thumbIn = String(req.body.thumb || "");
+    const thumb = thumbIn.startsWith("data:image/") ? thumbIn : "";
 
     const providerId = req.body.providerId || null;
     if (!canManage(req.auth, providerId)) return res.status(403).json({ error: "Not allowed" });
@@ -77,7 +89,7 @@ router.post("/", requireAuth, async (req, res) => {
     const count = await db.collection("gallery").countDocuments(providerId ? { shopId, providerId } : { shopId, providerId: null });
     if (count >= max) return res.status(400).json({ error: `Gallery is full (max ${max} photos)` });
 
-    const doc = { shopId, providerId, url, caption: String(req.body.caption || "").trim(), sortOrder: count, createdAt: new Date() };
+    const doc = { shopId, providerId, url, thumb, caption: String(req.body.caption || "").trim(), sortOrder: count, createdAt: new Date() };
     const r = await db.collection("gallery").insertOne(doc);
     res.status(201).json(publicImg({ ...doc, _id: r.insertedId }));
   } catch (err) {

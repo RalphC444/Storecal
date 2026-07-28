@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { toast } from "../../components/Toast";
-import { resizeImageDataUrl } from "../../lib/images";
+import { galleryVariants } from "../../lib/images";
 
 export function GalleryView({ addReq }) {
   const [images, setImages] = useState(null);
@@ -23,14 +23,19 @@ export function GalleryView({ addReq }) {
     e.target.value = "";
     if (!files.length) return;
     setBusy(true); setErr("");
-    for (const f of files) {
+    const uploadOne = async (f) => {
       try {
-        const url = await resizeImageDataUrl(f);
-        const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+        const { url, thumb } = await galleryVariants(f);
+        const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, thumb }) });
         const d = await res.json().catch(() => ({}));
         if (res.ok) setImages(list => [...(list || []), d]); // append (display order is manual)
         else setErr(d.error || "Couldn’t add that image");
       } catch { setErr("Couldn’t process an image"); }
+    };
+    // Upload a few at a time so a batch of photos uploads quickly.
+    const CONCURRENCY = 3;
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      await Promise.all(files.slice(i, i + CONCURRENCY).map(uploadOne));
     }
     setBusy(false); toast("Gallery updated");
   }
@@ -139,14 +144,18 @@ export function StaffGallery({ providerId, addReq, standalone }) {
     const files = [...(e.target.files || [])]; e.target.value = "";
     if (!files.length) return;
     setBusy(true); setErr("");
-    for (const f of files) {
+    const uploadOne = async (f) => {
       try {
-        const url = await resizeImageDataUrl(f);
-        const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, providerId }) });
+        const { url, thumb } = await galleryVariants(f);
+        const res = await fetch("/api/gallery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, thumb, providerId }) });
         const d = await res.json().catch(() => ({}));
         if (res.ok) setImages(list => [d, ...(list || [])]);
         else setErr(d.error || "Couldn’t add that image");
       } catch { setErr("Couldn’t process an image"); }
+    };
+    const CONCURRENCY = 3;
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      await Promise.all(files.slice(i, i + CONCURRENCY).map(uploadOne));
     }
     setBusy(false); toast("Gallery updated");
   }
