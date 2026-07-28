@@ -95,7 +95,7 @@
 .marketing__brand { display: inline-flex; align-items: center; gap: .5rem; }
 .marketing__brand .brand__mark { width: 26px; height: 26px; display: inline-flex; }
 .marketing__brandname { font-family: var(--m-serif); font-weight: 600; font-size: 1.3rem; letter-spacing: -.01em; color: var(--m-navy); }
-.marketing__brandname--foot { color: #fff; }
+.marketing__brandname--foot { color: var(--m-navy); }
 .marketing__links { display: flex; align-items: center; gap: 1.7rem; }
 .marketing__link { font-size: .92rem; font-weight: 600; color: var(--m-navy); position: relative; padding: .2rem 0; }
 .marketing__link::after {
@@ -361,18 +361,18 @@
 .marketing__band-sub a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
-.marketing__foot { background: var(--m-navy); color: #fff; padding: clamp(2.25rem, 4vw, 3rem) clamp(1rem, 4vw, 2.4rem) 1.5rem; }
+.marketing__foot { background: #eceafb; color: var(--m-navy); padding: clamp(2.25rem, 4vw, 3rem) clamp(1rem, 4vw, 2.4rem) 1.5rem; }
 .marketing__foot-grid { max-width: var(--m-wrap); margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2rem; }
 .marketing__foot-brand .brand__mark { width: 24px; height: 24px; }
-.marketing__foot-brand p { color: rgba(255, 255, 255, .58); margin-top: .75rem; max-width: 28ch; font-size: .875rem; }
-.marketing__foot-col h4 { font-family: var(--m-serif); font-weight: 500; font-size: 1rem; color: var(--m-peri); margin-bottom: .75rem; }
-.marketing__foot-col a, .marketing__foot-link { display: block; color: rgba(255, 255, 255, .82); margin-bottom: .45rem; font-size: .875rem; text-align: left; transition: color .3s; }
-.marketing__foot-col a:hover, .marketing__foot-link:hover { color: var(--m-peri); }
+.marketing__foot-brand p { color: rgba(0, 13, 110, .62); margin-top: .75rem; max-width: 28ch; font-size: .875rem; }
+.marketing__foot-col h4 { font-family: var(--m-serif); font-weight: 500; font-size: 1rem; color: var(--m-peri-2); margin-bottom: .75rem; }
+.marketing__foot-col a, .marketing__foot-link { display: block; color: rgba(0, 13, 110, .78); margin-bottom: .45rem; font-size: .875rem; text-align: left; transition: color .3s; }
+.marketing__foot-col a:hover, .marketing__foot-link:hover { color: var(--m-peri-2); }
 .marketing__foot-bar {
   max-width: var(--m-wrap); margin: 2rem auto 0; padding-top: 1.1rem;
-  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-top: 1px solid rgba(0, 13, 110, .14);
   display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  font-size: .75rem; color: rgba(255, 255, 255, .45);
+  font-size: .75rem; color: rgba(0, 13, 110, .5);
 }
 
 /* ── Standalone product page (Features + How it works) ──────────────────── */
