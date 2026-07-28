@@ -356,6 +356,16 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
         </div>
       </section>
 
+      {/* ── Free booking page (lead capture for barbershops/salons) ──────── */}
+      <section className="marketing__section" id="free-page">
+        <div className="marketing__sechead">
+          <p className="marketing__section-eyebrow" data-reveal>Barbershops &amp; salons</p>
+          <h2 className="marketing__h2" data-reveal>Get your <em>free booking page.</em></h2>
+          <p className="marketing__lede" data-reveal>We build it for you — live in your Instagram bio in a day. Pay nothing until it books you 3 real clients.</p>
+        </div>
+        <FreeBookingForm />
+      </section>
+
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="marketing__foot">
         <div className="marketing__foot-grid">
@@ -392,5 +402,50 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
 
       {applyOpen && <ApplyForWebsiteModal plan={applyPlan} onClose={() => setApplyOpen(false)} />}
     </div>
+  );
+}
+
+// "Get your free booking page" — lightweight inbound lead form. Posts to
+// /api/lead, which drops the shop into the Outreach CRM pipeline.
+function FreeBookingForm() {
+  const [form, setForm] = useState({ businessName: "", contact: "", city: "" });
+  const [status, setStatus] = useState("idle"); // idle | busy | done
+  const [err, setErr] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr("");
+    if (!form.businessName.trim() || !form.contact.trim()) {
+      setErr("Add your shop name and a way to reach you.");
+      return;
+    }
+    setStatus("busy");
+    try {
+      const res = await fetch("/api/lead", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Something went wrong — try again."); }
+      setStatus("done");
+    } catch (e2) { setErr(e2.message); setStatus("idle"); }
+  }
+
+  if (status === "done") {
+    return (
+      <div className="freepage__done" data-reveal>
+        Got it 💈 — we&rsquo;ll reach out to set up your free booking page. Talk soon!
+      </div>
+    );
+  }
+  return (
+    <form className="freepage__form" onSubmit={submit} data-reveal>
+      <input className="freepage__input" type="text" value={form.businessName} onChange={(e) => set("businessName", e.target.value)} placeholder="Shop name" required />
+      <input className="freepage__input" type="text" value={form.contact} onChange={(e) => set("contact", e.target.value)} placeholder="Phone, email, or @instagram" required />
+      <input className="freepage__input" type="text" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Town (optional)" />
+      <button className="mbtn mbtn--primary freepage__btn" type="submit" disabled={status === "busy"}>
+        {status === "busy" ? "Sending…" : "Get my free page →"}
+      </button>
+      {err && <p className="freepage__err">{err}</p>}
+    </form>
   );
 }

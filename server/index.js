@@ -119,6 +119,7 @@ app.use("/api/addons", require("./routes/addons"));
 app.use("/api/admin/crm", require("./routes/adminCrm")); // superadmin: CRM + cold outreach
 app.use("/api/admin", require("./routes/admin")); // platform operator: manage clients
 app.use("/api/apply", require("./routes/apply")); // marketing: "apply for a website" form
+app.use("/api/lead", require("./routes/lead")); // marketing: "get your free booking page" lead → CRM
 app.use("/api/gallery", require("./routes/gallery")); // shop photo gallery (public read)
 
 // Any unmatched /api/* route is a JSON 404 (not the SPA fallback below).

@@ -46,6 +46,15 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
 
   const [weekStart, setWeekStart] = useState(weekStartOf(todayKey()));
   const [selectedDay, setSelectedDay] = useState(todayKey());
+  // Mobile defaults to the agenda list (glanceable between clients); the toggle
+  // choice is remembered across visits.
+  const [mobileView, setMobileView] = useState(() => {
+    try { return localStorage.getItem("sc_cal_mobile_view") || "agenda"; } catch { return "agenda"; }
+  });
+  function chooseMobileView(v) {
+    setMobileView(v);
+    try { localStorage.setItem("sc_cal_mobile_view", v); } catch { /* private mode */ }
+  }
 
   const [editing, setEditing] = useState(null); // null | {} | {…appt}
   const [storeHoursOpen, setStoreHoursOpen] = useState(false);
@@ -415,6 +424,8 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
             providerId={selected}
             teamLabel={teamLabel}
             isMobile={isMobile}
+            mobileView={mobileView}
+            onSetMobileView={chooseMobileView}
             lockProvider={isProvider}
             hoursVersion={hoursVersion}
             onSelectProvider={setSelected}

@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { Icon } from "../../components/Icon";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { STATUSES, STATUS_LABEL, effStatus } from "../../lib/appointments";
-import { addDaysKey, fmtTime, parseYmd, todayKey } from "../../lib/datetime";
+import { addDaysKey, fmtSideDay, fmtTime, parseYmd, todayKey, toMin } from "../../lib/datetime";
 import { DAY_START, DAY_END, PX_PER_MIN, GRID_H, DAYS_SHORT, SLOTS, packDay, openRangesFor } from "./availability";
 import { ScheduleEditor } from "./Scheduling";
 
 export function WeekCalendar({
   weekStart, selectedDay, appts, loading, providers, providerId, teamLabel, isMobile,
   lockProvider, hoursLabel = "Store hours", hoursVersion,
+  mobileView = "agenda", onSetMobileView,
   onSelectProvider, durationOf,
   onPrev, onNext, onToday, onSelectDay, onSelectAppt, onNewAt, onStoreHours,
 }) {
@@ -56,6 +57,20 @@ export function WeekCalendar({
           <button className="navbutton navbutton--icon" onClick={onPrev} aria-label="Previous"><Icon name="chevronLeft" /></button>
           <button className="navbutton navbutton--icon" onClick={onNext} aria-label="Next"><Icon name="chevronRight" /></button>
         </div>
+        {isMobile && (
+          <div className="seg seg--cal" role="tablist" aria-label="Calendar view">
+            <button
+              role="tab" aria-selected={mobileView === "agenda"}
+              className={`seg__btn${mobileView === "agenda" ? " seg__btn--on" : ""}`}
+              onClick={() => onSetMobileView?.("agenda")}
+            >Agenda</button>
+            <button
+              role="tab" aria-selected={mobileView === "day"}
+              className={`seg__btn${mobileView === "day" ? " seg__btn--on" : ""}`}
+              onClick={() => onSetMobileView?.("day")}
+            >Day</button>
+          </div>
+        )}
         <h1 className="calendar__title">{title}</h1>
         <span className="calendar__stat">
           <span className="calendar__stat-l">Total appointments</span>
@@ -77,6 +92,18 @@ export function WeekCalendar({
         )}
       </div>
 
+      {isMobile && mobileView === "agenda" ? (
+        <AgendaBody
+          weekStart={weekStart}
+          selectedDay={selectedDay}
+          appts={shown}
+          loading={loading}
+          providerId={providerId}
+          durationOf={durationOf}
+          onSelectAppt={onSelectAppt}
+          onNewAt={onNewAt}
+        />
+      ) : (
       <div className="calendar__grid">
         {loading && <div className="calendar__loading"><LoadingSpinner /></div>}
         <div className="calendar__scroll">
@@ -204,6 +231,63 @@ export function WeekCalendar({
           </div>
         </div>
       </div>
+      )}
+    </div>
+  );
+}
+
+// ── Agenda list (mobile default) ──────────────────────────────────────────────
+// A Teams-style running list: the selected day plus every later day this week
+// that has appointments, grouped under "Today / Tomorrow / weekday" headers.
+function AgendaBody({ weekStart, selectedDay, appts, loading, providerId, durationOf, onSelectAppt, onNewAt }) {
+  const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i)).filter(d => d >= selectedDay);
+  const groups = days
+    .map(d => ({
+      d,
+      list: appts.filter(a => a.dateKey === d).sort((x, y) => toMin(x.timeValue) - toMin(y.timeValue)),
+    }))
+    // Always show the selected day (so an empty day reads as "nothing on"); other
+    // days only appear when they actually hold appointments.
+    .filter(g => g.d === selectedDay || g.list.length > 0);
+
+  return (
+    <div className="agenda">
+      {loading && <div className="calendar__loading"><LoadingSpinner /></div>}
+      {groups.map(({ d, list }) => (
+        <section key={d} className="agenda__group">
+          <header className="agenda__day">
+            <span className="agenda__day-l">{fmtSideDay(d)}</span>
+            {list.length > 0 && <span className="agenda__day-n">{list.length}</span>}
+          </header>
+
+          {list.length === 0 ? (
+            <button className="agenda__empty" onClick={() => onNewAt?.(d, 9 * 60)}>
+              Nothing booked{d === todayKey() ? " today" : ""}. Tap to add an appointment.
+            </button>
+          ) : list.map(a => {
+            const eff = effStatus(a, durationOf);
+            const dur = durationOf(a.service);
+            const svc = `${a.service || ""}${providerId === "all" && a.providerName ? ` · ${a.providerName}` : ""}`.trim();
+            return (
+              <button
+                key={a._id}
+                className={`agenda__item agenda__item--${eff}`}
+                onClick={() => onSelectAppt(a)}
+              >
+                <span className="agenda__time">
+                  <span className="agenda__time-t">{fmtTime(a.timeValue)}</span>
+                  <span className="agenda__time-d">{dur} min</span>
+                </span>
+                <span className="agenda__main">
+                  <span className="agenda__name">{a.client?.name || "—"}</span>
+                  {svc && <span className="agenda__svc">{svc}</span>}
+                </span>
+                <span className={`tag tag--${eff}`}>{STATUS_LABEL[eff]}</span>
+              </button>
+            );
+          })}
+        </section>
+      ))}
     </div>
   );
 }

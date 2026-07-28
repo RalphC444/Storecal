@@ -330,6 +330,17 @@
 @media (max-width: 640px) { .marketing__faq { grid-template-columns: 1fr; gap: 1.4rem; } }
 .marketing__faq-q { font-family: var(--m-sans); font-size: 1rem; font-weight: 700; color: var(--m-ink); margin: 0 0 .4rem; }
 .marketing__faq-a { font-size: .92rem; line-height: 1.6; color: var(--m-muted); margin: 0; }
+
+/* "Get your free booking page" lead form */
+.freepage__form { max-width: 42rem; margin: 2rem auto 0; display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; }
+.freepage__input { flex: 1 1 14rem; min-width: 0; font: inherit; font-size: .95rem; padding: .8rem 1rem;
+  border: 1px solid var(--m-line); border-radius: 10px; background: #fff; color: var(--m-ink); }
+.freepage__input::placeholder { color: var(--m-muted); }
+.freepage__input:focus { outline: none; border-color: var(--m-peri); box-shadow: 0 0 0 3px rgba(77,75,217,.15); }
+.freepage__btn { flex: 0 0 auto; }
+.freepage__err { flex-basis: 100%; text-align: center; color: #c0392b; font-size: .85rem; margin: .2rem 0 0; }
+.freepage__done { max-width: 42rem; margin: 2rem auto 0; text-align: center; font-size: 1.05rem; font-weight: 600;
+  color: var(--m-ink); background: #ecebff; border: 1px solid #d7d5f5; border-radius: 12px; padding: 1.1rem 1.4rem; }
 .marketing__plan--featured .mbtn--ghost { border-color: rgba(255, 255, 255, .5); color: #fff; }
 .marketing__plan--featured .mbtn--ghost:hover { background: #fff; color: var(--m-navy); }
 .marketing__fine { text-align: center; font-size: .82rem; color: var(--m-muted); margin-top: 1.8rem; }
@@ -350,18 +361,18 @@
 .marketing__band-sub a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
-.marketing__foot { background: var(--m-navy-deep); color: #fff; padding: clamp(3.5rem, 7vw, 5rem) clamp(1rem, 4vw, 2.4rem) 2rem; }
-.marketing__foot-grid { max-width: var(--m-wrap); margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2.5rem; }
-.marketing__foot-brand .brand__mark { width: 28px; height: 28px; }
-.marketing__foot-brand p { color: rgba(255, 255, 255, .58); margin-top: 1rem; max-width: 28ch; font-size: .95rem; }
-.marketing__foot-col h4 { font-family: var(--m-serif); font-weight: 500; font-size: 1.1rem; color: var(--m-peri); margin-bottom: 1rem; }
-.marketing__foot-col a, .marketing__foot-link { display: block; color: rgba(255, 255, 255, .82); margin-bottom: .55rem; font-size: .92rem; text-align: left; transition: color .3s; }
+.marketing__foot { background: var(--m-navy-deep); color: #fff; padding: clamp(2.25rem, 4vw, 3rem) clamp(1rem, 4vw, 2.4rem) 1.5rem; }
+.marketing__foot-grid { max-width: var(--m-wrap); margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2rem; }
+.marketing__foot-brand .brand__mark { width: 24px; height: 24px; }
+.marketing__foot-brand p { color: rgba(255, 255, 255, .58); margin-top: .75rem; max-width: 28ch; font-size: .875rem; }
+.marketing__foot-col h4 { font-family: var(--m-serif); font-weight: 500; font-size: 1rem; color: var(--m-peri); margin-bottom: .75rem; }
+.marketing__foot-col a, .marketing__foot-link { display: block; color: rgba(255, 255, 255, .82); margin-bottom: .45rem; font-size: .875rem; text-align: left; transition: color .3s; }
 .marketing__foot-col a:hover, .marketing__foot-link:hover { color: var(--m-peri); }
 .marketing__foot-bar {
-  max-width: var(--m-wrap); margin: 3rem auto 0; padding-top: 1.4rem;
+  max-width: var(--m-wrap); margin: 2rem auto 0; padding-top: 1.1rem;
   border-top: 1px solid rgba(255, 255, 255, .12);
   display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  font-size: .8rem; color: rgba(255, 255, 255, .45);
+  font-size: .75rem; color: rgba(255, 255, 255, .45);
 }
 
 /* ── Scroll reveal ──────────────────────────────────────────────────────── */
