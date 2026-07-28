@@ -16,7 +16,7 @@ export function MarketingFooter({ nav, onLegal }) {
         </div>
         <div className="marketing__foot-col">
           <h4>Product</h4>
-          <button className="linklike marketing__foot-link" onClick={nav.onProduct}>Features</button>
+          <button className="linklike marketing__foot-link" onClick={nav.onHome}>Features</button>
           <button className="linklike marketing__foot-link" onClick={nav.onPricing}>Pricing</button>
           <button className="linklike marketing__foot-link" onClick={nav.onProduct}>How it works</button>
         </div>

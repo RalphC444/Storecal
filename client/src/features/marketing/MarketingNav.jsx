@@ -25,7 +25,7 @@ export function MarketingNav({ onHome, onProduct, onPricing, onGetWebsite, onCre
           <span className="marketing__brandname">StoreCal</span>
         </button>
         <nav className="marketing__links" aria-label="Primary">
-          <button className="linklike marketing__link" onClick={go(onProduct)}>Features</button>
+          <button className="linklike marketing__link" onClick={go(onHome)}>Features</button>
           <button className="linklike marketing__link" onClick={go(onProduct)}>How it works</button>
           <button className="linklike marketing__link" onClick={go(onPricing)}>Pricing</button>
           <button className="linklike marketing__link" onClick={go(onGetWebsite)}>Get a website</button>
