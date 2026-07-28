@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "../../components/Icon";
 import { BrandLogo } from "../../components/BrandLogo";
-import { ApplyForWebsiteModal } from "./ApplyForWebsiteModal";
+import { MarketingNav } from "./MarketingNav";
+import { MarketingFooter } from "./MarketingFooter";
 import { CONTACT_HREF, SUPPORT_EMAIL, MARKETING_FEATURES, MARKETING_PLANS, PRICING_FAQ } from "./constants";
 import { track } from "../../lib/analytics";
 
@@ -10,28 +11,14 @@ import { track } from "../../lib/analytics";
 // scroll-in reveals — dressed in StoreCal's navy + periwinkle branding. Our own
 // site has to look like the best site we'd build for a client, so it doubles as
 // a portfolio piece.
-export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal, onProduct }) {
-  const [applyOpen, setApplyOpen] = useState(false);
-  const [applyPlan, setApplyPlan] = useState("");
-  const [navOpen, setNavOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+export function LandingPage({ nav, onGetStarted, onDemo, onLegal, openApply }) {
   const rootRef = useRef(null);
   const demoFrameRef = useRef(null);
 
   useEffect(() => { track("landing_view"); }, []); // top-of-funnel
 
-  const openApply = (plan) => {
-    setApplyPlan(plan || "");
-    setApplyOpen(true);
-    setNavOpen(false);
-  };
-
-  // Sticky-nav background on scroll + one-shot reveal for anything [data-reveal].
+  // One-shot reveal for anything [data-reveal] + auto-open the demo booking modal.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 18);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-
     // Gate the reveal animation on JS being alive: only now do we allow the
     // hidden start-state, so a no-JS / observer-less visitor still sees content.
     if (rootRef.current) rootRef.current.classList.add("reveal-ready");
@@ -78,44 +65,17 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal, onProduct
     if (demoIo && demoFrame) demoIo.observe(demoFrame);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
       io.disconnect();
       if (demoTimer) clearTimeout(demoTimer);
       if (demoIo) demoIo.disconnect();
     };
   }, []);
 
-  const closeNav = () => setNavOpen(false);
-
   return (
     <div className="marketing" id="top" ref={rootRef}>
       <div className="marketing__grain" aria-hidden="true" />
 
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <header className={"marketing__nav" + (scrolled ? " is-scrolled" : "") + (navOpen ? " is-open" : "")}>
-        <div className="marketing__navwrap">
-          <a className="marketing__brand" href="#top" onClick={closeNav}>
-            <span className="brand__mark"><BrandLogo /></span>
-            <span className="marketing__brandname">StoreCal</span>
-          </a>
-          <nav className="marketing__links" aria-label="Primary">
-            <button className="linklike marketing__link" onClick={() => { closeNav(); onProduct("features"); }}>Features</button>
-            <button className="linklike marketing__link" onClick={() => { closeNav(); onProduct("how"); }}>How it works</button>
-            <a className="marketing__link" href="#pricing" onClick={closeNav}>Pricing</a>
-            <button className="linklike marketing__link" onClick={() => { closeNav(); openApply(""); }}>Get a website</button>
-            <button className="linklike marketing__link" onClick={() => { closeNav(); onGetStarted(); }}>Create account</button>
-            <button className="mbtn mbtn--nav" onClick={() => { closeNav(); onSignIn(); }}>Sign in</button>
-          </nav>
-          <button
-            className="marketing__navtoggle"
-            aria-label="Toggle menu"
-            aria-expanded={navOpen}
-            onClick={() => setNavOpen((v) => !v)}
-          >
-            <span /><span />
-          </button>
-        </div>
-      </header>
+      <MarketingNav {...nav} />
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section className="marketing__hero" id="hero">
@@ -263,49 +223,6 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal, onProduct
         </div>
       </section>
 
-      {/* ── Pricing ─────────────────────────────────────────────────────── */}
-      <section className="marketing__section" id="pricing">
-        <div className="marketing__sechead">
-          <p className="marketing__section-eyebrow" data-reveal>Pricing</p>
-          <h2 className="marketing__h2" data-reveal>Simple <em>monthly</em> pricing.</h2>
-          <p className="marketing__lede" data-reveal>Start free — no credit card to sign up. First month free when you subscribe, then billed monthly. Cancel anytime.</p>
-        </div>
-        <div className="marketing__plans">
-          {MARKETING_PLANS.map((p) => (
-            <div className={"marketing__plan" + (p.featured ? " marketing__plan--featured" : "")} key={p.name} data-reveal>
-              {p.featured && <span className="marketing__plantag">Most popular</span>}
-              <h3 className="marketing__planname">{p.name}</h3>
-              <div className="marketing__planprice">
-                {p.price}<span className="marketing__planper">{p.per}</span>
-              </div>
-              <p className="marketing__planblurb">{p.blurb}</p>
-              <ul className="marketing__planpoints">
-                {p.points.map((pt) => <li key={pt}>{pt}</li>)}
-              </ul>
-              {/* The done-for-you website plan is a sales conversation (apply);
-                  the self-serve booking plan signs up instantly. */}
-              <button className={"mbtn " + (p.featured ? "mbtn--primary" : "mbtn--ghost") + " marketing__plancta"}
-                onClick={() => p.featured ? openApply(p.name) : onGetStarted()}>
-                {p.featured ? "Apply for a website →" : "Start free →"}
-              </button>
-              {p.note && <p className="marketing__planfine">{p.note}</p>}
-            </div>
-          ))}
-        </div>
-        <div className="marketing__faq" data-reveal>
-          {PRICING_FAQ.map((f) => (
-            <div className="marketing__faq-item" key={f.q}>
-              <h3 className="marketing__faq-q">{f.q}</h3>
-              <p className="marketing__faq-a">{f.a}</p>
-            </div>
-          ))}
-        </div>
-        <p className="marketing__fine">
-          Prices in USD. Subscription renews monthly until cancelled; all payments are final. See our{" "}
-          <button className="linklike marketing__finelink" onClick={() => onLegal("refunds")}>refund &amp; cancellation policy</button>.
-        </p>
-      </section>
-
       {/* ── Get-a-website CTA band ──────────────────────────────────────── */}
       <section className="marketing__band" id="website">
         <div className="marketing__blob marketing__blob--band" aria-hidden="true" />
@@ -326,41 +243,7 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal, onProduct
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="marketing__foot">
-        <div className="marketing__foot-grid">
-          <div className="marketing__foot-brand">
-            <a className="marketing__brand" href="#top">
-              <span className="brand__mark"><BrandLogo /></span>
-              <span className="marketing__brandname marketing__brandname--foot">StoreCal</span>
-            </a>
-            <p>Online booking, scheduling, and calendar software for salons, barbershops, and local shops in Mount Vernon, Westchester County, and the greater New York area — a simple, affordable alternative to Square, Booksy, and Phorest.</p>
-          </div>
-          <div className="marketing__foot-col">
-            <h4>Product</h4>
-            <button className="linklike marketing__foot-link" onClick={() => onProduct("features")}>Features</button>
-            <a href="#pricing">Pricing</a>
-            <button className="linklike marketing__foot-link" onClick={() => onProduct("how")}>How it works</button>
-          </div>
-          <div className="marketing__foot-col">
-            <h4>Company</h4>
-            <a href="#website">Get a website</a>
-            <a href={`mailto:${SUPPORT_EMAIL}`}>Contact</a>
-          </div>
-          <div className="marketing__foot-col">
-            <h4>Legal</h4>
-            <button className="linklike marketing__foot-link" onClick={() => onLegal("terms")}>Terms</button>
-            <button className="linklike marketing__foot-link" onClick={() => onLegal("privacy")}>Privacy</button>
-            <button className="linklike marketing__foot-link" onClick={() => onLegal("refunds")}>Refunds &amp; Cancellations</button>
-          </div>
-        </div>
-        <div className="marketing__foot-bar">
-          <span>© {new Date().getFullYear()} StoreCal · Booking for local business</span>
-          <span>Built for local business</span>
-        </div>
-      </footer>
-
-      {applyOpen && <ApplyForWebsiteModal plan={applyPlan} onClose={() => setApplyOpen(false)} />}
+      <MarketingFooter nav={nav} onLegal={onLegal} />
     </div>
   );
 }

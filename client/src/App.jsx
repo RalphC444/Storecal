@@ -22,6 +22,12 @@ const PolicyPages = lazy(() =>
 const ProductPage = lazy(() =>
   import("./features/marketing/ProductPage").then((m) => ({ default: m.ProductPage }))
 );
+const PricingPage = lazy(() =>
+  import("./features/marketing/PricingPage").then((m) => ({ default: m.PricingPage }))
+);
+const ApplyModal = lazy(() =>
+  import("./features/marketing/ApplyForWebsiteModal").then((m) => ({ default: m.ApplyForWebsiteModal }))
+);
 const AdminConsole = lazy(() =>
   import("./features/admin/AdminConsole").then((m) => ({ default: m.AdminConsole }))
 );
@@ -77,6 +83,24 @@ export default function App() {
   const openLegal = (sec) => { setLegalSection(sec); setPhase("legal"); };
   const [productSection, setProductSection] = useState(null);
   const openProduct = (sec) => { setProductSection(sec || null); setPhase("product"); };
+  const openPricing = () => setPhase("pricing");
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyPlan, setApplyPlan] = useState("");
+  const openApply = (plan) => { setApplyPlan(plan || ""); setApplyOpen(true); };
+  // Shared marketing nav handlers — identical header/footer navigation on every page.
+  const nav = {
+    onHome: () => setPhase("landing"),
+    onProduct: () => openProduct(null), // in-app nav lands at the top; deep links scroll
+    onPricing: openPricing,
+    onGetWebsite: () => openApply(""),
+    onCreateAccount: () => setPhase("register"),
+    onSignIn: () => setPhase("login"),
+  };
+  // The "Get a website" modal is shared across all marketing pages, so it lives
+  // here and overlays whichever page is showing.
+  const applyModal = applyOpen
+    ? <Lazy><ApplyModal plan={applyPlan} onClose={() => setApplyOpen(false)} /></Lazy>
+    : null;
 
   useEffect(() => {
     // App mounted OK → chunks are current; allow a future one-shot reload if a
@@ -90,10 +114,11 @@ export default function App() {
     if (["terms", "privacy", "refunds"].includes(hash)) {
       setLegalSection(hash); setPhase("legal"); return;
     }
-    // Direct links to the standalone product page.
+    // Direct links to the standalone product / pricing pages.
     if (["features", "how"].includes(hash)) {
       setProductSection(hash); setPhase("product"); return;
     }
+    if (hash === "pricing") { setPhase("pricing"); return; }
     if (reset) {
       window.history.replaceState({}, "", window.location.pathname);
       setResetToken(reset); setPhase("reset"); return;
@@ -152,10 +177,13 @@ export default function App() {
   if (phase === "loading") return Splash;
 
   if (phase === "landing")
-    return <Lazy><LandingPage onSignIn={() => setPhase("login")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} onProduct={openProduct} /><CookieConsent onLegal={openLegal} /></Lazy>;
+    return <><Lazy><LandingPage nav={nav} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} openApply={openApply} /></Lazy>{applyModal}<CookieConsent onLegal={openLegal} /></>;
 
   if (phase === "product")
-    return <Lazy><ProductPage section={productSection} onBack={() => setPhase("landing")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} /><CookieConsent onLegal={openLegal} /></Lazy>;
+    return <><Lazy><ProductPage nav={nav} section={productSection} onLegal={openLegal} onGetStarted={() => setPhase("register")} onDemo={demoLogin} /></Lazy>{applyModal}<CookieConsent onLegal={openLegal} /></>;
+
+  if (phase === "pricing")
+    return <><Lazy><PricingPage nav={nav} onLegal={openLegal} onGetStarted={() => setPhase("register")} openApply={openApply} /></Lazy>{applyModal}<CookieConsent onLegal={openLegal} /></>;
 
   if (phase === "register")
     return <RegisterScreen

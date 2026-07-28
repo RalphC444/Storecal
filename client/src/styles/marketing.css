@@ -375,19 +375,10 @@
   font-size: .75rem; color: rgba(0, 13, 110, .5);
 }
 
-/* ── Standalone product page (Features + How it works) ──────────────────── */
-.productpage { min-height: 100vh; background: var(--m-cream); }
-.productpage__bar {
-  position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: 0.9rem clamp(1rem, 4vw, 2.4rem);
-  background: rgba(247, 247, 253, .9);
-  backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
-  border-bottom: 1px solid var(--m-line);
-}
-.productpage__back { font-weight: 600; color: var(--m-navy); font-size: .95rem; }
-.productpage__back:hover { color: var(--m-peri-2); }
-.productpage__body { max-width: var(--m-wrap); margin: 0 auto; }
+/* ── Standalone marketing pages (Product / Pricing) ─────────────────────── */
+.productpage, .pricingpage { min-height: 100vh; background: var(--m-cream); }
+/* Top padding clears the fixed site nav. */
+.productpage__body, .pricingpage__body { max-width: var(--m-wrap); margin: 0 auto; padding-top: 3.5rem; }
 .productpage__cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; padding: 1rem clamp(1rem, 4vw, 2.4rem) 4rem; }
 
 /* ── Scroll reveal ──────────────────────────────────────────────────────── */

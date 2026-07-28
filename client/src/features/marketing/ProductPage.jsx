@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { Icon } from "../../components/Icon";
-import { BrandLogo } from "../../components/BrandLogo";
 import { MARKETING_FEATURES } from "./constants";
+import { MarketingNav } from "./MarketingNav";
+import { MarketingFooter } from "./MarketingFooter";
 
-// Standalone "Features & how it works" page — moved off the landing page into its
-// own route. Reachable from the nav + footer. Kept intentionally simple: a sticky
-// back bar, the two content sections, and a closing CTA.
-export function ProductPage({ section, onBack, onGetStarted, onDemo }) {
+// Standalone "Features & how it works" page. Shares the site nav + footer.
+// Deep links (a new tab at #features / #how) land on that section; in-app
+// navigation passes no section and starts at the top of the page.
+export function ProductPage({ nav, onLegal, onGetStarted, onDemo, section }) {
   useEffect(() => {
     const el = section && document.getElementById(section === "how" ? "how" : "features");
     if (el) el.scrollIntoView({ block: "start" });
@@ -15,13 +16,7 @@ export function ProductPage({ section, onBack, onGetStarted, onDemo }) {
 
   return (
     <div className="marketing productpage">
-      <header className="productpage__bar">
-        <button className="marketing__brand linklike" onClick={onBack} aria-label="Back to StoreCal home">
-          <span className="brand__mark"><BrandLogo /></span>
-          <span className="marketing__brandname">StoreCal</span>
-        </button>
-        <button className="linklike productpage__back" onClick={onBack}>← Back to home</button>
-      </header>
+      <MarketingNav {...nav} />
 
       <main className="productpage__body">
         {/* What you get */}
@@ -70,6 +65,8 @@ export function ProductPage({ section, onBack, onGetStarted, onDemo }) {
           <button className="mbtn mbtn--ghost" onClick={onDemo}>See the live demo →</button>
         </div>
       </main>
+
+      <MarketingFooter nav={nav} onLegal={onLegal} />
     </div>
   );
 }
