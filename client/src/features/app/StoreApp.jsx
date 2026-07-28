@@ -430,8 +430,8 @@ export function StoreApp({ user, onSignOut, onUserChange }) {
             hoursVersion={hoursVersion}
             onSelectProvider={setSelected}
             durationOf={durationOf}
-            onPrev={() => isMobile ? stepDay(-1) : setWeekStart(w => addDaysKey(w, -7))}
-            onNext={() => isMobile ? stepDay(1) : setWeekStart(w => addDaysKey(w, 7))}
+            onPrev={() => (isMobile && mobileView === "day") ? stepDay(-1) : setWeekStart(w => addDaysKey(w, -7))}
+            onNext={() => (isMobile && mobileView === "day") ? stepDay(1) : setWeekStart(w => addDaysKey(w, 7))}
             onToday={goToday}
             onSelectDay={setSelectedDay}
             onSelectAppt={a => setEditing(a)}

@@ -46,7 +46,11 @@ export function WeekCalendar({
   const nowMin = now.getHours() * 60 + now.getMinutes();
   // "Today" is active only when today is actually in view AND selected — so it
   // reverts to secondary when you paginate away or pick another day.
-  const isTodayView = selectedDay === todayStr && days.includes(todayStr);
+  // In the mobile agenda (a week view), "Today" is active whenever the shown week
+  // contains today; the day grid stays keyed to the selected day.
+  const isTodayView = (isMobile && mobileView === "agenda")
+    ? (todayStr >= weekStart && todayStr <= addDaysKey(weekStart, 6))
+    : selectedDay === todayStr && days.includes(todayStr);
   const colStyle = { gridTemplateColumns: `repeat(${days.length}, 1fr)` };
 
   return (
@@ -95,7 +99,6 @@ export function WeekCalendar({
       {isMobile && mobileView === "agenda" ? (
         <AgendaBody
           weekStart={weekStart}
-          selectedDay={selectedDay}
           appts={shown}
           loading={loading}
           providerId={providerId}
@@ -237,57 +240,71 @@ export function WeekCalendar({
 }
 
 // ── Agenda list (mobile default) ──────────────────────────────────────────────
-// A Teams-style running list: the selected day plus every later day this week
-// that has appointments, grouped under "Today / Tomorrow / weekday" headers.
-function AgendaBody({ weekStart, selectedDay, appts, loading, providerId, durationOf, onSelectAppt, onNewAt }) {
-  const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i)).filter(d => d >= selectedDay);
-  const groups = days
+// A week view (Sun–Sat) grouped under "Today / Tomorrow / weekday" headers. Past
+// days collapse to a tappable header (empty past days are hidden); today + future
+// stay open. Week navigation is driven by the top bar's prev/next.
+function AgendaBody({ weekStart, appts, loading, providerId, durationOf, onSelectAppt, onNewAt }) {
+  const today = todayKey();
+  const groups = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i))
     .map(d => ({
       d,
+      past: d < today,
       list: appts.filter(a => a.dateKey === d).sort((x, y) => toMin(x.timeValue) - toMin(y.timeValue)),
     }))
-    // Always show the selected day (so an empty day reads as "nothing on"); other
-    // days only appear when they actually hold appointments.
-    .filter(g => g.d === selectedDay || g.list.length > 0);
+    .filter(g => !g.past || g.list.length > 0); // drop empty past days
+
+  // Past days collapse by default; a tap toggles any day. Keyed by date so the
+  // state stays correct as the week changes.
+  const [open, setOpen] = useState({});
+  const isOpen = (g) => open[g.d] ?? !g.past;
+  const toggle = (g) => setOpen(o => ({ ...o, [g.d]: !(o[g.d] ?? !g.past) }));
 
   return (
     <div className="agenda">
       {loading && <div className="calendar__loading"><LoadingSpinner /></div>}
-      {groups.map(({ d, list }) => (
-        <section key={d} className="agenda__group">
-          <header className="agenda__day">
-            <span className="agenda__day-l">{fmtSideDay(d)}</span>
-            {list.length > 0 && <span className="agenda__day-n">{list.length}</span>}
-          </header>
-
-          {list.length === 0 ? (
-            <button className="agenda__empty" onClick={() => onNewAt?.(d, 9 * 60)}>
-              Nothing booked{d === todayKey() ? " today" : ""}. Tap to add an appointment.
+      {groups.map(g => {
+        const shown = isOpen(g);
+        return (
+          <section key={g.d} className="agenda__group">
+            <button
+              className={`agenda__day${g.past ? " agenda__day--past" : ""}`}
+              onClick={() => toggle(g)}
+              aria-expanded={shown}
+            >
+              <span className="agenda__day-caret" aria-hidden="true">{shown ? "▾" : "▸"}</span>
+              <span className="agenda__day-l">{fmtSideDay(g.d)}</span>
+              {g.list.length > 0 && <span className="agenda__day-n">{g.list.length}</span>}
             </button>
-          ) : list.map(a => {
-            const eff = effStatus(a, durationOf);
-            const dur = durationOf(a.service);
-            const svc = `${a.service || ""}${providerId === "all" && a.providerName ? ` · ${a.providerName}` : ""}`.trim();
-            return (
-              <button
-                key={a._id}
-                className={`agenda__item agenda__item--${eff}`}
-                onClick={() => onSelectAppt(a)}
-              >
-                <span className="agenda__time">
-                  <span className="agenda__time-t">{fmtTime(a.timeValue)}</span>
-                  <span className="agenda__time-d">{dur} min</span>
-                </span>
-                <span className="agenda__main">
-                  <span className="agenda__name">{a.client?.name || "—"}</span>
-                  {svc && <span className="agenda__svc">{svc}</span>}
-                </span>
-                <span className={`tag tag--${eff}`}>{STATUS_LABEL[eff]}</span>
+
+            {shown && (g.list.length === 0 ? (
+              <button className="agenda__empty" onClick={() => onNewAt?.(g.d, 9 * 60)}>
+                Nothing booked{g.d === today ? " today" : ""}. Tap to add an appointment.
               </button>
-            );
-          })}
-        </section>
-      ))}
+            ) : g.list.map(a => {
+              const eff = effStatus(a, durationOf);
+              const dur = durationOf(a.service);
+              const svc = `${a.service || ""}${providerId === "all" && a.providerName ? ` · ${a.providerName}` : ""}`.trim();
+              return (
+                <button
+                  key={a._id}
+                  className={`agenda__item agenda__item--${eff}`}
+                  onClick={() => onSelectAppt(a)}
+                >
+                  <span className="agenda__time">
+                    <span className="agenda__time-t">{fmtTime(a.timeValue)}</span>
+                    <span className="agenda__time-d">{dur} min</span>
+                  </span>
+                  <span className="agenda__main">
+                    <span className="agenda__name">{a.client?.name || "—"}</span>
+                    {svc && <span className="agenda__svc">{svc}</span>}
+                  </span>
+                  <span className={`tag tag--${eff}`}>{STATUS_LABEL[eff]}</span>
+                </button>
+              );
+            }))}
+          </section>
+        );
+      })}
     </div>
   );
 }

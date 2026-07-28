@@ -10,7 +10,7 @@ import { track } from "../../lib/analytics";
 // scroll-in reveals — dressed in StoreCal's navy + periwinkle branding. Our own
 // site has to look like the best site we'd build for a client, so it doubles as
 // a portfolio piece.
-export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
+export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal, onProduct }) {
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyPlan, setApplyPlan] = useState("");
   const [navOpen, setNavOpen] = useState(false);
@@ -99,8 +99,8 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
             <span className="marketing__brandname">StoreCal</span>
           </a>
           <nav className="marketing__links" aria-label="Primary">
-            <a className="marketing__link" href="#features" onClick={closeNav}>Features</a>
-            <a className="marketing__link" href="#how" onClick={closeNav}>How it works</a>
+            <button className="linklike marketing__link" onClick={() => { closeNav(); onProduct("features"); }}>Features</button>
+            <button className="linklike marketing__link" onClick={() => { closeNav(); onProduct("how"); }}>How it works</button>
             <a className="marketing__link" href="#pricing" onClick={closeNav}>Pricing</a>
             <button className="linklike marketing__link" onClick={() => { closeNav(); openApply(""); }}>Get a website</button>
             <button className="linklike marketing__link" onClick={() => { closeNav(); onGetStarted(); }}>Create account</button>
@@ -193,8 +193,8 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
           <iframe
             ref={demoFrameRef}
             className="marketing__demo-frame"
-            src="/demo.html"
-            title="Live StoreCal booking widget demo"
+            src="/book/demo"
+            title="Live StoreCal booking page — Demo Nail Salon"
             loading="lazy"
           />
         </div>
@@ -229,47 +229,7 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
             </ul>
             */}
 
-      {/* ── Features ────────────────────────────────────────────────────── */}
-      <section className="marketing__section" id="features">
-        <div className="marketing__sechead">
-          <p className="marketing__section-eyebrow" data-reveal>What you get</p>
-          <h2 className="marketing__h2" data-reveal>Everything to run the <em>front-desk.</em></h2>
-          <p className="marketing__lede" data-reveal>
-            One place for bookings, staff, hours, and clients — so the phone stops being your
-            calendar.
-          </p>
-        </div>
-        <div className="marketing__grid">
-          {MARKETING_FEATURES.map((f, i) => (
-            <div className={"marketing__card" + (i === 0 ? " marketing__card--feature" : "")} key={f.t} data-reveal>
-              <span className="marketing__cardicon"><Icon name={f.icon} /></span>
-              <h3 className="marketing__ct">{f.t}</h3>
-              <p className="marketing__cd">{f.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── How it works ────────────────────────────────────────────────── */}
-      <section className="marketing__section" id="how">
-        <div className="marketing__sechead">
-          <p className="marketing__section-eyebrow" data-reveal>Up and running in minutes</p>
-          <h2 className="marketing__h2" data-reveal>Three steps to <em>booked.</em></h2>
-        </div>
-        <div className="marketing__steps">
-          {[
-            { n: 1, t: "Set your hours & team", d: "Add your staff, services, and store hours." },
-            { n: 2, t: "Add the booking widget", d: "Paste one line onto your site and clients book instantly." },
-            { n: 3, t: "Manage from one calendar", d: "Every booking lands in your calendar — online, phone, or walk-in." },
-          ].map((s) => (
-            <div className="marketing__step" key={s.n} data-reveal>
-              <span className="marketing__num">{s.n}</span>
-              <h3 className="marketing__ct">{s.t}</h3>
-              <p className="marketing__cd">{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Features + How-it-works now live on their own page (ProductPage). */}
 
       {/* ── What the customer sees ──────────────────────────────────────── */}
       <section className="marketing__section marketing__section--tint" id="experience">
@@ -378,9 +338,9 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
           </div>
           <div className="marketing__foot-col">
             <h4>Product</h4>
-            <a href="#features">Features</a>
+            <button className="linklike marketing__foot-link" onClick={() => onProduct("features")}>Features</button>
             <a href="#pricing">Pricing</a>
-            <a href="#how">How it works</a>
+            <button className="linklike marketing__foot-link" onClick={() => onProduct("how")}>How it works</button>
           </div>
           <div className="marketing__foot-col">
             <h4>Company</h4>

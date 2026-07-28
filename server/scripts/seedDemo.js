@@ -20,18 +20,29 @@ function sundayKeyLocal() { const d = new Date(); d.setHours(0, 0, 0, 0); d.setD
 async function seedDemo() {
   const db = await getDb();
 
+  // Demo shop branding — a nail salon, applied on EVERY run so the public demo
+  // stays consistent (pink accent, tagline, branding unlocked, emails hard-off).
+  // Generic name/branding only — never a real client's shop.
+  const BRAND = {
+    name: "Demo Nail Salon", businessType: "salon",
+    accent: "#ed5ce9", tagline: "Modern Nail Designs", logo: "",
+    brandingAddon: true, brandingAddonComp: true,
+    bookingEmailsOff: true, showStaff: true,
+  };
+
   // 1. The demo shop — created once; keep the doc (so its publicKey is stable).
   let shop = await db.collection("shops").findOne({ slug: DEMO_SLUG });
   if (!shop) {
     const r = await db.collection("shops").insertOne({
-      slug: DEMO_SLUG, name: "Demo Beauty Studio", businessType: "salon",
-      publicKey: generatePublicKey(), isDemo: true, createdAt: new Date(),
+      slug: DEMO_SLUG, ...BRAND, publicKey: generatePublicKey(), isDemo: true, createdAt: new Date(),
     });
     shop = await db.collection("shops").findOne({ _id: r.insertedId });
   }
   const shopId = shop._id.toString();
   // Hard safety: never let this run against anything but the demo shop.
   if (shop.slug !== DEMO_SLUG) throw new Error("seedDemo refused — resolved shop is not the demo shop");
+  // Re-apply branding each run so an older/renamed demo shop converges to the nail theme.
+  await db.collection("shops").updateOne({ _id: shop._id }, { $set: { ...BRAND, updatedAt: new Date() } });
 
   // 2. Wipe demo-scoped data only (never touches other shops).
   for (const c of ["providers", "services", "workingHours", "scheduleMeta", "scheduleOverrides", "appointments", "clients"]) {
@@ -50,12 +61,12 @@ async function seedDemo() {
     { upsert: true }
   );
 
-  // 4. Services.
+  // 4. Services (nail salon).
   const serviceDefs = [
-    { name: "Women's Haircut", durationMin: 45, price: "$65" },
-    { name: "Men's Haircut", durationMin: 30, price: "$35" },
-    { name: "Color & Highlights", durationMin: 120, price: "$140" },
-    { name: "Blowout & Style", durationMin: 45, price: "$50" },
+    { name: "Classic Manicure", durationMin: 30, price: "$25" },
+    { name: "Gel Manicure", durationMin: 45, price: "$40" },
+    { name: "Classic Pedicure", durationMin: 45, price: "$45" },
+    { name: "Gel Pedicure", durationMin: 60, price: "$55" },
   ];
   const svcRes = await db.collection("services").insertMany(
     serviceDefs.map((s, i) => ({ ...s, shopId, sortOrder: i, createdAt: new Date() }))
@@ -64,9 +75,9 @@ async function seedDemo() {
 
   // 5. Staff + their weekly hours (Mon–Sat 9–6) + services offered.
   const staffDefs = [
-    { name: "Maria Lopez", bio: "Color & balayage specialist" },
-    { name: "James Carter", bio: "Cuts, fades & beard work" },
-    { name: "Ava Chen", bio: "Cuts and styling" },
+    { name: "Jasmine Lee", bio: "Nail art & gel specialist" },
+    { name: "Priya Shah", bio: "Manicures, pedicures & spa treatments" },
+    { name: "Nina Rossi", bio: "Acrylics, extensions & designs" },
   ];
   const provIds = [];
   const provName = {};

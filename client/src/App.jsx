@@ -19,6 +19,9 @@ const LandingPage = lazy(() =>
 const PolicyPages = lazy(() =>
   import("./features/marketing/PolicyPages").then((m) => ({ default: m.PolicyPages }))
 );
+const ProductPage = lazy(() =>
+  import("./features/marketing/ProductPage").then((m) => ({ default: m.ProductPage }))
+);
 const AdminConsole = lazy(() =>
   import("./features/admin/AdminConsole").then((m) => ({ default: m.AdminConsole }))
 );
@@ -72,6 +75,8 @@ export default function App() {
   const [resetToken, setResetToken] = useState(null);
   const [legalSection, setLegalSection] = useState(null);
   const openLegal = (sec) => { setLegalSection(sec); setPhase("legal"); };
+  const [productSection, setProductSection] = useState(null);
+  const openProduct = (sec) => { setProductSection(sec || null); setPhase("product"); };
 
   useEffect(() => {
     // App mounted OK → chunks are current; allow a future one-shot reload if a
@@ -84,6 +89,10 @@ export default function App() {
     const hash = (window.location.hash || "").replace("#", "");
     if (["terms", "privacy", "refunds"].includes(hash)) {
       setLegalSection(hash); setPhase("legal"); return;
+    }
+    // Direct links to the standalone product page.
+    if (["features", "how"].includes(hash)) {
+      setProductSection(hash); setPhase("product"); return;
     }
     if (reset) {
       window.history.replaceState({}, "", window.location.pathname);
@@ -143,7 +152,10 @@ export default function App() {
   if (phase === "loading") return Splash;
 
   if (phase === "landing")
-    return <Lazy><LandingPage onSignIn={() => setPhase("login")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} /><CookieConsent onLegal={openLegal} /></Lazy>;
+    return <Lazy><LandingPage onSignIn={() => setPhase("login")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} onLegal={openLegal} onProduct={openProduct} /><CookieConsent onLegal={openLegal} /></Lazy>;
+
+  if (phase === "product")
+    return <Lazy><ProductPage section={productSection} onBack={() => setPhase("landing")} onGetStarted={() => setPhase("register")} onDemo={demoLogin} /><CookieConsent onLegal={openLegal} /></Lazy>;
 
   if (phase === "register")
     return <RegisterScreen

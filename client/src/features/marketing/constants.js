@@ -43,7 +43,7 @@ export const MARKETING_PLANS = [
       "Store hours & closures",
       "Client list & visit history",
     ],
-    note: "First month free · no credit card to start",
+    note: "First month free · cancel anytime",
   },
   {
     name: "Website + Booking",
@@ -66,7 +66,7 @@ export const MARKETING_PLANS = [
 export const PRICING_FAQ = [
   {
     q: "Do I need a credit card to start?",
-    a: "No. Create your account and your booking page works right away. You only add a card when you decide to subscribe — and your first month is free.",
+    a: "Yes — you add a card when you create your account so your booking page can go live and keep running. You won’t be charged during your first month free, and you can cancel anytime before it ends.",
   },
   {
     q: "When am I charged?",
