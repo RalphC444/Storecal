@@ -1,7 +1,9 @@
-// Public "get your free booking page" lead capture. Drops inbound requests
-// straight into the Outreach CRM (crm_prospects) so they show up in the pipeline.
+// Public "get your free booking page" lead capture. Two channels, so a lead is
+// never missed: (1) drops the shop into the Outreach CRM (crm_prospects) so it
+// shows in the admin pipeline, and (2) emails the operator right away via EmailJS.
 const { Router } = require("express");
 const { getDb } = require("../lib/db");
+const { sendViaEmailJs } = require("../lib/emailjs");
 
 const router = Router();
 const clean = (v) => String(v == null ? "" : v).trim();
@@ -16,9 +18,11 @@ router.post("/", async (req, res) => {
     const db = await getDb();
     const city = clean(req.body.city).slice(0, 80);
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
-    // Don't create duplicates if they submit twice.
+
+    // 1. CRM — don't create duplicates if they submit twice.
     const existing = await db.collection("crm_prospects").findOne({ businessName, city });
-    if (!existing) {
+    const isNew = !existing;
+    if (isNew) {
       await db.collection("crm_prospects").insertOne({
         businessName, vertical: "beauty", contactName: "",
         email: isEmail ? contact.toLowerCase() : "",
@@ -29,6 +33,22 @@ router.post("/", async (req, res) => {
         createdAt: new Date(), updatedAt: new Date(),
       });
     }
+
+    // 2. Email notification (best-effort — never blocks the response). Reuses the
+    //    existing EmailJS template; the message makes clear it's a free-page lead.
+    if (isNew) {
+      const emailRes = await sendViaEmailJs({
+        from_name: businessName,
+        from_email: isEmail ? contact.toLowerCase() : "no-reply@storecal.com",
+        phone: isEmail ? "" : contact,
+        business: businessName,
+        business_type: "salon",
+        plan: "Free booking page (barbershop/salon)",
+        message: `NEW "free booking page" request from the website.\n\nShop: ${businessName}\nReach them at: ${contact}\nTown: ${city || "—"}`,
+      }, { origin: req.headers.origin });
+      if (!emailRes.ok) console.error("[lead] EmailJS notify failed:", emailRes.detail);
+    }
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

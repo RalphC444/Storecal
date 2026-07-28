@@ -175,6 +175,44 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
         </div>
       </section>
 
+      {/* ── See it live (iframed booking widget) — 2nd so prospects can try it fast ── */}
+      <section className="marketing__section" id="demo">
+        <div className="marketing__sechead">
+          <p className="marketing__section-eyebrow" data-reveal>See it live</p>
+          <h2 className="marketing__h2" data-reveal>Try the <em>actual</em> booking widget.</h2>
+          <p className="marketing__lede" data-reveal>
+            This is a real StoreCal widget on a sample shop's site — the same one your customers use.
+            Pick a service and book a slot; it's fully interactive.
+          </p>
+        </div>
+        <div className="marketing__browser" data-reveal>
+          <div className="marketing__browser-bar">
+            <span className="marketing__browser-dots"><i /><i /><i /></span>
+            <span className="marketing__browser-url">demonailsalon.com</span>
+          </div>
+          <iframe
+            ref={demoFrameRef}
+            className="marketing__demo-frame"
+            src="/demo.html"
+            title="Live StoreCal booking widget demo"
+            loading="lazy"
+          />
+        </div>
+        <p className="marketing__demo-note" data-reveal>
+          Prefer the owner's view? <button className="linklike marketing__finelink" onClick={onDemo}>Try the live demo dashboard →</button>
+        </p>
+      </section>
+
+      {/* ── Free booking page (lead capture for barbershops/salons) — 3rd ── */}
+      <section className="marketing__section" id="free-page">
+        <div className="marketing__sechead">
+          <p className="marketing__section-eyebrow" data-reveal>Barbershops &amp; salons</p>
+          <h2 className="marketing__h2" data-reveal>Get your <em>free booking page.</em></h2>
+          <p className="marketing__lede" data-reveal>We build it for you — live in your Instagram bio in a day. Pay nothing until it books you 3 real clients.</p>
+        </div>
+        <FreeBookingForm />
+      </section>
+
       {/* ── Marquee ───────────────────────────────────────────── HIDDEN ON PURPOSE FOR NOW
       <div className="marketing__marquee" aria-hidden="true">
         <div className="marketing__marquee-track">
@@ -231,34 +269,6 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
             </div>
           ))}
         </div>
-      </section>
-
-      {/* ── Live demo (iframed booking widget) ──────────────────────────── */}
-      <section className="marketing__section" id="demo">
-        <div className="marketing__sechead">
-          <p className="marketing__section-eyebrow" data-reveal>See it live</p>
-          <h2 className="marketing__h2" data-reveal>Try the <em>actual</em> booking widget.</h2>
-          <p className="marketing__lede" data-reveal>
-            This is a real StoreCal widget on a sample shop's site — the same one your customers use.
-            Pick a service and book a slot; it's fully interactive.
-          </p>
-        </div>
-        <div className="marketing__browser" data-reveal>
-          <div className="marketing__browser-bar">
-            <span className="marketing__browser-dots"><i /><i /><i /></span>
-            <span className="marketing__browser-url">demobeautystudio.com</span>
-          </div>
-          <iframe
-            ref={demoFrameRef}
-            className="marketing__demo-frame"
-            src="/demo.html"
-            title="Live StoreCal booking widget demo"
-            loading="lazy"
-          />
-        </div>
-        <p className="marketing__demo-note" data-reveal>
-          Prefer the owner's view? <button className="linklike marketing__finelink" onClick={onDemo}>Try the live demo dashboard →</button>
-        </p>
       </section>
 
       {/* ── What the customer sees ──────────────────────────────────────── */}
@@ -354,16 +364,6 @@ export function LandingPage({ onSignIn, onGetStarted, onDemo, onLegal }) {
             Questions? Email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
           </p>
         </div>
-      </section>
-
-      {/* ── Free booking page (lead capture for barbershops/salons) ──────── */}
-      <section className="marketing__section" id="free-page">
-        <div className="marketing__sechead">
-          <p className="marketing__section-eyebrow" data-reveal>Barbershops &amp; salons</p>
-          <h2 className="marketing__h2" data-reveal>Get your <em>free booking page.</em></h2>
-          <p className="marketing__lede" data-reveal>We build it for you — live in your Instagram bio in a day. Pay nothing until it books you 3 real clients.</p>
-        </div>
-        <FreeBookingForm />
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}

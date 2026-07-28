@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Demo Beauty Studio — book online</title>
+  <title>Demo Nail Salon — book online</title>
   <style>
-    :root { --ink:#14133a; --muted:#5c5a7c; --navy:#000D6E; --peri:#4d4bd9; --line:#e7e7f2; }
+    :root { --ink:#1c1030; --muted:#6a5a72; --deep:#2a0a28; --peri:#ed5ce9; --line:#f3e4f4; }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0; font-family: "Manrope", -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink);
       background:
-        radial-gradient(90% 70% at 80% -10%, #e6e6ff 0%, transparent 55%),
-        radial-gradient(80% 60% at 0% 110%, #eeedfb 0%, transparent 55%),
-        #f7f7fd;
+        radial-gradient(90% 70% at 80% -10%, #ffe0fb 0%, transparent 55%),
+        radial-gradient(80% 60% at 0% 110%, #ffe9fb 0%, transparent 55%),
+        #fdf7fc;
       display: grid; place-items: center; padding: 24px 18px;
     }
     .hero { text-align: center; max-width: 420px; width: 100%; }
@@ -21,21 +21,23 @@
       display: inline-block; font-size: 11.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
       color: var(--peri); background: #fff; border: 1px solid var(--line); border-radius: 100px; padding: 6px 13px; margin-bottom: 16px;
     }
-    .hero__name { margin: 0 0 8px; font-size: 27px; font-weight: 800; letter-spacing: -.02em; color: var(--navy); }
+    .hero__name { margin: 0 0 8px; font-size: 27px; font-weight: 800; letter-spacing: -.02em; color: var(--deep); }
     .hero__sub { margin: 0 auto 26px; color: var(--muted); font-size: 14.5px; line-height: 1.5; max-width: 30ch; }
     .hero__mount { display: flex; justify-content: center; }
-    .hero__hint { margin: 18px 0 0; font-size: 12px; color: #9998ad; }
+    .hero__hint { margin: 18px 0 0; font-size: 12px; color: #b596b1; }
     /* Promote the widget's own trigger button (styled via injected shadow CSS below). */
   </style>
 </head>
 <body>
   <main class="hero">
     <span class="hero__tag">Sample customer site</span>
-    <h1 class="hero__name">Demo Beauty Studio</h1>
-    <p class="hero__sub">Cuts, color &amp; styling in Mount Vernon. Book your next visit in a few taps.</p>
+    <h1 class="hero__name">Demo Nail Salon</h1>
+    <p class="hero__sub">Modern nail designs in NYC. Book your next visit in a few taps.</p>
     <div class="hero__mount">
-      <!-- The exact one-line snippet a shop pastes on their site. -->
-      <script src="/embed.js" data-store="sc_0b6433e70264a3b163" data-accent="#4d4bd9" data-button-text="Book an appointment"></script>
+      <!-- The exact one-line snippet a shop pastes on their site. Points at the
+           isolated demo project (a clone of The Nail Bar) so test bookings never
+           touch the real shop's calendar. -->
+      <script src="/embed.js" data-store="sc_0b6433e70264a3b163" data-accent="#ed5ce9" data-button-text="Book an appointment"></script>
     </div>
     <p class="hero__hint">↑ A live StoreCal booking widget</p>
   </main>
@@ -61,7 +63,7 @@
           var s = document.createElement("style");
           s.textContent =
             ".sc-trigger{font-size:16px!important;font-weight:700!important;padding:15px 30px!important;" +
-            "border-radius:14px!important;box-shadow:0 16px 34px -12px rgba(77,75,217,.55)!important;width:auto!important}";
+            "border-radius:14px!important;box-shadow:0 16px 34px -12px rgba(237,92,233,.5)!important;width:auto!important}";
           sr.appendChild(s);
         } else if (++tries > 30) {
           clearInterval(poll); // give up after ~4.5s

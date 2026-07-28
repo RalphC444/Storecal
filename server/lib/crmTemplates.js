@@ -27,6 +27,22 @@ const SEQUENCE = {
 // Days to wait BEFORE sending the given step (index by step number).
 const DELAY_BEFORE_STEP = { 2: SEQUENCE.step2DelayDays, 3: SEQUENCE.step3DelayDays };
 
+// The offer pitched in the email — chosen per send from the CRM. `inline` slots
+// mid-sentence ("…, and {offer}."); `cap` starts a sentence ("{offer_cap}, and…").
+const OFFERS = {
+  freeMonth: {
+    label: "First month free",
+    inline: "the first month is free",
+    cap: "The first month is free",
+  },
+  trial10: {
+    label: "Free until it books 10 clients",
+    inline: "you pay nothing until it's booked you 10 new clients",
+    cap: "You pay nothing until it's booked you 10 new clients",
+  },
+};
+const DEFAULT_OFFER = "freeMonth";
+
 // step → { subject, body } per vertical. Tokens: {first_name} {business_name}
 // {city} {sender_name} {sender_company} {sender_phone} {cta_link}.
 // Only step 1 is written for now (the pipeline sends the intro); steps 2–3 are
@@ -39,7 +55,7 @@ const TEMPLATES = {
 
 I'm {sender_name} with {sender_company} — I set up simple online booking for salons around {city}. Clients book themselves from your website or Instagram, and it syncs to one clean calendar for your team.
 
-It's a friendlier, lower-cost alternative to Square, Booksy, or Phorest — most shops are taking bookings the same day, and the first month is free.
+It's a friendlier, lower-cost alternative to Square, Booksy, or Phorest — most shops are taking bookings the same day, and {offer}.
 
 Worth a quick look? Just reply and I'll send over a booking page set up for {business_name} so you can try it.`,
     },
@@ -47,7 +63,7 @@ Worth a quick look? Just reply and I'll send over a booking page set up for {bus
       subject: "Quick follow-up — {business_name}",
       body: `Hi {first_name},
 
-Circling back in case my note got buried. Short version: clients book {business_name} online in a few taps, everything lands on one clean calendar, and the first month is free — a simpler, cheaper alternative to Square, Booksy, or Phorest.
+Circling back in case my note got buried. Short version: clients book {business_name} online in a few taps, everything lands on one clean calendar, and {offer} — a simpler, cheaper alternative to Square, Booksy, or Phorest.
 
 Want me to set up a booking page with your services so you can see it live?`,
     },
@@ -67,7 +83,7 @@ Either way, thanks for the time and best of luck this season.`,
 
 I'm {sender_name} with {sender_company}. I help nail salons in {city} take appointments online — clients pick a service and time from your Instagram link or website, and it all lands on one shared calendar (no more DM back-and-forth).
 
-Simpler and cheaper than Square or Booksy, first month free, and I can have your booking page live today.
+Simpler and cheaper than Square or Booksy — {offer}, and I can have your booking page live today.
 
 Want me to set one up for {business_name} so you can try it? Just reply and I'll send it over.`,
     },
@@ -77,7 +93,7 @@ Want me to set one up for {business_name} so you can try it? Just reply and I'll
 
 Just following up. Most nail shops around {city} are still taking appointments over DM and phone tag — with {business_name}'s own booking link, clients pick a service and time themselves and it all lands on one calendar.
 
-First month's free and I can have it live today. Want me to send you one to try?`,
+{offer_cap}, and I can have it live today. Want me to send you one to try?`,
     },
     3: {
       subject: "Last note — {business_name}",
@@ -95,7 +111,7 @@ Thanks, {first_name}, and best of luck!`,
 
 I'm {sender_name} with {sender_company}. I set up online appointment booking for auto shops around {city} — customers request a time from your website, and it drops onto one calendar so the phone stops ringing off the hook.
 
-Quick to set up, first month free, and cheaper than the big scheduling tools.
+Quick to set up, {offer}, and cheaper than the big scheduling tools.
 
 Open to a quick look? Just reply and I'll get one set up for {business_name} to try.`,
     },
@@ -103,7 +119,7 @@ Open to a quick look? Just reply and I'll get one set up for {business_name} to 
       subject: "Following up — {business_name}",
       body: `Hi {first_name},
 
-Circling back. The idea: customers request a time for {business_name} from your website, it drops onto one calendar, and the phone rings a lot less. Quick to set up, first month free, cheaper than the big scheduling tools.
+Circling back. The idea: customers request a time for {business_name} from your website, it drops onto one calendar, and the phone rings a lot less. Quick to set up, {offer}, cheaper than the big scheduling tools.
 
 Want a quick look? Just reply and I'll set one up for {business_name}.`,
     },
@@ -132,18 +148,21 @@ function render(text, fields) {
 }
 
 function footer() {
-  const idLine = [OUTREACH.senderCompany, OUTREACH.physicalAddress].filter(Boolean).join(" · ");
+  // The physical address already leads with the company name, so don't prepend it
+  // again (avoids "StoreCal · StoreCal, …").
+  const idLine = OUTREACH.physicalAddress || OUTREACH.senderCompany;
   return `\n\n--\n${OUTREACH.senderName}${OUTREACH.senderPhone ? " · " + OUTREACH.senderPhone : ""}\n${idLine}\nNot interested? Reply STOP or email ${OUTREACH.unsubscribeEmail} and I'll remove you right away.`;
 }
 
-// Returns { subject, body } for a prospect + step, or throws if unavailable.
-function renderOutreach(prospect, step = 1) {
+// Returns { subject, body } for a prospect + step + offer, or throws if unavailable.
+function renderOutreach(prospect, step = 1, offer = DEFAULT_OFFER) {
   const vertical = (prospect.vertical || "").toLowerCase();
   if (!VERTICALS.includes(vertical)) {
     throw new Error(`Unknown vertical "${prospect.vertical}" (need one of ${VERTICALS.join(", ")})`);
   }
   const tpl = TEMPLATES[vertical] && TEMPLATES[vertical][step];
   if (!tpl) throw new Error(`No template for ${vertical} step ${step}`);
+  const off = OFFERS[offer] || OFFERS[DEFAULT_OFFER];
   const fields = {
     first_name: firstNameOf(prospect.contactName),
     business_name: prospect.businessName || "your shop",
@@ -152,6 +171,8 @@ function renderOutreach(prospect, step = 1) {
     sender_company: OUTREACH.senderCompany,
     sender_phone: OUTREACH.senderPhone,
     cta_link: OUTREACH.ctaLink,
+    offer: off.inline,
+    offer_cap: off.cap,
   };
   return {
     subject: render(tpl.subject, fields),
@@ -159,4 +180,4 @@ function renderOutreach(prospect, step = 1) {
   };
 }
 
-module.exports = { renderOutreach, OUTREACH, VERTICALS, MAX_STEP, SEQUENCE, DELAY_BEFORE_STEP };
+module.exports = { renderOutreach, OUTREACH, VERTICALS, MAX_STEP, SEQUENCE, DELAY_BEFORE_STEP, OFFERS, DEFAULT_OFFER };

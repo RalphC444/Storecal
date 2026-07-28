@@ -8,6 +8,11 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 // and one-off preview/send (dry-run by default) via Resend.
 const STATUSES = ["new", "contacted", "replied", "interested", "not_interested", "customer", "bounced", "unsubscribed", "paused"];
 const VERTICALS = ["beauty", "nails", "auto"];
+// The offer pitched in outreach — keys must match server/lib/crmTemplates.js OFFERS.
+const OFFERS = [
+  { key: "freeMonth", label: "First month free" },
+  { key: "trial10", label: "Free until it books 10 clients" },
+];
 const label = (s) => (s || "").replace(/_/g, " ");
 
 export function AdminCRM() {
@@ -130,6 +135,7 @@ export function AdminCRM() {
 // optionally send the batch live (respects the server's daily cap).
 function RunModal({ onClose, onDone }) {
   const [vertical, setVertical] = useState("");
+  const [offer, setOffer] = useState(OFFERS[0].key);
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [confirmLive, setConfirmLive] = useState(false);
@@ -137,11 +143,11 @@ function RunModal({ onClose, onDone }) {
 
   const run = useCallback(async (dryRun) => {
     setErr(""); setBusy(true); setConfirmLive(false);
-    const res = await fetch("/api/admin/crm/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun, vertical: vertical || undefined }) });
+    const res = await fetch("/api/admin/crm/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun, vertical: vertical || undefined, offer }) });
     const d = await res.json().catch(() => ({})); setBusy(false);
     if (res.ok) { setData(d); if (!dryRun) { toast(`Sent ${d.counts.ok}, failed ${d.counts.failed}, skipped ${d.counts.skipped}`); onDone?.(); } }
     else setErr(d.error || "Run failed");
-  }, [vertical, onDone]);
+  }, [vertical, offer, onDone]);
   useEffect(() => { run(true); }, [run]);
 
   return (
@@ -153,6 +159,9 @@ function RunModal({ onClose, onDone }) {
             <select className="calendar__filter" value={vertical} onChange={(e) => setVertical(e.target.value)} disabled={busy}>
               <option value="">All verticals</option>
               {VERTICALS.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+            <select className="calendar__filter" value={offer} onChange={(e) => setOffer(e.target.value)} disabled={busy} title="Offer pitched in the email">
+              {OFFERS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
             <button className="action" onClick={() => run(true)} disabled={busy}>Preview (dry run)</button>
             <button className="btn" onClick={() => setConfirmLive(true)} disabled={busy || !data || data.dueCount === 0}>Send all due (live)</button>
@@ -203,6 +212,7 @@ function CrmDetail({ id, onBack, onChanged }) {
   const [notes, setNotes] = useState("");
   const [note, setNote] = useState("");
   const [preview, setPreview] = useState(null);
+  const [offer, setOffer] = useState(OFFERS[0].key);
   const [confirmSend, setConfirmSend] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -226,13 +236,13 @@ function CrmDetail({ id, onBack, onChanged }) {
   };
   const doPreview = async () => {
     setErr(""); setBusy(true);
-    const res = await fetch(`/api/admin/crm/prospects/${id}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
+    const res = await fetch(`/api/admin/crm/prospects/${id}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun: true, offer }) });
     const d = await res.json(); setBusy(false);
     if (res.ok) setPreview(d); else setErr(d.error || "Could not render");
   };
   const doSend = async () => {
     setConfirmSend(false); setErr(""); setBusy(true);
-    const res = await fetch(`/api/admin/crm/prospects/${id}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun: false }) });
+    const res = await fetch(`/api/admin/crm/prospects/${id}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun: false, offer }) });
     const d = await res.json(); setBusy(false);
     if (res.ok) { toast(`Sent to ${d.to}`); setPreview(null); load(); onChanged?.(); }
     else setErr(d.error || "Send failed");
@@ -287,6 +297,12 @@ function CrmDetail({ id, onBack, onChanged }) {
             <h3 className="settings__cardtitle">Outreach email</h3>
             <p className="settings__carddesc">Sends step {Math.min((p.sequenceStep || 0) + 1, 3)} of 3 for the {p.vertical || "—"} sequence, then schedules the next follow-up. Preview first; a live send goes out via Resend with reply-to storecal.support@gmail.com.</p>
           </div>
+          <label className="field" style={{ maxWidth: 280, marginBottom: 10 }}>
+            <span className="field__label">Offer</span>
+            <select className="calendar__filter" value={offer} onChange={(e) => { setOffer(e.target.value); setPreview(null); }} disabled={busy}>
+              {OFFERS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className="action" onClick={doPreview} disabled={busy}>Preview email</button>
             <button className="btn" onClick={() => setConfirmSend(true)} disabled={busy || !p.email}>Send now (live)</button>

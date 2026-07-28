@@ -7,7 +7,10 @@
 const { Router } = require("express");
 const { getDb } = require("../lib/db");
 const { ObjectId } = require("mongodb");
-const { renderOutreach, VERTICALS, MAX_STEP, DELAY_BEFORE_STEP, SEQUENCE } = require("../lib/crmTemplates");
+const { renderOutreach, VERTICALS, MAX_STEP, DELAY_BEFORE_STEP, SEQUENCE, OFFERS, DEFAULT_OFFER } = require("../lib/crmTemplates");
+
+// Coerce a request's offer to a known key (falls back to the default).
+const pickOffer = (v) => (v && OFFERS[v] ? v : DEFAULT_OFFER);
 const { sendOutreachEmail } = require("../lib/mailer");
 
 const router = Router();
@@ -61,10 +64,10 @@ function nextActionAfter(step) {
 
 // Send (or dry-run preview) a prospect's NEXT sequence step, logging + advancing
 // state on a live send. Shared by the single-send route and the batch runner.
-async function sendOne(db, p, dryRun) {
+async function sendOne(db, p, dryRun, offer) {
   const step = Math.min((p.sequenceStep || 0) + 1, MAX_STEP);
   let rendered;
-  try { rendered = renderOutreach(pub(p), step); }
+  try { rendered = renderOutreach(pub(p), step, offer); }
   catch (e) { return { skipped: true, step, error: e.message }; }
   if (!p.email) return { skipped: true, step, error: "no email" };
   if (await isSuppressed(db, p.email)) return { skipped: true, step, error: "suppressed" };
@@ -268,9 +271,10 @@ router.post("/prospects/:id/send", async (req, res) => {
     if (!p) return res.status(404).json({ error: "Prospect not found" });
 
     const dryRun = req.body.dryRun !== false; // default = dry run (safe)
-    const r = await sendOne(db, p, dryRun);
+    const offer = pickOffer(req.body.offer);
+    const r = await sendOne(db, p, dryRun, offer);
     if (r.skipped) return res.status(400).json({ error: r.error || "Cannot send" });
-    if (r.dryRun) return res.json({ dryRun: true, step: r.step, to: r.to, subject: r.subject, body: r.body });
+    if (r.dryRun) return res.json({ dryRun: true, step: r.step, offer, to: r.to, subject: r.subject, body: r.body });
     if (r.ok) return res.json({ ok: true, step: r.step, to: r.to, subject: r.subject });
     res.status(502).json({ ok: false, error: r.error || "Send failed" });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -283,6 +287,7 @@ router.post("/run", async (req, res) => {
   try {
     const db = await getDb();
     const dryRun = req.body.dryRun !== false;
+    const offer = pickOffer(req.body.offer);
     const q = dueQuery();
     if (req.body.vertical && VERTICALS.includes(req.body.vertical)) q.vertical = req.body.vertical;
 
@@ -297,12 +302,12 @@ router.post("/run", async (req, res) => {
     let okN = 0, failN = 0, skipN = 0;
     for (const p of due) {
       if (!dryRun && remaining <= 0) { results.push({ business: p.businessName, step: (p.sequenceStep || 0) + 1, status: "skipped", error: "daily cap reached" }); skipN++; continue; }
-      const r = await sendOne(db, p, dryRun);
+      const r = await sendOne(db, p, dryRun, offer);
       const status = r.skipped ? "skipped" : r.dryRun ? "would send" : r.ok ? "sent" : "failed";
       results.push({ id: p._id.toString(), business: p.businessName, step: r.step, to: r.to || p.email || null, status, error: r.error || null });
       if (r.skipped) skipN++; else if (r.dryRun) okN++; else if (r.ok) { okN++; remaining--; } else failN++;
     }
-    res.json({ dryRun, dueCount: due.length, sentToday, dailyCap: SEQUENCE.dailyCap, counts: { ok: okN, failed: failN, skipped: skipN }, results });
+    res.json({ dryRun, offer, dueCount: due.length, sentToday, dailyCap: SEQUENCE.dailyCap, counts: { ok: okN, failed: failN, skipped: skipN }, results });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
